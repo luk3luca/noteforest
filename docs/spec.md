@@ -1,187 +1,158 @@
 # NoteForest — Product, Data Model, and Behavior Specification
 
-**Version:** v0.5 (ADR-0007 editor layouts and modes)  
-**Date:** 7 November 2026  
-**Owner:** Planner / Architect  
-**Status:** Approved for Spike 1. v0.5 applies the product owner's ratified ADR-0007: layouts **Continuous | Page** × modes **Edit | Read**; Continuous + Edit is the default; Page Read is exact and read-only; Page Edit is available and opt-in; PDF exports the Page layout in Read mode; continuous page-break markers are derived hints from the same paginator, not WYSIWYG; one canonical document, segment/safe-break model, and paginator; Page/PDF show full content and collapse is a continuous/outline navigation aid. It supersedes D14/A15/A16 and the old "reader vs page view" pair. v0.4.5 applied the approved M3 anchor/reference decisions (C1, C8, C9, OD-1–OD-12) from `docs/design/m3-anchors-references.md`; binding/identity contract in ADR-0005. v0.4.4 reverted depth columns to parent-relative placement; v0.4.3 added depth-column alignment (now superseded); v0.4.2 added the landscape default; v0.4.1 clarified PDF acceptance: a correct standard PDF reviewed on the Mac is sufficient; no app-specific import is a gate. The product owner ratified the v1 stack, PDF pipeline, and table pagination on 3 November 2026; the External Agent API was withdrawn on 14 November 2026. Implementation beyond Spike 1 still requires milestone approval.  
-**Working title:** NoteForest (personal project; MIT; local unsigned build)
+**Version:** v1.0, 18 November 2026 — describes the shipped 0.1.0 behavior.
+**Owner:** Planner / Architect.
+**Status:** Current. Where this document and `AGENTS.md` disagree, `AGENTS.md` wins.
 
-This document defines the product behavior, conceptual data model, invariants, and acceptance criteria for the first prototype. **The v1 stack is decided:** Electron + React + TypeScript, with TipTap/ProseMirror, React Aria Components, Tailwind CSS v4, and KaTeX (ADR-0001, ADR-0004). CodeMirror 6 is a later addition; the custom SVG edge overlay replaces React Flow. PDF export uses the shared paginator and Electron `printToPDF` (ADR-0002). The External Agent API (ADR-0003) is withdrawn. V1 has no agent import/builder; it can open a `.md` file as a guest file (Continuous Edit/Read, no forest, no Page/PDF). The fixed requirements remain A4 pagination, real selectable text, no cut line/image/formula/code line/table row, local files, and the Markdown file view. The canonical content representation is structured JSON, as recorded in `AGENTS.md`. This document does not define visual design or the final keyboard map; those belong in `docs/ux.md`.
-
-**Normative language.** **MUST** means required for the v1 prototype to be accepted. **SHOULD** means expected unless explicitly deferred with a recorded decision. **MAY** means optional. Assumptions are labelled **A1**, **A2**, and so on. Decisions that still need approval are labelled **D1**, **D2**, and so on. Open questions are labelled **Q1**, **Q2**, and so on.
-
-**Relationship to the research.** `research/landscape.md` is an input, not a decision record. Its infinite-canvas and reader-PDF recommendations are superseded by the product owner's page-based model. The current product decisions are in `AGENTS.md`; where this document conflicts with them, `AGENTS.md` wins.
+**Normative language.** **MUST** is required. **SHOULD** is expected unless a recorded decision
+defers it. **MAY** is optional.
 
 ---
 
 ## Contents
 
-1. [Vision, target user, goals, and non-goals](#1-vision-target-user-goals-and-non-goals)
+1. [Product](#1-product)
 2. [Glossary](#2-glossary)
-3. [Core use cases and user stories](#3-core-use-cases-and-user-stories)
-4. [Conceptual data model](#4-conceptual-data-model)
+3. [Core use cases](#3-core-use-cases)
+4. [Data model](#4-data-model)
 5. [Operations](#5-operations)
-6. [Views and interaction model](#6-views-and-interaction-model)
+6. [Views and interaction](#6-views-and-interaction)
 7. [Adaptive layout and pagination](#7-adaptive-layout-and-pagination)
 8. [Anchor lifecycle](#8-anchor-lifecycle)
 9. [Content model](#9-content-model)
 10. [Persistence](#10-persistence)
 11. [PDF export](#11-pdf-export)
-12. [Markdown file view](#12-markdown-file-view)
+12. [Markdown guest file](#12-markdown-guest-file)
 13. [Edge cases](#13-edge-cases)
 14. [Performance and scale](#14-performance-and-scale)
-15. [Acceptance criteria for the v1 prototype](#15-acceptance-criteria-for-the-v1-prototype)
-16. [Decisions and remaining questions](#16-decisions-and-remaining-questions)
-17. [Risks](#17-risks)
 
 ---
 
-## 1. Vision, target user, goals, and non-goals
+## 1. Product
 
 ### 1.1 Vision
 
-NoteForest is a Mac-first study tool for people who think in structures. A learner writes a topic, expands it to the right and down, and attaches a branch to the exact word, formula term, code token, or image region that caused the thought. The same structure is an outline for fast authoring and a **Continuous or Page layout** for spatial review and print.
+NoteForest is a Mac-first study tool for people who think in structures. A learner writes a topic,
+expands it right and down, and attaches a branch to the exact word, formula term, code token, or
+image region that caused the thought. The same document is an outline for fast authoring, a
+Continuous layout for spatial writing, a Page layout for the exact printed result, and a real-text
+PDF for studying on paper or a tablet.
 
-The product is not a general whiteboard and not a general knowledge base. It is personal-first: one learner's own documents, local files, no team accounts. Its wedge is narrow and specific: **a page-based study document in which a span of content visibly grows a branch, the layout stays predictable, and the page exports as a real-text PDF.**
+It is not a whiteboard and not a knowledge base. It is personal-first: one learner's documents,
+local files, no accounts, no telemetry.
 
 ### 1.2 Target user
 
-**Primary user.** A university-level STEM student who:
+A university-level STEM student who rewrites lecture notes as a structure, uses formulas, code,
+lists and images as normal content, studies from the structure, annotates exported PDFs by hand,
+works keyboard-first on a Mac, and wants local files with no lock-in.
 
-- rewrites lecture notes by hand into a structure that starts with a topic on the left and expands right/down with arrows;
-- uses formulas, code, lists, and images as normal note content;
-- studies from the structure, not only from linear text;
-- annotates exported PDFs by hand on an iPad;
-- works on a Mac and expects keyboard-first authoring;
-- wants local files, no cloud lock-in, and no telemetry.
+**Not the target user:** a team wanting a collaborative whiteboard, a PKM user wanting databases
+and queries, or a user wanting freehand drawing as the primary medium.
 
-**Secondary user.** A researcher or engineer who studies structured material and wants a visual map of definitions, derivations, examples, and references.
+### 1.3 Principles
 
-**Not the target user.** A team running a collaborative whiteboard; a PKM user who wants databases, supertags, queries, and a global graph; a user who wants freehand drawing or freeform canvas layout as the primary medium.
+1. **One document, several lenses.** Outline, Continuous and Page are views over one model. None
+   owns a private copy of the structure or a second paginator.
+2. **One home, many references.** Every non-root block has exactly one primary parent that
+   determines its outline position and layout home. Extra parents are reference edges.
+3. **Anchors are first-class.** A branch can point at a span, not only at a whole block. An anchor
+   either survives editing or fails visibly with a repair path.
+4. **Keyboard-first authoring, adaptive reading.** The outline must be fast enough to replace a
+   hand-written outline. The spatial layouts must not become a drawing tool.
+5. **Fixed logical order, adaptive geometry.** Only sibling order changes. Widths are
+   content-driven; there are no fixed depth columns, pins, nudges or arbitrary coordinates.
+6. **Pages are derived.** A paginator computes A4 pages from the continuous layout; pages are not
+   stored containers. Break between blocks first, and continue a long block only at a safe
+   internal boundary.
+7. **Never silently lose work.** A broken anchor, a pagination defect, a missing asset or a failed
+   save is surfaced, not swallowed.
+8. **Real text, page PDF.** The PDF reproduces the Page layout with a selectable text layer.
+9. **Local-first and portable.** The canonical document is a documented, versioned package.
+   Export is not the only way to recover content.
 
-### 1.3 Jobs to be done
+### 1.4 Goals (delivered in v1)
 
-- **Capture quickly.** Get a lecture topic and its first branches into the document without fighting the editor.
-- **Attach precisely.** Branch from a word, a formula term, a code token or line, or an image region, so the branch explains exactly what it came from.
-- **Reorganize safely.** Move a block, change its home, or share it between topics without duplicating content or losing children.
-- **Read spatially.** See the structure on A4 pages: top-level blocks stacked, adaptive children to the right or wrapped below, anchored branches under their anchors.
-- **Read linearly.** Follow the same document as an outline when reviewing or writing, with page breaks visible.
-- **Review page breaks.** See where the paginator will break pages and add a manual break hint when a break lands badly.
-- **Study offline.** Export the pages as a real-text PDF, open them on an iPad, and annotate by hand.
-- **Trust the document.** Edits, crashes, and migrations must not silently destroy content, branches, or anchors.
+- G1. Rich content blocks: text, lists, code, inline and display math, images, tables.
+- G2. Branches from a whole block or from an anchor inside it.
+- G3. Text, formula, code and image anchors, with a visible broken state and a repair path.
+- G4. Outline, Continuous and Page over one document, with synchronized content, selection,
+  marked page starts, collapse and undo.
+- G5. One primary incoming edge per block, an acyclic primary forest, reference edges that may
+  cycle.
+- G6. Adaptive layout: top-level blocks stack; children go right or wrap below with a slight
+  indent; anchored callouts follow the parent; no overlap.
+- G7. Versioned document package, atomic save, backups and crash recovery.
+- G8. A4 portrait or landscape PDF with real text, safe continuations, and continuation/ghost
+  markers.
+- G9. Responsive at 300 blocks, usable at 1,000 with virtualization and collapse.
+- G10. Multiple documents in a user-chosen library, tabs, search, dark mode default.
+- G11. `.md` files open as flat guest files; external agents write Markdown, and there is no
+  importer, server or token.
 
-### 1.4 Product principles
+### 1.5 Non-goals for v1
 
-1. **One document, multiple lenses.** Outline and the Continuous and Page layouts are views over the same model. None owns a private copy of the structure or a second paginator.
-2. **One home, many references.** Every non-root block has exactly one primary parent that determines its outline position and layout home. Extra parents are reference branches, not a second layout authority.
-3. **Anchors are first-class.** A branch can point at a span, not only at a whole block. Anchors must survive normal editing or fail visibly with a repair path.
-4. **Authoring is keyboard-first; reading is adaptive.** The outline must be fast enough to replace a hand-written outline. The Continuous and Page layouts must be readable without becoming a drawing tool.
-5. **Fixed logical order, adaptive geometry.** Only sibling order changes. Widths are content-driven; a node with a large subtree can take more horizontal space, while a leaf sibling can be narrow. If there is not enough horizontal room, a child wraps below the parent level with a slight indent. There are no fixed depth columns, pins, free drag, or arbitrary coordinates.
-6. **Pages are derived.** A4 portrait or landscape with margins. A paginator computes page breaks from the continuous layout; pages are not stored containers. Break between blocks first; a long block may continue at safe internal boundaries (paragraph or list item) with a continuation marker. Never cut a line, image, formula, or code line.
-7. **Never silently lose work.** A broken anchor, a pagination defect, a missing asset, or a failed save must be surfaced, not swallowed.
-8. **Real text, page PDF.** PDF export uses the same paginator and reproduces the pages with a selectable text layer, not a screenshot and not a separate linear reading PDF in v1.
-9. **Local-first and portable.** The canonical document is a local, documented, versioned package. Export must not be the only way to recover the content.
+- N1. A general whiteboard with freehand drawing, shapes and connectors.
+- N2. A PKM system with typed objects, queries, databases or a global graph.
+- N3. Real-time collaboration, sync, CRDTs or accounts.
+- N4. An iPad app, Pencil handwriting or ink annotations.
+- N5. A study/annotation layer. A highlighter mark exists; ink and page annotations do not.
+- N6. Block references that render a second editable copy (transclusion).
+- N7. Markdown as a live vault with full round-trip fidelity.
+- N8. Web, Windows or Linux clients.
+- N9. Background AI, autonomous editing or proactive suggestions.
+- N10. A plugin system, scripting or embedded HTML/JavaScript in notes.
+- N11. An infinite canvas, free positioning, pins, fixed pixel columns.
+- N12. A separate linear reader PDF, a map export, or a page-container document format.
+- N13. An in-app agent panel and a local HTTP/MCP API.
+- N14. Note documents in git. Git is for code and project docs.
+- N15. Agent autonomy, web access, shell access or auto-applied destructive changes.
 
-### 1.5 Goals for v1
+### 1.6 Success criteria
 
-- **G1.** Create and edit content blocks with rich text, lists, code, inline and display math, and images.
-- **G2.** Create branches from a whole block or from an anchor inside it.
-- **G3.** Support text, formula, code, and image anchors with a visible broken-anchor and repair path.
-- **G4.** Provide an outline, a Continuous layout, and a Page layout over the same document, with synchronized content, selection, derived page-break markers in the Continuous layout, collapse state, and undo.
-- **G5.** Enforce one primary incoming branch per block, a primary forest that is acyclic, and reference branches that may form cycles.
-- **G6.** Lay out each chapter with an adaptive tree: top-level blocks stack vertically, children go right or wrap below the parent with a slight indent, anchored branches sit below their anchors, and no blocks overlap. Only sibling order changes.
-- **G7.** Save and load a versioned document package atomically, with backups and crash recovery.
-- **G8.** Export the paginator's A4 pages as a real-text PDF in portrait or landscape, with safe block continuations, no cut lines/images/code lines, and continuation/ghost-parent markers.
-- **G9.** Remain responsive at 300 blocks and usable at 1,000 blocks with layout virtualization, collapse, and level-of-detail strategies; no 60 fps claim at 1,000 unless measured.
-- **G10.** Provide multiple documents in a user-chosen folder, document/library search, and a clean minimal UI with dark mode as the default.
-- **G11.** Provide **file-based agent authoring**: import Markdown as a forest note with the same command layer and formatting. No local HTTP/MCP API, tokens, or in-app agent panel in v1.
+- S1. A 100-block study document can be built in one session without a structural bug, a lost
+  branch, or an ambiguous undo.
+- S2. Text anchors survive ordinary edits; destructive edits produce a visible broken state.
+- S3. A 300-block PDF opens in a standard viewer with selectable text, the paginator's page order
+  and orientation, and no cut line, image, formula, code line or table row.
+- S4. 300 blocks are smooth; 1,000 are usable with virtualization, collapse and focus.
+- S5. Crash, malformed-file, missing-asset, page-break and continuation cases never destroy the
+  last good document and never clip content.
 
-### 1.6 Non-goals for v1
+### 1.7 At a glance
 
-- **N1.** A general whiteboard with freehand drawing, shapes, templates, and connectors between arbitrary shapes.
-- **N2.** A full PKM system with typed objects, supertags, queries, databases, or a global graph view.
-- **N3.** Real-time collaboration, multi-device sync, CRDTs, or user accounts.
-- **N4.** An iPad app, Apple Pencil handwriting, or ink annotations. The model must not block them, but v1 does not build them.
-- **N5.** A study/annotation layer (highlights, ink, notes, frames, arrows drawn on the page). The schema reserves room; the UI does not implement it.
-- **N6.** Block references, transclusion, or aliases that render a second editable copy of a block.
-- **N7.** Markdown as a live, externally editable vault with full round-trip fidelity; Markdown is import/export.
-- **N8.** Web, Windows, or Linux clients.
-- **N9.** AI features that run without the user; background summarization, autonomous editing, or proactive suggestions.
-- **N10.** A plugin system, scripting, or embedded HTML/JavaScript in notes.
-- **N11.** An infinite canvas, free positioning, manual pins, fixed pixel columns, or arbitrary drag-to-place layout.
-- **N12.** A separate linear reader PDF, a spatial map export, or a page-container document format in v1. The Continuous layout is an editor layout, not an export; pages are derived.
-- **N13.** An in-app agent panel/chat and a local HTTP/MCP agent API in v1. Agents hand over Markdown files instead.
-- **N14.** Storing user note documents in git. Git is for code and project docs only; notes are standard files in a user-chosen folder.
-- **N15.** Agent background autonomy, web access from the app, shell/filesystem access, or auto-apply of destructive changes in v1.
-
-### 1.7 Success criteria for the prototype
-
-- **S1.** A user can build a 100-block study document across pages in one session without a structural bug, a lost branch, or an ambiguous undo.
-- **S2.** Text anchors survive ordinary edits before, inside, and after the anchored span; destructive edits produce a visible broken-anchor state, never a silent deletion.
-- **S3.** A paginated PDF exported from a 300-block document opens correctly in a standard PDF viewer, has selectable body text, matches the paginator's page order and orientation, and never cuts a line, image, formula, or code line; long blocks continue at safe boundaries with markers.
-- **S4.** The Continuous and Page layouts render and navigate 300 blocks smoothly on the reference Mac; 1,000 blocks is usable with layout virtualization, focus/collapse, and LOD. No 60 fps claim is made for 1,000 blocks.
-- **S5.** Crash, malformed-file, missing-asset, page-break, and continuation tests do not destroy the last good document and never silently clip content.
+- A **document** has one or more **chapters**. A chapter has an ordered list of **top-level
+  content blocks**; every top-level block is itself a content block.
+- Chapters group top-level blocks only. **Pages are not a structural level**; the paginator derives
+  them from the continuous layout, the page setup and the manual break hints.
+- The logical order is fixed. Only sibling, top-level and chapter order change. Widths are
+  content-driven.
+- Children go right when there is room; otherwise the child group wraps below the parent with a
+  slight indent. Anchored callouts follow their parent: below it, or in its right lane when it
+  fits.
+- **Layouts and modes:** Continuous | Page × Edit | Read. Continuous + Edit is the default; Page
+  Read is the exact print proof; Page Edit is opt-in. Switching layout preserves the mode.
+- **PDF export** prints the Page layout in Read mode from the same paginator.
 
 ### 1.8 Assumptions
 
-| ID | Assumption | Consequence if wrong |
-|---|---|---|
-| **A1** | Single user, local document, no collaboration in v1. | Undo, persistence, and conflict handling need a larger design. |
-| **A2** | Mac first; iPad and Pencil are a later phase. | The model must stay platform-neutral; no DOM-specific anchor geometry. |
-| **A3** | Multiple documents live in a user-chosen folder; one document package per window, with a recent/library list. | Persistence and window management need a library model. |
-| **A4** | Reading direction is left-to-right; the continuous layout grows right and down from the chapter's top-left origin. | RTL and vertical layouts need a separate layout mode. |
-| **A5** | Typical documents have 50–300 blocks and roughly 1–50 derived pages; the supported ceiling is about 1,000 blocks. | Performance strategy and validation limits change. |
-| **A6** | PDF pages are A4 portrait or landscape, produced by the paginator; no separate reader PDF in v1. | PDF layout and page-navigation design change. |
-| **A7** | Annotations are a separate study layer, out of scope for v1. | The schema and export need a full annotation design. |
-| **A8** | Canonical content is structured JSON/ProseMirror JSON; the Markdown file view is a flat guest surface, not a forest import (decided in AGENTS.md). | Markdown-native or forest-import scope change. |
-| **A9** | The v1 stack is **decided**: Electron + React + TypeScript with TipTap/ProseMirror, CodeMirror 6, KaTeX, React Flow, and Electron `printToPDF` (ADR-0001, ADR-0002). | A stack change requires a benchmark-backed ADR; the spec remains platform-neutral where possible. |
-| **A10** | UI copy is English; content is Unicode. | Localization and font coverage need explicit work. |
-| **A11** | Block widths are content-driven and adaptive within a page width; there is no manual resize, pin, fixed pixel column, or free position. | A resize/free-layout model would be needed. |
-| **A12** | The local document is the source of truth; exports are derived. | A sync or cloud-first model changes persistence and conflict rules. |
-| **A13** | Pages are derived by the paginator; optional manual page-break hints are document settings. There is no stored page container in v1. | A page-container/auto-layout model needs a different schema. |
-| **A14** | A document may contain multiple chapters; the v1 UI MAY expose one chapter at a time. | Chapter navigation and multi-chapter editing need a UI design. |
-| **A15** | The Page layout and PDF share one page layout engine, one measurement, and one paginator. The Continuous layout shares the canonical document, segment/safe-break model, and paginator breaks as derived markers, but is a screen-optimized renderer and is not a second pagination engine. | A second paginator or CSS re-pagination would risk divergence and duplicate bugs. |
-| **A16** | Continuous + Edit is the default authoring surface in v1. Page Read is the exact A4/PDF proof and is read-only; Page Edit is implemented, opt-in, and the layout switch preserves the mode. The choice is closed by ADR-0007 (supersedes D14). | UX and keyboard design would need a revision if Page Edit becomes primary or the default changes. |
-| **A17** | Note documents are standard files in a user-chosen folder; git is used only for code and project docs. | Note versioning/sync needs a different design. |
-| **A18** | Visual direction is clean, Obsidian-like, minimal, with dark mode as the default and a light theme available. | Visual design and theme tokens need revision. |
-| **A19** | There is no local API, no in-app agent panel, no background autonomy, and no forest builder in v1; a `.md` file can be opened as a flat guest file. | Agent/import scope change. |
-| **A20** | Long blocks may continue at safe internal boundaries; page breaks never cut a line, image, formula, code line, or table row. A table row is atomic. | Pagination and block-continuation markers need a different model. |
-
-### 1.9 Adaptive layout and derived pages at a glance
-
-- A **document** contains one or more **chapters**. A chapter contains an ordered list of **top-level content blocks**; every top-level block is itself a content block, sometimes a standalone sentence, sometimes a 1–2 word phrase with children.
-- Chapters group only top-level blocks. **Pages are not a structural level.** The paginator derives A4 pages from the continuous layout, constrained by page size, orientation, and margins.
-- The logical order is fixed. Only sibling order changes. Geometry is adaptive: widths are content-driven, siblings can have different widths, and a node with a large subtree may take more horizontal space.
-- Children go right when there is enough horizontal room. If not, a child wraps below the parent level with a slight indent. There is no fixed pixel column per depth.
-- Example (logical order):
-
-  ```text
-  CHAPTER
-  top1 -> lower1.1 -> lower1.1.1
-                    -> lower1.1.2
-         -> lower1.2
-
-  top2 -> lower2.1
-  ```
-
-- **Anchored branches** remain: the child is placed below its anchor and may wrap or continue on the next page at safe boundaries. It is never cut through a line, image, formula, code line, or table row.
-- **Pages** are continuous in reading order but still pages. The paginator prefers breaks between blocks; a long block may continue at a safe internal boundary with a continuation marker.
-- **Views:** an **Outline**, a **Continuous layout** (continuous vertical scroll with page-break markers derived from the paginator; Edit is the default, Read is available), and a **Page layout** (A4-bounded; Read is exact and read-only now, Edit is planned). "Canvas" means the Page layout, not a freeform canvas.
-- **PDF export** exports the Page layout in Read mode using the same paginator, with real text, A4 portrait/landscape, and no separate linear reader PDF in v1.
-
-### 1.10 V1 scope and vertical slices
-
-V1 includes all core features discussed, delivered in end-to-end vertical slices:
-
-- **Slice 0 — Foundation:** document/chapter/block model, structured content, typed command API, persistence, undo/redo, tests.
-- **Slice 1 — Authoring:** outline, editor, text/formula/image anchors, branches, shared children, search.
-- **Slice 2 — Layout:** adaptive tree, paginator, Continuous layout (Edit/Read), Page layout (Read now, Edit later), derived page-break markers, page-break hints, freeze/full-reflow modes.
-- **Slice 3 — Export:** Page PDF with real text, continuation markers, text-layer verification.
-- **Slice 4 — Library and visual:** multiple documents, document/library search, dark mode default, minimal Obsidian-like UI.
-- **Slice 5 — Markdown file view:** open, render, edit and save a `.md` guest file (flat, Edit/Read), local images, conflict check, copy/paste into notes. No forest importer, builder, API server, tokens, or chat panel.
-
-Each slice ends with automated tests and a manual/visual check. No core feature is cut from v1; a slice may be descoped only with explicit product-owner approval. The sequence is a delivery order, not a permission to ship a half-feature. The in-app agent panel/chat is parked; external agents use the API instead.
-
+| ID | Assumption |
+|---|---|
+| A1 | Single user, local documents, no collaboration. |
+| A2 | Mac first; iPad is a later phase, and the model stays platform-neutral. |
+| A3 | Documents live in a user-chosen library; tabs and a library tree navigate them. |
+| A4 | Reading direction is left-to-right; the continuous layout grows right and down. |
+| A5 | Typical documents have 50–300 blocks and 1–50 pages; the supported ceiling is about 1,000 blocks. |
+| A6 | PDF pages are A4, portrait or landscape, produced by the paginator. |
+| A7 | Annotations are a separate study layer, out of scope. |
+| A8 | Canonical content is ProseMirror-shaped JSON; Markdown files are guest files, not forest imports. |
+| A9 | The stack is Electron + React + TypeScript (ADR-0001); PDF is `printToPDF` (ADR-0002). |
+| A10 | UI copy is English; content is Unicode. |
+| A11 | Widths are derived; there is no manual resize in v1. |
+| A12 | The local document is the source of truth; exports are derived. |
+| A13 | Pages are derived; manual page-break hints are personal settings, not document data. |
+| A14 | One page orientation per document. |
+| A15 | The Page layout and PDF share one engine, one measurement and one paginator; Continuous shares the same breaks as markers. |
 
 ---
 
@@ -189,561 +160,374 @@ Each slice ends with automated tests and a manual/visual check. No core feature 
 
 | Term | Definition |
 |---|---|
-| **Block** | The unit of identity, content, branching, and layout. A block has a stable ID and a rich-text body. |
-| **Content block** | Same as block; used when the content aspect matters. |
-| **Anchor** | A stable selector for a span, term, token, line, point, or region inside one block. |
-| **Anchor mark** | The inline binding of an anchor inside the content representation. It carries the anchor ID so the anchor moves with the text. |
+| **Block** | The unit of identity, content, branching and layout. Stable ID, rich body. |
+| **Content block** | Same as block, when the content aspect matters. |
+| **Anchor** | A stable selector for a span, term, token, line, point or region inside one block. |
+| **Anchor mark** | The inline binding of an anchor in content; it carries the anchor ID so the anchor moves with the text. |
 | **Branch** | A directed edge from a source block or anchor to a target block. |
-| **Primary branch** | The single structural incoming branch of a non-root block. It determines the block's home and outline position. |
-| **Reference branch** | A non-structural branch used for cross-links, shared children, and "see also" relationships. It may form cycles. |
-| **Source** | The from-side of a branch: a whole block or an anchor in a block. |
-| **Target** | The to-side of a branch: the block being pointed at. |
-| **Parent / child** | If a branch goes from A to B, A is the parent (source) and B is the child (target). |
+| **Primary branch** | The single structural incoming edge of a non-root block; it determines home and outline position. |
+| **Reference branch** | A non-structural edge for cross-links and shared children; it may form cycles. |
+| **Source / target** | The from-side (block or anchor) and the to-side (block) of a branch. |
 | **Root** | A block with no incoming primary branch. A root is a top-level block in a chapter. |
-| **Top-level block** | A root content block listed directly in a chapter. It may be a sentence or a short phrase with children. |
-| **Primary forest** | The set of primary trees rooted at the chapter's top-level blocks. |
-| **Home** | The position of a block in the primary forest, determined by its primary parent. |
-| **Chapter** | A group of ordered top-level blocks. A document has one or more chapters. |
-| **Page** | An A4 portrait or landscape frame produced by the paginator. Pages are derived, not stored. |
-| **Page break** | A boundary between two derived pages, computed by the paginator or requested by an optional manual hint. It is shown as a derived marker in the Continuous layout/outline and as an exact page boundary in the Page layout. |
-| **Continuation** | A block or lower-level block that continues on the next page because it crossed a page boundary. It is marked on both pages and is never a second copy. |
-| **Ghost parent** | A compact, non-editable repeat of the parent context at the top of the next page when a lower-level block continues, so the user knows where the continuation belongs. |
-| **Block continuation** | A single block whose content is split by the paginator at a safe internal boundary (paragraph or list item), with continuation markers. It is one block, not two. |
-| **Adaptive layout** | A continuous tree layout with content-driven widths. Children go right when there is room, otherwise below the parent with a slight indent. |
-| **Pagination** | The process that slices the continuous layout into A4 pages without cutting a line, image, formula, or code line. |
-| **Incremental reflow** | Default layout mode: only the dirty subtree and affected siblings are recomputed; existing positions stay stable. |
-| **Freeze mode** | A read-only study mode that freezes the layout and pagination snapshot; no automatic reflow while reading. |
-| **Full reflow** | A request or idle-triggered recomputation of the entire layout and pagination; page breaks may change. |
-| **Continuous layout** | A screen-optimized continuous vertical rendering of the document with page-break markers derived from the paginator. It supports Edit and Read modes; its markers are hints, not WYSIWYG page geometry. |
-| **Page layout** | An A4-bounded rendering of the derived pages used by the PDF. Page Read is exact and read-only; Page Edit is opt-in and shares the same geometry. |
-| **Edit mode** | The active layout accepts authoring commands, with one active block editor at a time. |
-| **Read mode** | The active layout is read-only for content; selection, navigation, links, anchors, copy, scroll, zoom, and focus remain available. |
-| **Page Read / Page Edit** | Page Read is the exact, read-only A4 proof. Page Edit is the opt-in A4-bounded authoring surface with one active block editor; it uses the same geometry and paginator. Switching layout preserves Edit/Read. |
-| **Reader** | Historical view name retired by ADR-0007. It remains only in historical notes and for concurrent file readers. |
-| **Shared child** | A block with one primary parent and zero or more reference parents. It appears once; it is referenced from multiple places. |
-| **Outline order** | The depth-first order produced by traversing chapters, top-level blocks, and ordered children. It is the canonical reading order. |
-| **Callout** | The Continuous or Page rendering of an anchored branch, placed below its anchor and connected to it. |
-| **Collapse** | A view state that hides a block's descendants without deleting them. In v1 it is an outline/Continuous navigation aid; the Page layout and PDF show the full document. |
-| **Document package** | The folder or bundle containing `document.json`, assets, and metadata. |
-| **Asset** | An image or other binary file referenced by content, stored by content hash inside the package. |
-| **View state** | Non-canonical UI state: last layout and interaction mode, current page, zoom/fit, scroll, selection, focused block, collapsed blocks. It is stored outside `document.json` and may be discarded without losing document content. |
-| **Study layer** | The future annotation layer (highlights, ink, notes). It is separate from content and is not implemented in v1. |
-| **Broken anchor** | An anchor whose binding can no longer be resolved to a span in its block. The branch is preserved and surfaced for repair. |
-| **Alias / transclusion** | A second read-only rendering of a block's content in another place. Out of scope for v1. |
-| **Fractional order** | A lexicographically sortable string used to order siblings without renumbering the whole list. |
-| **Schema version** | An integer identifying the document format, used to run forward migrations. |
-| **Page PDF** | A PDF that reproduces the paginator's pages with a selectable text layer. |
-| **Pagination defect** | A block or subtree that cannot satisfy the page width/height or a manual break hint under the current pagination. The app warns; it never clips, auto-scales, or cuts a line/image/formula/code line. |
+| **Top-level block** | A root content block listed directly in a chapter. |
+| **Primary forest** | The primary trees rooted at the chapters' top-level blocks. |
+| **Home** | A block's position in the primary forest, determined by its primary parent. |
+| **Chapter** | An ordered group of top-level blocks. |
+| **Page** | An A4 frame produced by the paginator. Derived, never stored. |
+| **Page break** | A boundary between two derived pages, computed by the paginator or requested by a manual hint. |
+| **Manual break hint** | A personal request to start a page before a block; honoured only when the block can start a row. |
+| **Continuation** | A block that continues on the next page. Marked on both pages; never a second copy. |
+| **Ghost parent** | A compact repeat of the parent context at the top of the next page. |
+| **Placement** | A layout record: a block is `right` of its parent or `below` it. |
+| **Trunk** | The vertical segment a child group shares; it starts at the parent's port and continues across pages. |
+| **Callout** | The rendering of an anchored branch: below the anchor, or in the parent's right lane (Page mode A). |
+| **Adaptive layout** | A tree layout with content-driven widths; children right when there is room, otherwise below with an indent. |
+| **Pagination** | Slicing the continuous layout into A4 pages without cutting a line, image, formula, code line or table row. |
+| **Incremental reflow** | Only the dirty subtree and affected siblings are recomputed; the rest of the layout is stable. |
+| **Continuous layout** | A continuous vertical rendering with page-start markers derived from the paginator. Edit and Read. |
+| **Page layout** | The A4 rendering of derived pages. Page Read is exact and read-only; Page Edit is opt-in with the same geometry. |
+| **Edit / Read mode** | Edit accepts authoring with one active block editor; Read is read-only for content but keeps selection, navigation, links, copy, scroll and zoom. |
+| **Shared child** | A block with one primary parent and zero or more reference parents. Appears once. |
+| **Outline order** | The depth-first order over chapters and primary children; the canonical reading order. |
+| **Collapse** | View state that hides descendants. A navigation aid in Outline and Continuous; Page and PDF always show everything. |
+| **Document package** | The folder holding `document.json` and `assets/`. |
+| **Asset** | An image stored by content hash inside the package. |
+| **Page settings** | Personal page size, orientation, margins, theme, density, chrome and manual break hints: one global default plus a per-document override. |
+| **View state** | Non-canonical UI state: layout, mode, page, zoom, scroll, selection, collapse. |
+| **Guest file** | A `.md` file opened flat: Continuous Edit/Read, no forest, no Page, no PDF. |
+| **Broken anchor** | An anchor whose binding no longer resolves. The branch is preserved and surfaced for repair. |
+| **Fractional order** | A lexicographically sortable string used to order siblings without renumbering. |
+| **Pagination defect** | A block or subtree that cannot satisfy the page or a manual hint. Warned and exported as blocked; never clipped or scaled. |
 
 ---
 
-## 3. Core use cases and user stories
+## 3. Core use cases
 
-### US-01 — Capture a topic and expand it
-
-As a student, I create a top-level block for a lecture topic and add children to the right as I would on paper.
-
-**Done when:** I can create a top-level block, add children, type rich content, and see the structure in the outline, the Continuous layout, and the Page layout without choosing a free layout.
-
-### US-02 — Branch from a word or phrase
-
-As a student, I select a word or phrase inside a block and create a branch from it. The new block is attached to that exact span, not to the whole block.
-
-**Done when:** the anchor is visible in the source text, the new block becomes the anchor's primary child, and editing the surrounding text does not detach it.
-
-### US-03 — Branch from a formula term
-
-As a student, I select a term in a formula and branch to an explanation of that term.
-
-**Done when:** the formula is recorded as the anchor's context, the term is stored as the quote, the branch is visually associated with the formula, and an invalid formula does not destroy the note.
-
-### US-04 — Branch from code
-
-As a student, I select a token or line range in a code block and branch to an explanation or example.
-
-**Done when:** the code range is highlighted, edits outside the range preserve the anchor, and edits that remove the quoted code produce a visible broken-anchor state.
-
-### US-05 — Branch from an image region
-
-As a student, I draw a region or place a point on an image and branch to an explanation.
-
-**Done when:** the region is stored relative to the image's intrinsic size, the branch survives display resizing, and replacing the image invalidates the anchor visibly.
-
-### US-06 — Share a child between two topics
-
-As a student, I want the same definition to appear under two topics without duplicating the block.
-
-**Done when:** the block has one primary home and one or more reference parents; it appears once in the outline and once in the continuous layout; the second parent shows a "see also" link and a reference arrow.
-
-### US-07 — Review in the outline
-
-As a student, I switch to the outline to read the argument linearly, collapse subtrees, and edit quickly with the keyboard.
-
-**Done when:** the outline follows the same primary structure as the Continuous and Page layouts, derived page breaks are visible, anchored branches appear as clearly marked callouts, and reference links are available without duplicating content.
-
-### US-08 — Study in the Continuous and Page layouts
-
-As a student, I switch to Continuous Edit for continuous authoring, Continuous Read for a read-only continuous scroll with page-break markers, or Page Read for the exact paginated A4 result.
-
-**Done when:** top-level blocks stack vertically, direct children go right or wrap below with a slight indent, anchored children sit below their anchors, reference edges are visually distinct, page navigation changes only the viewed page, and no drag can move a block to an arbitrary position or pin it.
-
-### US-09 — Reorganize without losing children
-
-As a student, I move a block to a new parent, reorder siblings, or make a referenced block's other parent its home.
-
-**Done when:** the block's subtree, anchors, and outgoing branches move with it; the old parent loses the primary edge; the derived pagination updates; undo restores the previous structure.
-
-### US-10 — Recover a broken anchor
-
-As a student, I delete text that contained an anchor. The branch remains, marked as broken, and I can relink it to a new selection.
-
-**Done when:** the branch and its target content are still present, the broken state is visible in the block and in the anchor health surface (status chip + sheet), and repair keeps the anchor and branch IDs.
-
-### US-11 — Export a page PDF
-
-As a student, I export the paginator's pages as an A4 PDF with real text, then annotate it by hand on my iPad.
-
-**Done when:** each derived page maps to one PDF page in the same portrait/landscape orientation, every block appears exactly once, no line/image/formula/code line is cut, long blocks continue at safe boundaries with markers, anchored branches are below their anchors or marked as continuations, formulas and code are readable, and body text can be selected and searched.
-
-### US-12 — Recover from a crash
-
-As a student, the app crashes while I am editing. When I reopen the document, I can recover the last autosave or backup.
-
-**Done when:** the app offers a recovery path, the last good document is intact, and no partial file overwrites it.
-
-### US-13 — Find a block
-
-As a student, I search for a term and jump to the block that contains it, even if it is on another derived page or inside a collapsed subtree.
-
-**Done when:** search finds text, code, LaTeX source, and labels; selecting a result reveals the block in all layouts and modes; the chapter, page, and path are visible.
-
-### US-14 — Review page breaks
-
-As a student, I read in the Continuous layout (Edit or Read) and see where the paginator will break pages. I add a manual break hint when a break lands badly.
-
-**Done when:** derived page-break markers are visible in the Continuous layout, the Page layout and PDF use the same breaks, I can request a break before a block, and no line/image/formula/code line is cut; long blocks continue at safe boundaries with markers.
-
-### US-15 — Work across multiple documents
-
-As a student, I keep several note documents in a folder I choose, switch between them from a recent/library list, and search across them.
-
-**Done when:** multiple documents open independently, each is a single JSON file plus assets, and search results show the document, chapter, and page path.
-
-### US-16 — Bring a note in from an agent
-
-As a power user, I give an external agent a Markdown file and import it as a NoteForest note, so the agent can prepare content without a live API.
-
-**Done when:** the importer turns headings, paragraphs, lists, quotes, code, math, tables, and images into the forest structure, the note opens as a normal document, and no server, token, or in-app agent panel is involved.
+| ID | Story | Done when |
+|---|---|---|
+| US-01 | Capture a topic and expand it | A top-level block, children and rich content appear in Outline, Continuous and Page. |
+| US-02 | Branch from a word or phrase | The new block is the anchor's primary child; editing around the span does not detach it. |
+| US-03 | Branch from a formula term | The term is the quote, the formula is the context, and an invalid formula does not destroy the note. |
+| US-04 | Branch from code | The range is marked, edits outside it preserve the anchor, edits removing it break it visibly. |
+| US-05 | Branch from an image region | The region is normalized to intrinsic size, survives display resizing, and invalidates visibly on replacement. |
+| US-06 | Share a child between topics | One primary home, one or more reference parents, one rendering, a see-also link. |
+| US-07 | Review in the outline | Same primary structure, page starts visible, anchored branches marked, references not duplicated. |
+| US-08 | Study in Continuous and Page | Children right or wrapped, callouts attached, reference edges distinct, page navigation changes only the view. |
+| US-09 | Reorganize without losing children | The subtree, anchors and outgoing branches move; the old primary edge is removed; undo restores. |
+| US-10 | Recover a broken anchor | Branch and content remain, the broken state is visible in the block and in Health, repair keeps IDs. |
+| US-11 | Export a page PDF | One PDF page per derived page, every block once, no cut content, markers, real selectable text. |
+| US-12 | Recover from a crash | A recovery path is offered; the last good document is intact. |
+| US-13 | Find a block | Search covers text, code, LaTeX and labels; a result reveals the block in every layout. |
+| US-14 | Review page breaks | Page starts are visible in Continuous; a manual hint is available; Page and PDF use the same breaks. |
+| US-15 | Work across documents | Independent tabs and packages in a chosen library; search shows document, chapter and page. |
+| US-16 | Bring a note from an agent | A `.md` file opens as a flat guest file for reading and editing; the app never builds a forest or runs an agent. |
 
 ---
 
-## 4. Conceptual data model
+## 4. Data model
 
 ### 4.1 Overview
 
-The document is a set of chapters, blocks, anchors, branches, and assets. Branches are first-class records. The primary branches form a forest; reference branches form a general directed graph on top of it. Pages are derived by the paginator and are not stored entities.
+A document is chapters, blocks, anchors, branches and assets. Branches are first-class records. The
+primary branches form a forest; reference branches form a general directed graph on top of it.
+Pages are derived and are not entities.
 
-| Entity | Cardinality and purpose |
+| Entity | Purpose |
 |---|---|
-| **Document** | Owns page setup, chapters, blocks, anchors, branches, assets, and reserved annotations. |
-| **Chapter** | An ordered group of top-level blocks. A document has one or more chapters. |
-| **ContentBlock** | Has zero or more anchors; has zero or one incoming primary branch; has zero or more incoming reference branches; has zero or more outgoing branches. |
-| **Anchor** | Belongs to exactly one block and is the source of zero or more branches. |
-| **Branch** | Has exactly one source (block or anchor), exactly one target block, and a role of primary or reference. |
-| **Asset** | Referenced by image content; stored once per content hash. |
-| **Derived page** | A paginator output. Not stored; computed from the continuous layout and page setup. |
+| **Document** | Owns chapters, blocks, anchors, branches, assets and reserved annotations. |
+| **Chapter** | An ordered group of top-level blocks. |
+| **ContentBlock** | Zero or more anchors; zero or one primary parent; zero or more reference parents; zero or more outgoing branches. |
+| **Anchor** | Belongs to exactly one block; source of zero or more branches. |
+| **Branch** | One source (block or anchor), one target block, role primary or reference. |
+| **Asset** | Referenced by image content, stored once per content hash. |
+| **Derived page** | Paginator output; never stored. |
 
-The model has two layers:
-
-- **Document semantics:** page setup, optional page-break hints, chapters, top-level block order, blocks, anchors, branches, assets, schema version. This is canonical and must survive save/load.
-- **View state:** layout (`continuous` or `page`), interaction mode (`edit` or `read`), current page, zoom/fit, selection, collapsed blocks, scroll. This is non-canonical and may be discarded.
+Two layers exist. **Document semantics** are canonical and survive save/load: chapters, blocks,
+anchors, branches, assets, schema version. **View state and page settings** are personal and live
+outside `document.json`.
 
 ### 4.2 Document
 
-| Field | Type | Required | Meaning |
-|---|---|---|---|
-| `schemaVersion` | integer | yes | Document format version. Starts at 1. |
-| `id` | string | yes | Stable document ID. |
-| `title` | string | yes | User-visible title. May be empty; display as "Untitled". |
-| `createdAt` | timestamp | yes | ISO 8601 UTC. |
-| `updatedAt` | timestamp | yes | ISO 8601 UTC; updated on save. |
-| `revision` | integer | yes | Monotonic document revision, starts at 0 and increments once per committed transaction. Used by `baseRevision` for optimistic concurrency; not content. |
-| `pageSetup` | object | yes | A4 page size, orientation, and margins. |
-| `manualBreakBeforeBlockIds` | ordered list of block IDs | no | Optional page-break hints. The paginator starts a new page before these blocks when possible. |
-| `chapters` | ordered list of Chapter | yes | Every chapter, in reading order. |
-| `blocks` | map: block ID → ContentBlock | yes | All blocks, keyed by ID. |
-| `anchors` | map: anchor ID → Anchor | yes | All anchors, keyed by ID. |
-| `branches` | map: branch ID → Branch | yes | All branches, keyed by ID. |
-| `viewState` | object | no | Non-canonical UI state. May be missing or stale. |
-| `assets` | map: asset ID → Asset | yes | Content-addressed assets referenced by content. May be empty. |
-| `annotations` | collection | yes | Reserved for the future study layer; empty in v1. |
-| `extensions` | object | no | Unknown fields preserved for forward compatibility. |
+```ts
+interface Document {
+  schemaVersion: number;   // 2
+  id: string;
+  title: string;
+  createdAt: string;       // ISO 8601 UTC
+  updatedAt: string;
+  revision: number;        // increments once per committed transaction
+  chapters: Chapter[];
+  blocks: Record<string, ContentBlock>;
+  anchors: Record<string, Anchor>;
+  branches: Record<string, Branch>;
+  assets: Record<string, Asset>;
+  annotations?: unknown[]; // reserved, empty
+  extensions?: JsonObject;
+}
+```
 
-**Page setup.** `pageSetup` has `size` fixed to `"A4"` in v1, `orientation` (`"portrait"` or `"landscape"`), and `margins` in millimetres (`top`, `right`, `bottom`, `left`). **New documents default to A4 landscape with 20 mm margins on all sides**; existing documents keep their stored orientation. Page size, orientation, and margins are document settings; pages themselves are derived.
+`revision` supports optimistic concurrency (`baseRevision`); it is not content. Unknown fields at
+every level are preserved.
 
-**Chapter.** A chapter has `id`, optional `title`, and an ordered `topLevelBlockIds` list. Each listed block is a root content block and starts a top-level tree. A chapter MAY have multiple top-level blocks. Every block belongs to the chapter of its top-level ancestor; a block cannot appear in two chapters. The model supports multiple chapters; the v1 UI MAY expose one chapter at a time (A14).
+**What is not here.** Since schema v2 the document has no `pageSetup`, no
+`manualBreakBeforeBlockIds` and no `viewState`. Page setup, page theme, density, chrome and manual
+break hints are **personal settings** with a global default and a per-document override
+(§4.7). View state belongs to the shell and may be discarded.
 
-**Pages are not stored.** There is no `pages` array and no page entry in the canonical document. The paginator computes page breaks from the continuous layout, the page setup, and optional manual break hints. A continuation marker is derived; it is not a second block or a page assignment.
+**Chapters.** A chapter has `id`, optional `title` and an ordered `topLevelBlockIds` list. Each
+listed block is a root content block. A chapter may have several top-level blocks. Every block
+belongs to the chapter of its top-level ancestor; a block cannot appear in two chapters.
 
-The document MUST NOT contain a second canonical copy of block content, branch structure, chapter order, or page layout outside these fields.
+**Pages are not stored.** There is no `pages` array. A continuation marker is derived; it is not a
+second block or a page assignment. The document must not contain a second canonical copy of block
+content, branch structure, chapter order or page layout.
 
 ### 4.3 ContentBlock
 
 | Field | Type | Required | Meaning |
 |---|---|---|---|
-| `id` | string | yes | Stable block ID. Opaque; never reused. |
-| `label` | string | no | Optional short label for the outline, page card header, and PDF. If absent, derive from the first text line or content type. |
-| `content` | structured rich-text body | yes | The block's content in the canonical structured JSON representation. May be empty. |
-| `border` | `"none" \| "subtle" \| "strong"` | no | Optional visual border. Absence means the document default. |
-| `createdAt` | timestamp | no | Optional; useful for diagnostics and future sync. |
-| `updatedAt` | timestamp | no | Optional; useful for diagnostics and future sync. |
+| `id` | string | yes | Stable, opaque, never reused. |
+| `label` | string | no | Short label for the outline, page card and PDF; derived when absent. |
+| `content` | structured body | yes | ProseMirror-shaped JSON; may be empty. |
+| `border` | `none \| subtle \| strong` | no | Optional visual border. |
+| `createdAt`, `updatedAt` | timestamp | no | Diagnostics. |
 | `extensions` | object | no | Unknown fields preserved. |
 
-A block is the unit of identity, branching, and layout. Its body MAY contain multiple paragraphs, headings, lists, code blocks, display math, images, and tables. The content tree determines how it renders; there is no exclusive block "type" enum. A code-only, formula-only, or image-only block is simply a block whose body contains that node kind. This is the decided granularity (D2, closed): a rich body, not a single content node. Single-node blocks are not the v1 model.
+A block is the unit of identity, branching and layout. Its body may contain paragraphs, headings,
+lists, code, display math, images and tables; there is no exclusive block "type" enum. This is the
+closed granularity decision: a rich body, not a single content node.
 
-Content MUST be able to carry inline anchor marks (or the equivalent binding under the chosen content representation). An anchor mark is part of the block's content, not a decoration stored only in the UI.
+Content must be able to carry inline anchor marks (or the equivalent binding). An anchor mark is
+part of the block's content, not a UI decoration.
 
 ### 4.4 Anchor
 
-| Field | Type | Required | Meaning |
-|---|---|---|---|
-| `id` | string | yes | Stable anchor ID. Also the ID carried by the inline mark or node binding. |
-| `blockId` | string | yes | The block that contains the anchor. Exactly one. |
-| `kind` | `"text" \| "formula" \| "code" \| "image"` | yes | Anchor kind. Determines the selector. |
-| `selector` | object | yes | Kind-specific selector, described below. |
-| `quote` | string | conditional | The exact selected text, LaTeX substring, code text, or image region label. Required for text, formula, and code; optional for image. |
-| `prefix` | string | no | Context before the selection. Used for fallback resolution. |
-| `suffix` | string | no | Context after the selection. Used for fallback resolution. |
-| `occurrenceHint` | integer | no | 1-based occurrence hint when the quote appears multiple times. |
-| `lastKnown` | object | no | Last resolved position or geometry. A repair hint, never the source of truth. |
-| `createdAt` | timestamp | no | Optional. |
-| `extensions` | object | no | Unknown fields preserved. |
-
-**Anchor kinds and selectors**
-
-| Kind | Primary binding | Fallback selector | Geometry |
-|---|---|---|---|
-| **Text** | Inline anchor mark carrying `anchorIds` (array) in the content tree. The ID may repeat on every text node of one contiguous range; `anchorId` (string) is accepted on read for M2 compatibility. | `quote` + `prefix` + `suffix` + `occurrenceHint`. | Union rectangle of the marked range; attach at the right edge of the last line. |
-| **Formula** | Atomic node binding: `attrs.anchorIds` on the formula node (`mathBlock` or `inlineMath`) for a whole formula; for a term, the node binding plus a LaTeX substring selector. | `latex` + `occurrenceHint` + optional LaTeX prefix/suffix. | The formula node's rectangle for a whole formula; best-effort term rectangle; otherwise the formula rectangle with the term shown in the marker. |
-| **Code** | Atomic node binding: `attrs.anchorIds` on the `codeBlock` node, plus quote/offset selector. | `quote` + `prefix` + `suffix` + `occurrenceHint`; offsets are a hint. | Rectangle of the token or line range; otherwise the code block. |
-| **Image** | Atomic node binding: `attrs.anchorIds` on the `image` node, plus asset ID and normalized rectangle. | `assetId` + `rect` normalized to the image's intrinsic size. | The normalized region scaled to the displayed image; point anchors use a zero-size region with a visible marker. |
-
-**Binding shape (OD-4).** The content binding is canonical; the selector is the durable repair descriptor. A text anchor is **one contiguous binding**: its ID may appear on every text node of one contiguous run, but a second disjoint run is the violation (I10, C8). Atomic nodes use an additive `attrs.anchorIds` array; one atomic node may host multiple anchors (two image regions, two formula anchors, several code ranges). An atomic node with no anchors has no `anchorIds` attribute. `anchorIds` arrays are stored sorted by anchor ID so serialization, diffs, and undo snapshots are deterministic; empty arrays and anchor marks with no IDs are removed from content. Creating an overlapping anchor merges its ID into the existing text mark's array (splitting text nodes as needed); it never adds a second anchor mark of the same type.
-
-**Selector and mirrors.** `selector` is canonical. The top-level `quote`, `prefix`, `suffix`, and `occurrenceHint` fields are optional compatibility mirrors: on write both are written from the same values; on read `selector` wins, and a disagreement loads with a warning and a `selector-mismatch` repair flag. It is not silently rewritten. The anchor ID is never inside `selector`; it is the record `id` and the content binding value.
-
-**Derived state.** Anchor state (`resolved`, `ambiguous`, `broken`, `idle`, `block-missing`) is derived from content, selector, and assets; it is never stored. `lastKnown` is an advisory repair hint and is never read by resolution, layout, or export. An anchor record with no content binding is valid and resolves by selector (broken if there is no candidate). A mark with no record is inert and never creates a phantom branch.
-
-**Text selection projection (OD-12).** A text anchor may span inline math or images. The selector `quote` uses a plain-text projection: text contributes its text, inline math contributes its LaTeX source, an image contributes its alt text or `U+FFFC`, and paragraph/list-item boundaries and hard breaks contribute `\n`. The mark binding remains truth. A text anchor may span paragraphs/list items but MUST NOT cross a block-level atomic node (display math, image, code block) or a table-cell boundary; an anchor spanning cells is rejected with a clear message.
-
-Offsets in code anchors MUST be defined in a platform-neutral unit (Unicode code points), not in a platform's native string index. Offsets are a hint; the quote and context are the durable fallback. Image rectangles MUST be normalized to 0–1 relative to the image's intrinsic dimensions, never stored in display pixels.
-
-Anchor IDs are immutable identities. Repairing an anchor changes its selector and binding, not its ID. An anchor MUST NOT span more than one block in v1; a selection that crosses blocks is rejected with a clear message.
-
-**No schema bump.** M3 adds optional content marks/attrs and uses existing anchor/branch fields. Older M2 readers preserve `anchorIds` but ignore it; new readers accept both `anchorId` and `anchorIds`. No required canonical field is added and no migration is needed. If a schema bump is later required, it must be a no-op migration with a pre-migration backup and a round-trip test.
-
-### 4.5 Branch
-
-| Field | Type | Required | Meaning |
-|---|---|---|---|
-| `id` | string | yes | Stable branch ID. |
-| `source` | object | yes | `{ blockId }` for a block source, or `{ blockId, anchorId }` for an anchored source. |
-| `targetBlockId` | string | yes | The target block. |
-| `role` | `"primary" \| "reference"` | yes | Structural or cross-link. |
-| `order` | string | yes | Fractional order string, unique within the source port and role. |
-| `label` | string | no | Optional short edge label, shown on the page and in see-also lists. |
-| `createdAt` | timestamp | no | Optional. |
-| `extensions` | object | no | Unknown fields preserved. |
-
-**Branch rules**
-
-- A branch is an assertion or relationship, not a content embed. Transclusion is out of scope (N6).
-- A **primary** branch is structural. A non-root block MUST have exactly one incoming primary branch. The primary subgraph MUST be acyclic.
-- A **reference** branch is associative. A block MAY have zero or more incoming reference branches. Reference branches MAY form cycles.
-- A branch MUST NOT target its own source block.
-- A branch MUST NOT duplicate another branch with the same exact source and target, **regardless of role** (OD-3): one edge per source-target pair; `role` is a property of that edge. Different anchors in the same block are different sources and may target the same block. On load, if a legacy document has both a primary and a reference edge for the same source-target, keep the primary edge and drop the reference duplicate with a warning; never create two homes.
-- A branch whose source is an anchor MUST reference an anchor that belongs to the source block.
-- A source **port** is either the block itself or a specific anchor. Each port has its own ordered list of outgoing branches. `order` is unique within `(port, role)`; primary order drives layout and outline, reference order drives see-also lists. Primary and reference orders do not collide.
-- A branch target MUST exist. A branch pointing at a missing block is a load error, not a silently ignored edge.
-- Deleting a primary branch makes the target a root; it does not delete the target or its subtree.
-- Reference branches MUST NOT affect outline order, adaptive layout, or pagination.
-
-### 4.6 Primary forest, chapter assignment, and outline order
-
-The primary branches form a forest:
-
-- Every block is either a **root** (no incoming primary branch) or has exactly one primary parent.
-- The primary forest MUST be acyclic. Attempting to create a primary cycle is rejected before any mutation.
-- Reference branches are ignored by the forest traversal.
-
-**Chapter assignment invariants:**
-
-- Every root MUST appear exactly once in exactly one chapter's `topLevelBlockIds`.
-- Every non-root block belongs to the chapter of its top-level ancestor.
-- A block MUST NOT appear in two chapters.
-- Chapters are ordered; top-level block IDs within a chapter are ordered. These orders define reading order.
-- There is no page assignment in the document; page breaks are derived.
-
-**Outline order.** The outline is a depth-first traversal of the primary forest, grouped by chapter:
-
-1. Start a chapter.
-2. Emit its top-level blocks in `topLevelBlockIds` order.
-3. For each top-level block, emit the block.
-4. Emit its anchored primary children, ordered by the anchor's position in the block content (start position, then anchor ID), and within one anchor by branch order.
-5. Emit its direct primary children, ordered by branch order.
-6. Do not recurse through reference branches.
-7. Insert a page-break marker wherever the paginator places one; the marker is derived, not a structural node.
-
-Anchored-first is **closed (D3)**. It keeps a branch caused by a word close to the block that contains the word. The rule is deterministic and shared by the outline, the Continuous and Page layouts, and the PDF; it is not re-evaluated per layout or mode.
-
-**Page and block labels.** Derived pages are numbered in reading order (`1`, `2`, …). Blocks receive an optional hierarchical label derived from top-level order and depth (`1`, `1.1`, `1.1.1`) for navigation and diagnostics. Labels are generated, not stored. They are not a substitute for derived page numbers in the PDF.
-
-**Shared children.** A shared child appears once in the outline and once in the continuous layout. Reference contexts show a "See also" link with the derived page when available; they do not repeat the content and do not add a second outline entry.
-
-**Default (closed, D4).** Creating a branch to a block that already has a primary home creates a **reference edge** by default. A top-level block has no primary parent, so branching to it adds it as a **primary child** (it loses its top-level slot) unless the user explicitly chooses "reference only." "Make home" and "move here" are explicit commands; they change the primary parent without duplicating the block. The confirmation shows the affected reference parents.
-
-**Make home and roots (OD-7).** "Make home" requires the target to have an existing primary parent: it promotes the chosen reference edge to primary and demotes the old primary edge to reference, so both relationships are preserved. When the target is already a root, there is no primary parent to demote and "make home" is disabled; the UI offers **Move here** (promote the reference and delete the old primary if one exists) or **Add as child** (create a new primary branch). A root target is never a no-op "make home."
-
-### 4.7 Page setup, derived pages, and view state
-
-**Page setup.**
-
-- Page size is A4: 210 × 297 mm portrait, 297 × 210 mm landscape.
-- `pageSetup.orientation` is document-wide in v1: portrait or landscape. Mixed orientation is not supported in v1.
-- Margins come from `pageSetup`; default 20 mm on all sides. The content area is the page minus margins.
-- Page size, orientation, margins, and optional `manualBreakBeforeBlockIds` are document settings.
-- Pages are not stored. The paginator produces page breaks from the continuous layout and page setup.
-
-**Derived pages and continuation.**
-
-- A derived page is a slice of the continuous layout. It is numbered in reading order.
-- The paginator prefers page breaks between blocks. If a block is too tall for the remaining space, it may continue at a safe internal boundary: paragraph, list item, blockquote paragraph, between code lines, or **between table rows**. It MUST NOT cut a text line, image, formula, code line, or table row.
-- A block that continues across pages is a **block continuation**: the previous page shows "continues on page N", the next page shows "continued from page M" plus a compact ghost parent, and the block exists once. Safe boundaries are paragraph, list item, blockquote paragraph, between code lines, or between table rows; a line, image, formula, code line, or table row is never cut.
-- A table row is atomic. A table may continue across pages only **between rows**, never inside a row or cell. A single row taller than the page content height is a pagination defect; the user splits the row content or changes page setup. Repeating a header row on continuation pages is a UX detail, not required in v1.
-- A lower-level block that continues on the next page also shows a ghost parent at the top of the next page so its context is not lost.
-- A block with no children may still be followed by a page break; the paginator prefers breaks between top-level blocks or between sibling subtrees.
-- Manual break hints are best-effort requests to start a new page before a block. They are not page containers and do not move blocks to a fixed page.
-- Changing page orientation re-runs layout and pagination. It may change page count; it never changes the logical tree or sibling order.
-
-**View state** includes at least:
-
-- last layout (`continuous` or `page`) and interaction mode (`edit` or `read`);
-- current derived page (for the Page layout);
-- Continuous scroll position and zoom/fit;
-- Page zoom and fit mode;
-- outline scroll position;
-- focused block ID;
-- selected block IDs and, where applicable, the page selection for reorder commands only;
-- collapsed block IDs.
-
-View state is non-canonical and is stored outside `document.json` (for example in the session or app state). Stale references to deleted blocks/pages are dropped on load. Invalid layout/mode values fall back safely: unknown layout → `continuous`; unknown mode → `edit` for Continuous and `read` for Page. An invalid page number falls back to the nearest existing derived page. Collapse is view state, not document semantics: collapsing a block hides descendants in the outline and Continuous layout without changing the primary forest; the Page layout and PDF always show the full document, and the same collapse state is shared by the outline and Continuous layout.
-
-### 4.8 Assets
-
-| Field | Type | Required | Meaning |
-|---|---|---|---|
-| `id` | string | yes | Content-addressed ID (for example, a SHA-256 hash). |
-| `path` | string | yes | Relative path inside the package, never absolute. |
-| `mime` | string | yes | Media type. |
-| `bytes` | integer | no | File size. |
-| `width` | integer | no | Intrinsic width for images. |
-| `height` | integer | no | Intrinsic height for images. |
-| `alt` | string | no | Alt text. |
-| `originalName` | string | no | Original filename, metadata only. |
-| `extensions` | object | no | Unknown fields preserved. |
-
-Assets are content-addressed and deduplicated. Identical bytes share one asset. Assets MUST be copied into the package on import; the document MUST NOT depend on the original file's path. Remote URLs are not canonical. Missing assets are a visible load warning and a placeholder, not a reason to delete content or anchors.
-
-### 4.9 Annotations (future)
-
-The top-level `annotations` collection is reserved. It is empty in v1, and the UI does not expose it. The intended shape, to keep the model extensible:
-
-- stable annotation ID;
-- type: highlight, ink, note, arrow, or frame;
-- target: block, anchor, image region, or study-page region;
-- geometry and style in a platform-neutral form;
-- author and timestamps (for future multi-user or multi-device use);
-- layer or visibility flag;
-- optional opaque platform payload plus a rendered fallback.
-
-Annotations MUST NOT alter block content, branches, or layout. They are a separate study layer and will be toggleable in the UI and in PDF export. The loader MUST preserve unknown annotation data even if the v1 UI ignores it. Ink is not designed in v1; the model only reserves room.
-
-### 4.10 Invariants
-
-| ID | Invariant | On load violation |
-|---|---|---|
-| **I1** | IDs of blocks, anchors, and branches are globally unique within the document. | Fatal recovery; do not overwrite. |
-| **I2** | Every branch source and target exists; every anchored source belongs to its source block. | Fatal recovery or quarantine of the branch; never silent drop. |
-| **I3** | A block has at most one incoming primary branch. | Fatal recovery; user chooses the primary. |
-| **I4** | The primary subgraph is acyclic. | Fatal recovery; user breaks the cycle explicitly. |
-| **I5** | Every block is a root or has exactly one primary parent. | Fatal recovery; unreachable blocks are listed. |
-| **I6** | Every root appears exactly once in exactly one chapter's top-level list; every block belongs to the chapter of its top-level ancestor and appears in only one chapter. | Fatal recovery; list the offending blocks/chapters. |
-| **I7** | Branch order is unique within a source port and role; top-level block order is unique within a chapter; manual break hints reference existing blocks and are unique. | Warning; tie-break by ID; normalize on save. |
-| **I8** | No self-branch; no duplicate exact source-target branch, regardless of role. | Reject on creation; on load, keep the primary edge and drop the duplicate with a warning. |
-| **I9** | Every anchor belongs to an existing block and its kind matches its selector. | Broken anchor or fatal recovery; branch preserved. |
-| **I10** | A text anchor is one contiguous binding. Its ID may appear on every text node of one contiguous run; a second disjoint run, or a duplicate entry in one node's `anchorIds` array, is a violation. An atomic anchor ID appears in exactly one node's `anchorIds` array. | Broken anchor; repair required; never auto-duplicate. |
-| **I11** | Asset paths are relative and point inside the package, or the asset is marked missing. | Warning; placeholder. |
-| **I12** | Removing all reference branches leaves a valid primary forest. | Should be true by construction; validate. |
-| **I13** | Page setup has A4 size, a valid orientation, and finite non-negative margins that leave a positive content area. | Fatal recovery or safe default repair with confirmation. |
-| **I14** | No block stores an x/y position, page container, pin, or free-layout override. | Ignore unknown layout fields with a warning; do not resurrect free positioning. |
-| **I15** | View state may be stale; stale references are harmless. | Drop stale entries silently. |
-| **I16** | Unknown fields and unknown content nodes are preserved on save. | Warning; preserve. |
-| **I17** | `schemaVersion` is an integer and never decreases. | Newer file opens read-only; no downgrade. |
-| **I18** | Pagination breaks between blocks first and may continue a block only at a safe internal boundary; it never cuts a line, image, formula, code line, or table row. A table row is atomic. A continuation/ghost parent is derived, not stored as a second block. | Fatal pagination defect; fix before export. |
-
-**M3 validation additions.** ADR-0005 records the M3 anchor/branch validation rules (A1–A12): anchor IDs are globally unique and belong to an existing block; every `anchorIds` entry has a record (and a record without a binding resolves by selector); one contiguous binding per text anchor; kind/node matching; selector validity; branch source anchor belongs to the source block; no self-branch; at most one primary parent; role-independent dedupe; order uniqueness within `(port, role)`; every root in exactly one chapter; reference edges are never read by the outline/layout/export traversal; unknown anchor kinds/selectors/attrs are preserved and flagged. These rules extend I1–I18; they do not replace them.
-
-### 4.11 Illustrative schema
-
-This example is illustrative, not a wire-format freeze. It uses the approved structured JSON content model. Field names may change before the schema is frozen. Content is abbreviated.
-
-```json
-{
-  "schemaVersion": 1,
-  "id": "0192f0c4-7a1e-7c3b-9d2a-1f6b8c9d0e11",
-  "title": "Linear algebra — eigenvalues",
-  "createdAt": "2026-11-03T10:00:00Z",
-  "updatedAt": "2026-11-03T10:04:12Z",
-  "revision": 42,
-  "pageSetup": {
-    "size": "A4",
-    "orientation": "portrait",
-    "margins": { "top": 20, "right": 20, "bottom": 20, "left": 20 }
-  },
-  "manualBreakBeforeBlockIds": ["b4"],
-  "blocks": {
-    "b1": {
-      "id": "b1",
-      "label": "Eigenvalues",
-      "content": {
-        "type": "doc",
-        "children": [
-          {
-            "type": "paragraph",
-            "children": [
-              { "type": "text", "text": "An " },
-              {
-                "type": "text",
-                "text": "eigenvalue",
-                "marks": [{ "type": "anchor", "attrs": { "anchorIds": ["a1"] } }]
-              },
-              { "type": "text", "text": " is a scalar λ such that Av = λv." }
-            ]
-          }
-        ]
-      },
-      "border": "subtle"
-    },
-    {
-      "id": "b2",
-      "label": "Eigenvector",
-      "content": { "type": "doc", "children": [] }
-    },
-    {
-      "id": "b3",
-      "label": "Eigenvalue equation",
-      "content": { "type": "doc", "children": [] }
-    },
-    {
-      "id": "b4",
-      "label": "Cayley–Hamilton",
-      "content": { "type": "doc", "children": [] }
-    }
-  },
-  "anchors": {
-    "a1": {
-      "id": "a1",
-      "blockId": "b1",
-      "kind": "text",
-      "quote": "eigenvalue",
-      "prefix": "An ",
-      "suffix": " is",
-      "occurrenceHint": 1
-    }
-  },
-  "branches": {
-    "e1": {
-      "id": "e1",
-      "source": { "blockId": "b1" },
-      "targetBlockId": "b2",
-      "role": "primary",
-      "order": "a1"
-    },
-    "e2": {
-      "id": "e2",
-      "source": { "blockId": "b1", "anchorId": "a1" },
-      "targetBlockId": "b3",
-      "role": "primary",
-      "order": "a1"
-    },
-    "e3": {
-      "id": "e3",
-      "source": { "blockId": "b4" },
-      "targetBlockId": "b3",
-      "role": "reference",
-      "order": "a1",
-      "label": "also uses"
-    }
-  },
-  "chapters": [
-    {
-      "id": "ch1",
-      "title": "Eigenvalues",
-      "topLevelBlockIds": ["b1", "b4"]
-    }
-  ],
-  "assets": {},
-  "annotations": []
+```ts
+interface Anchor {
+  id: string;
+  blockId: string;
+  kind: 'text' | 'formula' | 'code' | 'image';
+  selector: JsonObject;
+  quote?: string;
+  prefix?: string;
+  suffix?: string;
+  occurrenceHint?: number;
+  lastKnown?: JsonObject;
+  repairFlags?: string[];
+  createdAt?: string;
+  extensions?: JsonObject;
 }
 ```
 
-Non-canonical view state (layout, interaction mode, current page, zoom/fit, scroll, focus, selection, collapse) is stored in the session/app state, not in `document.json`; it is omitted from this illustrative schema.
+| Kind | Binding | Fallback selector | Geometry |
+|---|---|---|---|
+| **Text** | Inline mark carrying `anchorIds` on every text node of one contiguous run. | `quote` + `prefix` + `suffix` + `occurrenceHint`. | Union rectangle of the range; attach at the right edge of the last line. |
+| **Formula** | `attrs.anchorIds` on the formula node; a term adds a LaTeX substring selector. | `latex` + `occurrenceHint` + LaTeX context. | Formula rectangle for a whole formula; best-effort term rectangle, otherwise the formula with the term in the marker. |
+| **Code** | `attrs.anchorIds` on the code block plus quote/offset selector. | `quote` + context + `occurrenceHint`; offsets are a hint. | Token or line range; otherwise the code block. |
+| **Image** | `attrs.anchorIds` on the image node plus asset ID and normalized rectangle. | `assetId` + `rect` normalized 0–1 to intrinsic size. | Region scaled to the displayed image; a point is a zero-size region with a marker. |
+
+**Binding shape.** The content binding is canonical; the selector is the durable repair
+descriptor. A text anchor is one contiguous binding; a second disjoint run is a violation. Atomic
+nodes use an additive `attrs.anchorIds` array, sorted by ID so serialization, diffs and undo are
+deterministic. Empty arrays and marks with no IDs are removed. Creating an overlapping anchor
+merges its ID into the existing mark's array; it never adds a second mark.
+
+**Selector and mirrors.** `selector` is canonical. The top-level `quote`, `prefix`, `suffix` and
+`occurrenceHint` are compatibility mirrors: both are written from the same values, and on read
+`selector` wins. A disagreement loads with a warning and a `selector-mismatch` repair flag; it is
+not silently rewritten. The anchor ID is never inside `selector`.
+
+**Derived state.** `resolved`, `ambiguous`, `broken`, `idle` and `block-missing` are derived from
+content, selector and assets; never stored. `lastKnown` is an advisory repair hint and is never read
+by resolution, layout or export. A record without a binding resolves by selector; a mark without a
+record is inert.
+
+**Text projection.** A text anchor may span inline math or images. The selector `quote` uses plain
+text: text contributes its text, inline math its LaTeX source, an image its alt text or `U+FFFC`,
+and paragraph or hard-break boundaries `\n`. The mark remains truth. A text anchor may span
+paragraphs or list items but must not cross a display-math node, an image, a code block or a
+table-cell boundary; a cross-cell selection is rejected.
+
+**Units.** Code offsets are Unicode code points, never platform string indices; offsets are a hint.
+Image rectangles are 0–1 relative to intrinsic dimensions, never display pixels. Anchor IDs are
+immutable: repair changes the selector and binding, not the ID. One anchor never spans two blocks.
+
+**Compatibility.** Anchor marks and `anchorIds` are additive; older readers preserve them and new
+readers accept both `anchorId` and `anchorIds`. No migration is needed for anchors.
+
+### 4.5 Branch
+
+```ts
+interface Branch {
+  id: string;
+  source: { blockId: string; anchorId?: string };
+  targetBlockId: string;
+  role: 'primary' | 'reference';
+  order: string;          // fractional, unique per (port, role)
+  label?: string;
+  createdAt?: string;
+  extensions?: JsonObject;
+}
+```
+
+- A branch is an assertion, not an embed. Transclusion is out of scope.
+- A non-root block **must** have exactly one incoming primary branch; the primary subgraph must be
+  acyclic.
+- A block may have zero or more incoming reference branches; those may form cycles.
+- A branch must not target its own source block.
+- A branch must not duplicate another branch with the same source and target, **regardless of
+  role**: one edge per source-target pair, with `role` as a property. On load, a legacy pair keeps
+  the primary edge and drops the reference duplicate with a warning.
+- An anchored source must reference an anchor that belongs to the source block.
+- A **port** is the block itself or a specific anchor. `order` is unique within `(port, role)`;
+  primary order drives layout and outline, reference order drives see-also lists.
+- A target must exist. Deleting a primary branch makes the target a root; it deletes neither the
+  target nor its subtree.
+- Reference branches must not affect outline order, layout or pagination.
+
+### 4.6 Primary forest and outline order
+
+Every block is a root or has exactly one primary parent; the forest is acyclic. Reference branches
+are ignored by traversal.
+
+Chapter assignment: every root appears exactly once in exactly one chapter's `topLevelBlockIds`;
+every non-root belongs to the chapter of its top-level ancestor; a block never appears in two
+chapters.
+
+Outline order is a depth-first traversal:
+
+1. Chapters in order.
+2. Top-level blocks in `topLevelBlockIds` order.
+3. For each block, its **anchored primary children** first, ordered by anchor position (start,
+   then anchor ID), and within one anchor by branch order.
+4. Then its **direct primary children** in branch order.
+5. Never recurse through reference branches.
+6. Page-start markers are inserted where the paginator places them; they are not structural nodes.
+
+Anchored-first is closed and shared by Outline, Continuous, Page and PDF. Derived pages are
+numbered in reading order. Block labels (`1`, `1.1`) are generated, not stored.
+
+**Shared children.** A shared child appears once in every view. Reference contexts show a see-also
+link to the derived page; they never repeat content or add an outline entry.
+
+**Default branch role.** Branching to a block that already has a primary home creates a reference
+edge. Branching to a top-level block adds it as a primary child unless the user chooses
+"reference only". **Make home** promotes a reference edge to primary and demotes the old primary to
+reference; it is disabled when the target is already a root, where the UI offers **Move here** or
+**Add as child**.
+
+### 4.7 Page settings and view state (outside the document)
+
+Page settings are personal: a global default plus a per-document override, keyed by document ID.
+
+| What | Global | Per-document override |
+|---|---|---|
+| Page size, orientation, margins | yes | yes |
+| Theme: presets, density 0.6–1.2, typography, packing | yes | yes |
+| Chrome: header, footer, page number | yes | yes |
+| Manual break hints | — | yes |
+| Layout, mode, page, zoom, scroll, selection, collapse | — | view state only |
+
+**Page setup.** A4: 210 × 297 mm portrait, 297 × 210 mm landscape; one orientation per document;
+margins from the setup (20 mm default). The content area is the page minus margins.
+
+**Manual break hints.** A hint asks the paginator to start a page before a block. It is honoured
+only when the block can start a row; otherwise it is reported and the paginator's actual break is
+used. Hints are pruned when the block disappears.
+
+**View state** is non-canonical. Reopening a document may restore it, but losing it never loses
+content.
+
+### 4.8 Assets
+
+- An asset has `id`, `path` (relative to the package), `mime`, optional `bytes`, `width`, `height`,
+  `alt` and `originalName`.
+- Bytes are stored under `assets/` and addressed by content hash; identical bytes are stored once.
+- Image nodes reference the asset ID and may carry a normalized region.
+- Removing an asset that is still referenced is refused; unused assets are reported in Health and
+  can be moved to the OS Trash after a preview.
+- A missing asset renders the app placeholder and is reported; it never breaks the document.
+
+### 4.9 Annotations (future)
+
+`annotations` is reserved and empty. Highlights are a content mark, not this layer. Ink, page
+notes and frames are out of scope and must not be assumed by layout or export.
+
+### 4.10 Invariants
+
+1. IDs are unique across blocks, branches, anchors and assets; an ID is never reused.
+2. Every non-root block has exactly one primary parent; the primary subgraph is acyclic.
+3. Reference edges may cycle and never change position, outline order or pagination.
+4. Every root is listed exactly once in one chapter; every non-root inherits its chapter.
+5. Sibling order is unique per parent and supports insertion between neighbours.
+6. Sibling, top-level and chapter order are the only spatial degrees of freedom.
+7. Pages are derived; no page container, synthetic super-root or page assignment is stored.
+8. Page size, orientation, margins, theme, density, chrome and manual breaks are personal settings,
+   not document data.
+9. Normal blocks are atomic. A long block continues only at a paragraph, list item, blockquote
+   paragraph, between code lines, or between table rows; never inside a line, image, formula, code
+   line or table row.
+10. A continuation is one block with markers, never a second copy.
+11. A table row is atomic; a row taller than the page content box is a defect, not a cut.
+12. Layout and pagination are deterministic and idempotent for the same document, settings and
+    viewport.
+13. Selection, focus, zoom, page, scroll and collapse are view state, never document state.
+14. A broken anchor never deletes a branch; a destructive action is undoable or confirmed.
+15. A load-time projection that cannot represent legacy content refuses the conversion or preserves
+    the original; it is never written back silently.
+16. Unknown fields and unknown content nodes are preserved.
+17. A `.md` guest file is never converted into a forest automatically.
+
+### 4.11 Illustrative schema
+
+```json
+{
+  "schemaVersion": 2,
+  "id": "doc_7f3a",
+  "title": "Linear algebra — eigenvalues",
+  "createdAt": "2026-11-18T09:00:00.000Z",
+  "updatedAt": "2026-11-18T10:12:00.000Z",
+  "revision": 42,
+  "chapters": [
+    { "id": "ch_1", "title": "Eigenvalues", "topLevelBlockIds": ["b_1"] }
+  ],
+  "blocks": {
+    "b_1": {
+      "id": "b_1",
+      "content": {
+        "type": "doc",
+        "children": [
+          { "type": "paragraph", "children": [{ "type": "text", "text": "Definition" }] }
+        ]
+      }
+    }
+  },
+  "anchors": {},
+  "branches": {
+    "br_1": {
+      "id": "br_1",
+      "source": { "blockId": "b_1" },
+      "targetBlockId": "b_2",
+      "role": "primary",
+      "order": "a0"
+    }
+  },
+  "assets": {}
+}
+```
 
 ### 4.12 Shared-child validation
 
-The product requires DAG semantics: a block can have more than one parent. The model resolves this with one primary home and zero or more reference parents.
-
-**Scenario.** Block `b3` ("Eigenvalue equation") is the target of a primary branch from `b1` and a reference branch from `b4` ("Cayley–Hamilton").
-
-**Required behavior:**
-
-- `b3` exists once. There is one block, one content body, one set of anchors, and one subtree.
-- `b3` appears once in the outline, under `b1`, at the position determined by the anchored branch from `b1`.
-- `b4` shows a "See also" link to `b3` with its derived page when available; it does not repeat the content and does not create a second outline entry.
-- The Continuous and Page layouts show two incoming edges to `b3`: the primary edge visually stronger, the reference edge dashed or otherwise distinct.
-- Deleting the reference branch from `b4` leaves `b3` under `b1` unchanged.
-- "Make home" from `b4` swaps the roles: `b4` becomes the primary parent, `b1` becomes a reference parent, and `b3` moves under `b4` in outline and layout (including a pagination change if it crosses a page boundary). "Move here" instead makes `b4` primary and deletes the old `b1` edge.
-- Deleting the primary branch from `b1` makes `b3` a root; the reference from `b4` remains, and `b3` is inserted after the former top-level block in the chapter's top-level order.
-- A block with two incoming reference branches and no primary is a root; references do not create a home.
-
-**Verdict.** This satisfies "shared content without duplication" and keeps layout deterministic. It does not give two equal-status structural parents. If the product owner requires two equal parents that both affect placement, the layout model needs a different rule and the document needs a product decision (D4); the proposed one-home rule is the recommended interpretation.
-
-**Shared-child lifecycle.** A block's primary parent MAY change; the document always has exactly one primary incoming edge. The required behavior is:
-
-| Event | Required behavior |
-|---|---|
-| **Primary parent block deleted, promote children** | The shared child becomes a root and a top-level block immediately after the former top-level block; existing reference parents remain; the child and its subtree are unchanged; it appears once at the new top-level position. |
-| **Primary parent block deleted as part of delete-subtree** | The child and its subtree are deleted only after confirmation that lists external reference parents; those incoming reference edges are removed with the deletion. No dangling edges. |
-| **Primary branch deleted, parent remains** | The child becomes a root and a top-level block after the former top-level block; reference parents remain; target content and anchors are unchanged. |
-| **"Make home" from a reference parent** | The chosen reference becomes primary; the old primary becomes a reference; the child moves once under the new home, with derived pagination updating. Both relationships are preserved. |
-| **"Move here" from a reference parent** | The chosen reference becomes primary; the old primary edge is deleted; the child moves once, with derived pagination updating; the old parent loses the link. |
-| **Primary parent is reparented** | The shared child moves with the parent's subtree; its own primary incoming edge is unchanged. Pagination is recomputed. |
-| **Outline display for a multi-parent block** | The block appears once, at its primary home. Reference contexts show "See also" and "Referenced by" links with derived page numbers when available. The breadcrumb follows the primary path; a separate list shows reference parents. No duplicate rows or cards. |
-| **Collapse** | Collapsing an ancestor of the primary home hides the shared child; reference links from visible blocks still resolve and can reveal/expand it. No duplicate is created. |
-| **Shared child deleted** | All incoming primary and reference edges are removed; if external reference parents exist, the confirmation lists them. |
-
-This lifecycle is covered by acceptance criterion AC-58.
+On load and at the command layer: at most one primary edge per target; no primary cycle; every edge
+endpoint resolves; every anchor belongs to its declared block; sibling order is unique per parent;
+no branch duplicates the same source-target pair. Failures are specific (which ID, which edge) and
+do not partially mutate.
 
 ### 4.13 Platform neutrality
 
-The canonical model MUST remain usable by a future iPad or native companion without rewriting document data:
-
-- No DOM nodes, screen coordinates, CSS selectors, or rendered pixel positions in canonical data.
-- Anchors use stable IDs, quote/context fallbacks, normalized image rectangles, and defined offset units.
-- Assets use relative package paths, not absolute filesystem paths.
-- Time values are ISO 8601 UTC; IDs are opaque strings.
-- Content is JSON-compatible data; raw HTML and scripts are never executed.
-- Chapter/top-level order is stored as ordered IDs, not as device-specific coordinates or stored page containers. Layout and pagination are recomputed from canonical structure and page setup.
+The model is plain JSON: no DOM nodes, no CSS geometry, no absolute file paths, no machine-specific
+values. Geometry that must survive a platform change (image regions, code offsets) is normalized as
+described in §4.4.
 
 ---
 
@@ -751,323 +535,151 @@ The canonical model MUST remain usable by a future iPad or native companion with
 
 ### 5.1 Command model and undo
 
-- Every structural change is a command with a human-readable label and an inverse: create block, create branch, delete block, reparent, reorder, add/remove page-break hint, collapse, repair anchor, and so on.
-- Text editing uses the active editor's local history. Structural commands use the application command stack.
-- The user sees one undo stack. When the last action was typing and the active editor has local history, undo routes to the editor; otherwise it routes to the application stack. The routing rule must be documented in UX and tested at boundaries (typing, then branching, then undo).
-- A command validates its preconditions before mutating. On failure, nothing changes and the user gets a reason.
-- Undo restores content, structure, anchors, chapter/top-level order, break hints, selection, and focus. Redo is cleared by a new command.
-- Undo history is session-only in v1; it is not persisted across launches.
-- Autosave does not create undo entries.
-- Multi-step user actions (for example, "create anchored child" = create anchor + create block + create branch) are one undoable command.
-- Commands are identical in the outline, the Continuous layout, and the Page layout. A command available in one surface must be reachable in the others through the keyboard, menu, or command palette.
+Every mutation goes through a typed command; the UI never mutates the model directly. A command is
+a transaction: it validates, applies atomically, and returns either a new document or a specific
+error. `revision` increments once per committed command. Undo restores the previous document and
+selection; a multi-step action (create an anchored child) is one entry. Undo is session-only;
+reopening starts a fresh stack. Collapse, view switches and navigation are not undoable.
 
 ### 5.2 Block operations
 
-| Operation | Preconditions | Effect | Undo |
-|---|---|---|---|
-| **Create top-level block** | A chapter exists. | Create a block and append it to the chapter's `topLevelBlockIds`, focus it for editing. | Remove block and top-level entry. |
-| **Create child** | A source block or anchor exists. | Create a block, create a primary branch from the source block, order after the last direct child. Pagination is recomputed. | Remove branch and block. |
-| **Create sibling** | A reference block exists. | Create a block with the same primary parent, ordered after the reference block. If the reference is top-level, create a new top-level block after it in the chapter. | Remove branch and block, restore top-level order. |
-| **Create anchored child** | A valid single-block selection exists. | Create an anchor bound to the selection, create a block, create a primary branch from the anchor. The child is placed below the anchor; the paginator may continue it on the next page. | Remove branch, anchor, and block; restore selection. |
-| **Edit content** | Block exists. | Update content; re-resolve anchors in that block; re-measure; re-layout and re-paginate. | Editor-local undo; structural splits/merges are commands. |
-| **Rename label** | Block exists. | Set or clear the optional label. | Restore previous label. |
-| **Delete block** | Block exists. | Remove the block, its anchors, its outgoing branches, and its incoming branches. Choose "promote children" or "delete subtree." See below. | Restore all removed records and top-level entries. |
-| **Split block** | Caret is inside a block. | Move content after the caret into a new block; create a primary branch from the same parent, ordered after the original; move affected anchors. Pagination is recomputed. | Re-merge and restore IDs/anchors. |
-| **Merge block** | A previous sibling exists. | Append the block's content to the previous sibling, remap children/anchors/branches, delete the block. | Restore both blocks and all mappings. |
-| **Duplicate subtree** | Block exists. | Copy the block and its primary descendants with new IDs; remap internal branches and anchors; do not copy external references. Insert after the source. | Remove the duplicated subtree. |
-| **Paste** | Clipboard has content. | Paste text/rich content into the active block; paste an image as an asset; paste copied blocks as a duplicated subtree. | Editor-local or command undo. |
+| Command | Effect |
+|---|---|
+| `block.create` | Create a block and its primary branch under a parent or chapter. |
+| `block.editContent` | Replace a block body; the canonical content edit. |
+| `block.rename` | Set the label. |
+| `block.delete` | Delete a block with defined child semantics (promote, reparent or cascade), undoable. |
+| `block.move` | Change the primary parent and order. |
+| `block.split` | Split at a caret into two blocks; anchor marks are preserved or flagged. |
+| `block.merge` | Merge with the previous sibling; marks and anchors are preserved or flagged. |
 
-**Delete block.** Default is **promote children**, because it is the least destructive:
-
-- Every primary child of the deleted block, **including every anchored primary child**, is promoted. Reattach it to the deleted block's primary parent in the deleted block's sibling position and order; if the deleted block was a top-level block, make it a top-level block immediately after the deleted block in the chapter's top-level order. For an anchored primary child, create a new primary branch from the deleted block's primary parent (or make the child top-level), remove the old anchored branch, and keep the target block ID and its subtree. Never leave an unreachable target (C9).
-- The deleted block's anchors and their content bindings are removed. Reference branches sourced from those anchors are removed with the block; their targets are unchanged. Primary branches sourced from those anchors are replaced by the promoted primary branches above, not dropped (C9).
-- The deleted block's outgoing branches and incoming branches are removed. Reference edges pointing at the deleted block are removed.
-- Undo restores the deleted block, its anchors and bindings, and the old anchored primary branches with their original IDs and order (C9).
-- If the block has external reference parents, the confirmation names them and their derived pages.
-- **Delete subtree** is explicit and destructive: it deletes the block and all primary descendants, **including anchored primary descendants** (follow both direct and anchored primary branches), removes all branches touching them, and lists any external reference edges that will be removed. Undo restores everything.
-
-**Split block.** Splitting preserves the author's structure. M3f implements the minimal split: inside a text leaf; atomic nodes (formula/code/image) move whole; a split that would separate an atomic node from its surrounding text is rejected except at a node boundary (OD-6).
-
-- Content before the caret stays in the original block; content after the caret moves to the new block with a new block ID.
-- If the original block is top-level, the new block becomes a top-level block immediately after it in the chapter. Otherwise, the new block gets a primary branch from the same primary parent port (block or anchor), ordered immediately after the original. Pagination is recomputed.
-- Anchors entirely before the split stay with the original. Anchors entirely after the split move to the new block and update `blockId`; anchor IDs and branch IDs stay. An anchor spanning the split point keeps its ID, keeps the mark on the original side only, and is flagged for repair (`split-inside-anchor`); the quote is not silently rewritten, the new side gets no second anchor record, and the branch target stays.
-- Branches sourced from moved anchors move with them and update `source.blockId` with the anchor's new `blockId`; branches sourced from the original block stay with the original. Direct children of the original stay with the original.
-- Undo restores the original content, IDs, anchors, branches, order, and chapter placement.
-
-**Merge block.** Merging is a command, not raw text concatenation. M3f implements the minimal merge: same primary parent port (same block or same anchor), or both blocks top-level in the same chapter. Cross-anchor merge and **cross-chapter merge are rejected in M3** (OD-11).
-
-- Append the merged block's content to the previous sibling (or the explicit `intoBlockId`).
-- The merged block's primary children become children of the surviving block, ordered after its existing children; branch IDs are preserved where possible.
-- Anchors move to the surviving block and update `blockId`; anchor IDs stay and text marks are preserved by the content move.
-- Branches targeting the merged block are retargeted to the surviving block; duplicate exact source-target branches are removed with a warning, keeping the earlier branch by order then ID.
-- Branches sourced from the merged block are retargeted to the surviving block; duplicates are removed the same way. If retargeting produces both a primary and a reference edge for the same source-target, keep the primary and drop the reference with a warning. A branch whose source and target become the same block is dropped with a warning (self-branch), never created as S→S.
-- The merged block is deleted and its top-level slot is removed. Undo restores both blocks, all anchors, branches, orders, and top-level slots.
+Split scope is deliberately minimal: a caret inside a text block. Structural deletion is explicit;
+Backspace at the start of a block never crosses the boundary.
 
 ### 5.3 Branch operations
 
-| Operation | Preconditions | Effect |
-|---|---|---|
-| **Branch to new block** | A source block or anchor exists. | Create a block and a primary branch from the source. This is the default for "expand here." |
-| **Branch to existing block** | A source exists and the target exists. | Apply the default rule below, or show the explicit choice. |
-| **Delete branch** | Branch exists. | Primary: target becomes a root and a top-level block after the source block's top-level ancestor; subtree intact. Reference: remove only the edge. |
-| **Make home** | A reference branch exists and the target has a primary parent. | Promote the reference to primary; demote the old primary edge to reference. The target moves under the new parent; pagination is recomputed. Preserves both relationships. If the target is already a root, "make home" is disabled; use Move here or Add as child (OD-7). |
-| **Move here** | A reference branch exists; the target may have a primary parent or be a root. | Make the chosen edge primary and delete the old primary edge if one exists. The target moves under the new parent; pagination is recomputed; the old parent loses the link. |
-| **Promote to primary (root target)** | Target is a root. | Not a separate command: a root has no primary parent to demote. Use **Move here** (attach the reference source as primary) or **Add as child** (create a new primary branch); Make home is disabled (OD-7). |
-| **Demote primary to reference** | A primary branch exists. | Convert the edge to reference; target becomes a root and a top-level block. Keeps the link. |
-| **Reorder sibling** | Two siblings share a source port and role (including anchored primary and reference lists). | Update fractional order; no other structural change. |
-| **Reorder top-level block** | Two top-level blocks share a chapter. | Update top-level order; no other structural change. |
-| **Relabel branch** | Branch exists. | Set or clear the optional label. |
-
-**Default rule for branching to an existing block:**
-
-- If the target is a **top-level root** and the user chooses "add as child," the new branch becomes primary and the target is removed from the chapter's top-level list. The default for a root is "add as child," with "link as reference" available.
-- If the target already has a **primary home**, the new branch is a **reference** by default. The target stays where it is. The user can explicitly choose "move here" or, later, "make home." Pagination is recomputed; a branch that crosses a page boundary gets a continuation marker.
-- If the target is the source block or an ancestor of the source, a primary branch would create a cycle and is rejected. A reference branch is allowed unless it is a self-branch.
-- If an exact source-target branch already exists, focus the existing branch instead of creating a duplicate, **regardless of role** (OD-3). A branch command takes an explicit `role`; the UI applies the default rule above.
+| Command | Effect |
+|---|---|
+| `branch.create` | Create a primary or reference edge from a block or anchor. |
+| `branch.createFromSelection` | Create an anchor from the selection and the branch in one transaction. |
+| `branch.delete` | Remove an edge; a primary target becomes a root. |
+| `branch.reorder` | Change order within a port and role. |
+| `branch.relabel` | Set the see-also label. |
+| `branch.makeHome` | Promote a reference edge to primary and demote the old primary. |
+| `branch.moveHere` | Make a block primary here, deleting the old primary if any. |
+| `branch.demote` | Turn a primary edge into a reference edge. |
 
 ### 5.4 Anchor operations
 
-- **Create anchor.** The selection must be inside one block. The kind is inferred from the content: text range, formula term or whole formula, code token/line range, image point/region. The anchor gets a new ID and a content binding: an `anchorIds` entry on the text mark or atomic node attr, plus the kind-specific selector (OD-4). A text anchor is one contiguous binding; overlapping anchors share the mark's array, and a second disjoint range is a separate anchor. Creating a branch from a selection creates the anchor, target block (if new), and branch as one undoable command.
-- **Create branch from anchor.** Same rules as branching to a new or existing block, with the anchor as the source port. A new block becomes the anchor's primary child, ordered before the source block's direct primary children (D3), and placed in the callout lane below the parent card in the continuous layout (OD-8). The paginator may continue it on the next page at a safe boundary; it never cuts a line, image, formula, or code line.
-- **Re-anchor / repair.** Choose a new selection in the same block (repair is same-block in v1), or choose a candidate found by quote search. Update the selector and binding; keep the anchor ID and all branch IDs. Repair is one undoable command; a resolved edit does not auto-refresh the stored quote/context (repair is explicit).
-- **Attach branches to block.** Remove the anchor and its binding but keep its branches by changing their source to the block. Append them after the block's existing direct branches of that role, preserving their relative order; keep branch IDs, labels, and targets. This is the safe fallback when the user wants to keep the relationship but not the span. One undo entry restores the anchor, binding, sources, and order keys.
-- **Delete anchor.** Requires a choice: attach branches to the block, or delete the branches. The second is destructive and confirmed. Deleting an anchor never deletes the target block; a primary target is promoted, never deleted with the anchor. One undo entry.
-- **Idle anchor (OD-2).** When the last outgoing branch is removed, the anchor record stays **idle**: the marker is hidden, no callout is shown, and the anchor is not listed as broken or in the health panel until a branch exists. An explicit **Remove anchor** command deletes the idle record and its binding; it is undoable. An idle anchor is a valid record, not an error.
-- **Broken anchor.** Never delete automatically. The branch remains; the anchor appears in the anchor health surface (a status chip plus sheet/dialog in M3, not a full inspector; OD-10); the Continuous/Page layout and PDF fall back to the whole block as the visual origin, show a warning marker, and offer a repair dialog. The user can relink, attach to block, or delete. Broken anchors never open a modal on load and do not block saving or export.
-- **Multi-block selection.** Rejected in v1 with a message. A text selection containing inline math or images is allowed and uses the plain-text projection for the quote (OD-12); a selection that crosses a block boundary, a block-level atomic node (display math, image, code block), or a table-cell boundary is rejected. A future version may create multiple anchors or a block-range anchor.
+| Command | Effect |
+|---|---|
+| `anchor.create` | Create an anchor record and its content binding. |
+| `anchor.repair` | Replace the selector and binding; the ID survives. |
+| `anchor.attachToBlock` | Fall back to the whole block while keeping the branch. |
+| `anchor.delete` | Remove an idle anchor explicitly; never implicit. |
 
 ### 5.5 Structure and ordering operations
 
-| Operation | Trigger (default) | Effect |
-|---|---|---|
-| **Reparent** | Tab in the outline, or "Move under…" | Selected block becomes the last child of the previous sibling. Rejects if the new parent is the block itself or a descendant. Removes the old primary edge, creates a new one, updates top-level order if needed. Subtree, anchors, and outgoing branches move. Pagination is recomputed. |
-| **Outdent** | Shift-Tab | Selected block becomes a sibling immediately after its primary parent. If the parent is a top-level block, the block becomes a top-level block after the parent; otherwise it becomes a child of the grandparent, ordered after the parent. |
-| **Move up/down** | Keyboard or drag in outline/Continuous Edit | Reorder among siblings or top-level blocks; update fractional order only. |
-| **Make root** | Menu/command | Remove the primary incoming edge; make the block a top-level block after the former top-level block in the chapter. Subtree intact. |
-| **Make home / move here** | Reference edge action | See §5.3. |
-| **Drag in outline** | Drag row | Reorder or reparent with a drop indicator. Dropping into a descendant is rejected. |
-| **Drag in Continuous Edit/Page Edit** | Drag card | Reorders the block among its siblings or top-level blocks with a drop indicator. It never sets an arbitrary x/y, never pins, and never free-drags. Page Read accepts no drag; Page Edit is opt-in. |
-| **Add page-break hint** | Command on a block or page-break marker | Request a page break before the block. The paginator honors it where possible; it is a hint, not a page container. |
-| **Remove page-break hint** | Command on the hint | Remove the request; pagination is recomputed. |
-| **Change page orientation** | Document/page setup | Switch A4 portrait ↔ landscape. Recompute layout and pagination; page count may change. |
-| **Change margins** | Document/page setup | Update A4 margins. Recompute layout and pagination. |
+Chapters: `chapter.create`, `chapter.rename`, `chapter.reorder`, `chapter.delete` (content is
+preserved or confirmed). Documents: `document.create`, `document.rename`. Restore:
+`structure.restore` for a failed mutation. Ordering uses fractional strings; insertion between two
+neighbours updates one order value.
 
 ### 5.6 View operations
 
-- **Switch layout.** Outline ↔ Continuous ↔ Page, preserving focused block, selection, collapse state, Continuous scroll, current page, and zoom/fit.
-- **Switch interaction mode.** Edit ↔ Read within the active layout. Switching commits the active edit and creates no undo entry. Continuous and Page support both modes; Page Edit is an opt-in single-block overlay.
-- **Split view (SHOULD).** Show outline and the active layout side by side over the same document. The same one-editor rule applies.
-- **Collapse / expand.** Collapse hides primary descendants and their callouts in the outline and Continuous layout; expand restores them. Collapse subtree and expand all are commands. State is shared by the outline and Continuous layout. The Page layout and PDF show the full document; collapse does not change their content.
-- **Page navigation.** Previous/next page, page thumbnails/sidebar, go to page, go to chapter. Changing page is view state and never changes document data.
-- **Zoom / pan / fit.** Fit page, fit width, actual size, zoom in/out. Pan/zoom are navigation only and never change block positions.
-- **Page break hints.** Add or remove a break before a block; the Continuous layout shows a derived marker and the Page layout/PDF honor the hint where possible.
-- **Page setup.** Change orientation and margins; recompute layout and pagination.
-- **Freeze study mode.** Freeze the current layout and pagination snapshot; reading is enabled, editing is disabled. Exiting freeze returns to incremental reflow or offers a full reflow.
-- **Full reflow.** Recompute the entire layout and pagination on request, or automatically after a short idle in editable mode. The UI shows a brief "layout updated" indicator if page breaks move.
-- **Focus subtree (SHOULD).** Dim or hide unrelated blocks for study; do not delete or restructure.
-- **Navigate.** Follow a branch to its target (and derived page), follow a backlink, go back/forward in navigation history, jump to an anchor, jump to a search result.
-- **Search.** Find text, code, LaTeX source, and labels; show the chapter/page path; reveal the block in all layouts and modes.
+Layout (`continuous` | `page`), mode (`edit` | `read`), page, zoom, scroll, selection, focus and
+collapse are view state. Switching layout preserves the mode and the selected block. Page Edit
+opens one single-block overlay over the page geometry.
 
-### 5.7 Persistence, export, and future operations
+### 5.7 Persistence, export and future operations
 
-- **Save / autosave.** Atomic save of the document package; see §10.
-- **Save As / open / recent.** The document package is the unit; a document library is not required in v1 (A3).
-- **Recover.** Offer the last autosave or backup after a crash; never overwrite the last good file with a partial one.
-- **Export PDF.** Page PDF: one PDF page per derived page, A4 portrait/landscape, produced by the paginator; see §11.
-- **Export Markdown.** Post-v1 (D9): outline order, page breaks as comments/separators, anchors as footnotes/callouts, references as links; lossy for page layout and exact anchors.
-- **Export JSON Canvas.** Post-v1: a read-only map interchange, not the document format; no anchors; references become edges. It does not restore free positioning.
-- **Import Markdown / JSON Canvas.** Post-v1: lossy; imported content gets new IDs; anchors are not reconstructed from plain Markdown.
-- **Share package.** A zip or folder copy of the document package, with assets. Not a cloud feature.
+Save, export and recovery are described in §10 and §11. Future operations (agent commands,
+annotations) need an ADR and are not part of v1.
 
 ---
 
-## 6. Views and interaction model
+## 6. Views and interaction
 
 ### 6.1 Shared principles
 
-- **One document, multiple lenses.** Outline and the Continuous and Page layouts read the same model and issue the same commands. None owns a private ordering, copy, or layout state that can diverge.
-- **One focused block.** There is one focused block across the app. The Continuous and Page layouts may have a multi-selection for reorder commands, but one block is the focus for editing, navigation, and the outline.
-- **One active editor.** At most one block editor is live at a time. This avoids duplicate editors on the same content, reduces memory, and makes undo/focus predictable.
-- **Read-only by default.** Blocks render as content until the user edits. Read mode and read-only surfaces do not mount an editor for every block.
-- **Keyboard-first.** Every core authoring operation is reachable without a mouse. Exact keybindings belong to UX; the required commands are listed in §6.7.
-- **No color-only meaning.** Primary vs reference, resolved vs broken anchor, and selected vs focused states must also differ by shape, line style, icon, or label.
-- **Context preservation.** Switching layouts or modes, changing page, collapsing, or zooming must not change content or structure.
+Outline, Continuous and Page read the same document and share IDs, order, selection and collapse
+state. No view keeps a private copy. Navigation never mutates the document. `docs/ux.md` owns the
+interaction detail; this section states the normative behavior.
 
-### 6.2 Outline view
+### 6.2 Outline
 
-The outline is the fast authoring surface and the canonical reading order.
+A depth-first tree of chapters and primary children. Row anatomy: collapse control, label or first
+line, anchor marker, reference indicator, page start. Anchored children appear under their block in
+anchor order. Reference edges appear as see-also links, never as a second row. The outline is the
+fastest structural editor: create, split, merge, indent, outdent, reorder and move live here.
 
-**Structure and rendering**
+### 6.3 Continuous and Page
 
-- Blocks are rows in a vertical, indented list. Each row shows a collapse control, the block content (rendered), an optional label, anchor markers, and reference links. Page breaks and continuation markers appear as separators.
-- Direct primary children are indented one level under their parent.
-- Anchored primary children appear as indented callouts immediately after the parent block, before direct children (closed, D3). The callout shows the anchor quote and the branch label, and is visually distinct from a direct child.
-- Reference edges appear as "See also" / "Referenced by" chips with page numbers; they do not create indented rows and do not repeat content.
-- A collapsed row shows a count of hidden descendants.
-- Broken anchors show a warning marker on the block and in the callout; the branch target remains visible.
-- A page-break marker shows the derived page number and any continuation; it is not a stored page container.
+**Continuous** is a vertical, continuous rendering with content-driven widths and page-start markers
+derived from the paginator. It has Edit and Read. The canvas is 3,200 px wide with horizontal scroll
+for deep chains; the placement budget is 3,120 px. It has no page geometry and no page model: page
+starts are markers only.
 
-**Authoring**
+**Page** renders the derived A4 pages in one column, pages touching with a 1 px seam, free scroll.
+Read is exact and read-only. Edit is opt-in: one single-block overlay over the same geometry and the
+same paginator; committing calls `block.editContent` and produces one structural undo entry. The
+canvas header carries find, a pager (`N / M`, typable), a zoom stepper (50–200 %, 100 % = fit
+width) and the layout/mode segments. Only the visible pages ±2 are mounted over exact-size
+placeholders.
 
-- Clicking a block or pressing Enter on a focused row opens the active editor inline.
-- Enter creates a sibling; Tab reparents under the previous sibling; Shift-Tab outdents; Backspace at the start merges with the previous block. These are application commands, not raw editor behavior.
-- A dedicated command creates an anchored child from the current selection.
-- Drag reorders or reparents with a drop indicator; an invalid drop is rejected before mutation. Dragging never sets a free position.
-- Collapse/expand, page break, branch/link, and page navigation commands are available from the keyboard and context menu.
+**Modes.** A mode is not a layout. Switching layout preserves the mode and the selected block.
+Entering Read closes any open in-place editor and blocks every document transaction, including
+in-place node-view controls. Every pointer action has a keyboard path.
 
-**Performance**
+### 6.4 Synchronization
 
-- The outline virtualizes offscreen rows. The active editor is always mounted; other rows are lightweight renderings.
-- Scrolling 1,000 rows SHOULD remain smooth; the focused row and its editor must never be unmounted unexpectedly.
-
-### 6.3 Continuous and Page layouts
-
-There are two layouts over the same document: **Continuous** and **Page**. Each has an **Edit** and a **Read** mode. Continuous + Edit is the default. Page Read is the exact A4 proof and is read-only; Page Edit is implemented, opt-in, and the layout switch preserves the mode. "Canvas" means the Page layout; it is **not an infinite canvas**.
-
-**Shared model**
-
-- One canonical document, one segment/safe-break model, and one paginator. Pages are derived, never containers.
-- The Page layout and PDF share one geometry and one measurement. Page Read and Page Edit differ only in interactivity, not geometry.
-- The Continuous layout does not compute page breaks and does not use CSS re-pagination. It consumes the paginator's breaks as markers/hints. The Page layout/PDF are the exact geometry; continuous markers are derived hints and do not claim pixel parity.
-- Page and PDF show the full document content. Collapse is a Continuous/outline navigation aid; it never removes content from Page or PDF. If collapse in Page is added later, it is a separate product decision with explicit export semantics.
-- One active editor. Switching layout or mode commits the active edit and preserves the focused block, selection, collapse state, Continuous scroll, current page, and zoom/fit.
-- Neither layout supports free positioning, manual pins, or arbitrary x/y. The Page layout is bounded by the document page setup (A4 now; other sizes later).
-
-**Shared rendering**
-
-- The layout engine computes one adaptive tree geometry per chapter: content-driven widths, children to the right when there is room, otherwise wrapped below the parent with a slight indent, anchored branches below their anchors. The Continuous renderer presents it as a screen-optimized scroll; the Page layout/PDF render the paginator's exact A4 slices.
-- Blocks are cards whose width follows the measured content within page-width constraints; heights are measured from content.
-- Primary edges are solid arrows; reference edges are dashed or otherwise distinct and labeled when they have a label. In M3, a dashed reference edge is drawn when both endpoints are visible; otherwise a "See also"/"Referenced by" chip is shown (OD-9).
-- Cross-page edges use continuation markers at the page boundary. A block is never cut through a line, image, formula, or code line; it may continue at a safe boundary.
-- Collapsed cards show a hidden-descendant badge in the outline/Continuous layout. The Page layout always renders the full document; it does not inherit the collapsed set.
-- At low zoom, cards use a simplified level of detail (label and first line) and editing is disabled; at normal zoom, full content renders.
-
-**Continuous layout (Edit and Read)**
-
-- A continuous vertical scroll of the chapter layout. Derived page-break markers show where the paginator will break and which page number follows; they are hints, not a pixel-accurate print preview.
-- Page width and margins are shown as guides; content outside the guide is not clipped, but it will be paginated.
-- Continuous + Edit is the **default authoring surface in v1 (ADR-0007)** because it avoids page-boundary friction while keeping derived page breaks visible.
-- Continuous + Read is read-only for content while preserving selection, links, anchors, reference navigation, copy, scroll, zoom, focus, and outline navigation. It must not block saving or autosave.
-- Adding or editing a block updates the continuous layout and its derived markers after the layout debounce.
-
-**Page layout (Read now, Edit planned)**
-
-- A paginated A4 rendering of the derived pages: one A4 page at a time, with visible margins, page number, and page navigation.
-- Page content is a slice of the layout produced by the paginator. Pages are not stored; changing content re-paginates.
-- Continuation markers appear at the bottom of the source page and the top of the target page.
-- Page controls: previous/next, page thumbnails, page number, orientation, margins, fit page, fit width, actual size, zoom.
-- **Page Read** is exact and read-only: it is the visual proof for PDF export and must show the same breaks and continuations as the PDF. It accepts selection, navigation, zoom, focus, link/anchor following, copy, Page Setup, and Export; it accepts no content or structural edits.
-- **Page Edit** is opt-in: one active block editor overlay, no free canvas, no second paginator, and the same geometry as Page Read. It never auto-opens.
-- Page Read and Page Edit show the full document, regardless of the Continuous collapse state.
-
-**Freeze study mode**
-
-- Freeze takes a snapshot of the current layout and pagination.
-- While frozen, scrolling, zooming, following references, and reading are enabled; editing and structural commands are disabled.
-- Nothing moves, even if a background measurement completes. The freeze badge is visible.
-- Exiting freeze returns to normal editing and offers "Keep current layout" (incremental) or "Full reflow."
-
-**Default and exactness (ADR-0007)**
-
-- **Default:** Continuous + Edit. Page opens in Read mode.
-- **Page + Edit:** opt-in when implemented; it differs from Page Read only in interactivity, not geometry.
-- **Continuous markers:** derived hints from the same paginator. They do not claim pixel parity with Page/PDF.
-- **One layout engine and one paginator:** do not build a second pagination implementation or CSS re-pagination. Page/PDF are exact; Continuous is screen-optimized.
-
-**Interaction**
-
-- Click selects and focuses a block. Double-click or Enter opens the inline editor in Edit mode. Only one editor is active.
-- Scroll/pan and pinch/zoom are navigation only. They never change block positions.
-- Drag a card to reorder it among its siblings or top-level blocks in Edit mode. A drop indicator shows the legal slot; the block snaps into the adaptive layout. There is no free x/y drag and no pin. Read mode accepts no drag.
-- Drag from a block's branch handle to another card to open the branch-to-existing choice; drag from an anchor highlight to create an anchored child. Dropping outside a legal slot cancels. Read mode disables branch creation.
-- Select an edge to highlight it; Delete removes the branch (primary deletion makes the target a top-level block, with confirmation if it has a large subtree).
-- Clicking a reference edge navigates to the target's derived page and highlights the source; a back command returns.
-- Marquee/shift multi-select supports reorder, delete, and collapse as a group in Edit mode. Multi-select does not allow editing more than one block.
-- A focus mode dims unrelated blocks for study; it is a view state, not a document change.
-
-**Page boundaries**
-
-- The paginator is authoritative. It breaks between blocks, never through a block.
-- A continuation is a rendering state, not a second block. The source page shows "continues on page N"; the target page shows "continued from page M".
-- A block taller than the page content area may continue at a safe internal boundary; if no safe boundary exists (for example a single line, image, formula, code line, or table row that is taller than the page), it is a pagination defect: the user must split the block or change page setup. The app does not cut or clip it.
-- A table may continue across pages only between rows. A row and its cells are never split; a table header is not repeated automatically in v1.
-
-### 6.4 Synchronization between layouts and modes
-
-- Content edits, structure changes, anchors, pagination, and undo are reflected in all layouts and modes immediately. Collapse state is reflected in the outline and Continuous layout; Page/PDF always show the full document.
-- Selecting a block in any layout updates the focused block in the others and reveals its chapter/derived page. If the block is hidden by a collapsed ancestor, the outline/Continuous layout expands ancestors; the Page layout is unaffected because it always shows the full document. This changes only view state.
-- Switching layouts or modes preserves the focused block, the current page, Continuous scroll, and the page selection where possible.
-- The outline order and adaptive layout derive from the same primary branches, top-level order, and sibling orders. There is no independent manual position.
-- Pagination is derived, not document data. Collapse state is shared by the outline and Continuous layout; Page/PDF do not inherit it. There are no pins.
-- If a block is deleted or becomes unreachable while focused, focus moves to the nearest surviving sibling, then parent, then top-level block.
-- The app MUST prevent two live editors on the same block. Switching layouts or modes while editing commits or cancels the edit according to the UX rule; it never leaves a stale editor.
+Content, selection, focus, collapse and reading position stay consistent across views. Switching
+views restores the nearest equivalent position by block ID, not coordinates. A mode switch creates
+no undo entry. Page Edit commits are structural edits like any other and appear once in history.
 
 ### 6.5 Navigation and context
 
-- A breadcrumb shows chapter, derived page, and the primary path from the top-level block to the focused block.
-- A separate "Referenced by" list shows reference parents and reference children with derived page numbers, without conflating them with the primary path.
-- Back/forward navigation history covers branch following, backlink jumps, anchor jumps, and search results.
-- Following a branch selects the target and highlights the source edge/anchor; back returns to the source.
-- Following a broken anchor opens the anchor health sheet with repair actions.
-- Search results show the block label, a snippet, the document, and the chapter/page path; selecting a result reveals the block in all layouts and modes.
+Breadcrumbs show chapter and ancestors. Page navigation changes only the viewed page. Selecting a
+search result, a see-also link or a health row reveals the block: ancestors expand, the layout
+switches if needed, and the derived page is brought into view without a document edit. Find covers
+text, code, LaTeX and labels, with per-occurrence highlights painted over the mounted pages.
 
-### 6.6 Editing model
+### 6.6 Editing
 
-- The active editor edits exactly one block. It supports rich text, lists, code, inline/display math, images, and Markdown-like input shortcuts.
-- Committing an edit updates content immediately in the model, re-resolves anchors in that block, re-measures the block, re-runs the adaptive layout after a short debounce, and re-paginates. The card may grow live to avoid clipping; pagination may continue it at a safe boundary, never through a line/image/formula/code line.
-- Canceling an edit restores the pre-edit content and selection when possible.
-- Pasting text preserves plain text and common rich structure; pasting an image copies it into the package and inserts an image node; pasting a URL creates a link, not a remote image.
-- Invalid LaTeX is stored as source and rendered with a visible error state; it is never dropped.
-- Code blocks store plain text plus a language hint; code is never executed.
-- Raw HTML/scripts are never executed. External links are sanitized and opened outside the document.
-- IME composition is respected; structural shortcuts do not fire during composition.
-- Autosave status is visible but unobtrusive. A save failure is a persistent, actionable banner, not a toast that disappears.
+One active block editor at a time. Text edits are ProseMirror transactions; structural actions are
+commands. Inline code, formulas, code fences, tables and images use in-place node views. Read mode
+disables them. Paste and drop are normalized through the same schema; rich content from a guest
+file keeps its marks, tables, formulas, code and images.
 
-### 6.7 Required keyboard commands
+### 6.7 Keyboard
 
-Exact keybindings are deferred to `docs/ux.md`, but the following commands MUST be keyboard-reachable in the outline and, where meaningful, in the Continuous and Page layouts:
+The shipped catalogue is `docs/design/shortcuts.md`; the rules are:
 
-- create sibling, create child, create anchored child;
-- indent/reparent, outdent, move sibling up/down;
-- edit focused block, commit, cancel;
-- delete block, delete branch;
-- collapse/expand, collapse subtree, expand all;
-- branch to new block, branch to existing block, link as reference;
-- make home, move here, make root;
-- previous/next page, go to page, add/remove page-break hint, change page orientation/margins;
-- toggle freeze study mode, full reflow;
-- switch to Outline/Continuous/Page, toggle Edit/Read, fit page, fit width, zoom in/out;
-- search/find next, follow branch, back/forward;
-- undo/redo.
-
-A core authoring operation MUST NOT be mouse-only. A menu or command palette fallback is acceptable for page-specific gestures. There is no pin, unpin, reset-layout, or free-position command.
+- Application chords are matched through one catalogue (`lib/shortcuts.ts`), never a second
+  `event.key` comparison.
+- One chord has one meaning on one surface; an overlay owns the command surface while it is open.
+- Shortcuts never fire while typing in text, code or math, except editor-local keys.
+- Every pointer action has a menu item and a keyboard path.
 
 ### 6.8 Accessibility
 
-- Keyboard focus is always visible and follows a logical order.
-- The outline is the accessible representation of the document: VoiceOver can read the hierarchy, page-break markers, labels, branch roles, and collapsed state.
-- The Continuous and Page layouts MUST have an accessible equivalent for every action through the outline, menu, or command palette; spatial-only gestures are not the sole path. Continuous Read and Page Read must remain navigable and copyable.
-- Primary vs reference, resolved vs broken, and selected vs focused use non-color cues. Pagination continuation uses an icon and text, not color alone.
-- Reduced motion is respected; layout animations are optional and disabled during typing.
-- PDF export provides a real text layer; tagged PDF/PDF-UA is not a v1 requirement (D10).
+Keyboard-only completion of every flow; visible focus; labels and roles on interactive elements;
+screen readers announce block role, selection, branch, anchor, page number and page change;
+contrast meets WCAG AA for text and 3:1 for meaningful non-text states; reduced motion respected;
+no meaning by color alone. The Page layout is light paper in both themes; the chrome follows the
+app theme.
 
-### 6.9 Visual design constraints
+### 6.9 Visual constraints
 
-- The visual direction is clean, minimal, and Obsidian-like: a calm reading surface, restrained chrome, and content-first hierarchy.
-- **Dark mode is the default**; a light theme is required and must preserve the same hierarchy, contrast, and state cues.
-- No gradients, glass effects, heavy shadows, or decorative illustrations in the document surface. Page guides, margins, and block borders are subtle.
-- Typography is readable for long study sessions; code and math have dedicated styles and must not rely on color alone.
-- Primary/reference edges, anchors, broken anchors, page breaks, continuations, selection, and focus remain distinguishable in both themes and for color-vision deficiencies.
-- There is no in-app agent panel/chat in v1, and no local agent API. Agents hand over Markdown files; no chat chrome is part of the main window.
+Clean, Obsidian-like, minimal. Dark mode default, light theme available, page paper light in both.
+One accent, one type scale, restrained chrome. No gradients, glows, glass, emoji icons, decorative
+shadows, KPI tiles or marketing layouts. The PDF keeps the paper look.
 
 ### 6.10 View state
 
-- Layout (`continuous` or `page`), interaction mode (`edit` or `read`), current derived page, Continuous scroll and zoom/fit, Page zoom and fit, outline scroll, focused block, selected blocks, and collapsed blocks are persisted as view state.
-- View state is per document and may be reset without touching content. It is stored in the session/app state, never in `document.json`.
-- Stale view-state references are dropped on load; an invalid page number falls back to the nearest existing derived page. An unknown layout falls back to `continuous`; an unknown mode falls back to `edit` for Continuous and `read` for Page.
-- Page Read is read-only; Page Edit is the same geometry with one active block overlay. A persisted Read state never opens the overlay.
-- Switching layout or mode preserves focus, selection, collapse, Continuous scroll, current page, and zoom/fit; it creates no undo entry.
-- Opening a document SHOULD restore the last layout, mode, and focus, but a corrupt view state must never prevent loading the document.
+Layout, mode, current page, zoom, scroll, selection, focused block and collapsed blocks are
+non-canonical. They are stored per document outside `document.json` and may be dropped without
+losing content.
 
 ---
 
@@ -1075,164 +687,122 @@ A core authoring operation MUST NOT be mouse-only. A menu or command palette fal
 
 ### 7.1 Inputs and outputs
 
-**Inputs:** page setup (A4 size, orientation, margins), optional manual break hints, chapter order, top-level block order, the primary forest, branch order, measured block content sizes, resolved anchor rectangles, and the collapsed set (for the outline and Continuous renderer; the Page layout/PDF always use the full document, independent of collapse).
-
-**Outputs:** a continuous layout (a rectangle for every block in the document; the Continuous renderer omits collapsed descendants at display time), a paginated set of derived pages with continuation records, an attachment point for every anchor, a route for every visible edge, and a list of layout/pagination defects. Layout and pagination are pure derivations. They MUST NOT mutate the document and MUST NOT store computed x/y or pages in the document.
+Inputs: the primary forest, block content, measured node sizes, the page settings, the manual break
+hints and the viewport width. Outputs: a continuous layout (rectangles, placements, edges, trunks),
+a page plan (page count and breaks), and a defect list. The same output feeds Continuous, Page
+Read/Edit and the print model.
 
 ### 7.2 Geometry
 
-- A4 portrait: 210 × 297 mm. A4 landscape: 297 × 210 mm.
-- Margins are document-level in v1; default 20 mm on all sides. The page content width is the page width minus left/right margins; the page content height is the page height minus top/bottom margins.
-- Continuous layout coordinates: origin at the top-left of the chapter's content area, x grows right, y grows down. Units are logical pixels at 100% zoom.
-- The continuous layout may be taller than one page. The paginator slices it into pages; the layout engine does not know about page boundaries.
-- The page content width is a hard horizontal constraint. The page content height is a pagination constraint, not a layout constraint.
-- Block widths are content-driven, not fixed per depth. Widths are clamped to a minimum readable width and a maximum that fits the page content width. A block with long content wraps; it does not overflow horizontally.
-- Gaps are design tokens: sibling gap, subtree gap, wrap indent, callout gap, chapter gap. The 16 logical px minimum clear gap is fixed in §7.13; other values are UX decisions.
-- There is no document-space free position. Pan/zoom are navigation over the rendered Continuous or Page layout, not positioning.
+- Continuous: content-driven widths; a right group occupies the space it needs; the canvas does not
+  force a wrap at the window edge.
+- Page: a fixed content box per page, derived from page size and margins. The Page edge corridor is
+  an invariant: sibling gap 18, child indent 26, callout card indent 38, callout gap 16, callout
+  right gap 24, below-trunk insets 12 (children) and 24 (callouts), corridor 18 px (4 lead + 14
+  stem). Density never scales it.
+- A block's width is content-driven and capped by `maxCardWidth`.
 
-### 7.3 Adaptive tree layout
+### 7.3 Tree packing (Page, `beside`)
 
-- Chapters are ordered. Each chapter starts at the top of a new derived page.
-- Top-level blocks in a chapter stack vertically in `topLevelBlockIds` order, separated by the chapter gap.
-- **Parent-relative child placement.** A child group starts after its parent card plus the sibling gap; it does not use a global x per depth. Two blocks at the same depth under different parents may therefore sit at different x positions. This keeps a wide block local to its branch instead of widening every later column. Content-driven widths and the readable clamps still apply; there is no fixed pixel column.
-- For each top-level block, lay out its primary subtree:
-  - The block's card width is derived from its measured content, clamped to the readable min/max. Height is measured. Empty blocks use the readable minimum, not the maximum.
-  - A child is placed to the right of its parent when the space is available; siblings at the same depth stack vertically. Widths vary; short cards align left in their local group.
-  - When a deep chain exceeds the Continuous viewport, the Continuous layout scrolls horizontally. The Page/PDF renderer applies the A4 page width and reports a defect or wraps below where the page constraint requires it.
-  - A parent is vertically centered on its children's span where possible; leaves follow sibling packing.
-  - A subtree occupies a bounding box. Sibling subtrees MUST NOT overlap.
-  - A child MUST be placed after its parent in reading order.
-- Anchored children are placed below their anchor in the same adaptive flow. They may continue at a safe boundary on the next page; they are never cut through a line, image, formula, code line, or table row.
-- The page width is a hard boundary for the Page/PDF renderer. In the Continuous layout, deep branches may exceed the viewport and scroll horizontally; zoom/fit-width and branch focus are navigation aids, not layout changes. If a page layout cannot fit within the page content width after the page renderer's wrap, it is a layout defect: the user must shorten content, split the block, or change page setup. The app MUST NOT clip or auto-scale.
-- Only sibling order and top-level order change. There is no arbitrary x/y, no fixed-width depth column, and no pin.
+1. Place chapters in order; each chapter starts at the top of a new page.
+2. Top-level blocks stack vertically in chapter order.
+3. For a parent, compute the direct-child group and the callout group.
+4. If the whole direct-child group fits to the right of the parent, place the group at the parent's
+   y (beside). Otherwise place the whole group below the parent at
+   `min(parent.x + wrapIndent, pageContentLeft + maxWrapIndent)`, so a wrapped group keeps a visible
+   stem.
+5. Recurse: every child keeps its own children to the right only if they fit there; otherwise that
+   subgroup wraps below it.
+6. A group that cannot fit is atomic: the group moves below; it is never split across siblings.
+7. Only the direct-child group is beside; callouts follow §7.4.
 
-### 7.4 Anchored branches
+Comfortable and compact presets change density only, never this topology. `stacked` is the legacy
+geometry for explicit compatibility; `compaction` is a density-lab oracle and is not a preset.
 
-- An anchored child is not part of its parent's sibling packing. It is a callout attached to a span.
-- **Callout lane (OD-8).** The callout lane is below the parent card and before the direct-children group. "Below the anchor" means below the anchor's block card, not inside the card immediately under the span. Resolve the anchor to a rectangle in continuous coordinates; the callout's left edge is aligned to the anchor where the page width allows, with the callout gap. If the anchor is too far right to fit the minimum callout width, clamp to the card content left and keep the connector. Pixel alignment is best-effort in M3 and gated by AC-52 in M4.
-- Multiple callouts from the same anchor stack vertically in branch order. Callouts from different anchors are placed by the anchor order key: resolved start position, else `lastKnown` start, else end-of-block, then anchor ID. They MUST NOT overlap another card or callout.
-- After placing the callout, lay out its primary subtree with the same adaptive rules. The whole subtree may be wider or taller than one page; the paginator handles height, the adaptive layout handles width.
-- If the callout cannot fit within the page width, the layout wraps it below the anchor with a slight indent. If it still cannot fit, it is a layout defect; the user shortens/splits content or changes page setup.
-- A broken or ambiguous anchor attaches to a visible warning point on the block and shows "anchor lost" or "N matches"; its branch target still appears as a callout or continuation.
-- An anchored **reference** edge never creates a callout; it is a dashed edge or chip only.
-- Collapsed ancestors hide their anchored callouts and subtrees with the rest of the hidden content.
-- Nested anchored branches are allowed and laid out recursively. They may continue at safe boundaries; they are never cut or moved to an arbitrary position.
+### 7.4 Anchored callouts
+
+An anchored branch renders as a callout attached to its anchor. The mode is chosen per parent from
+the placed card and the resolved page width:
+
+- **Mode A** (right lane): used when at least `calloutModeMinWidth` (240 px) of free space exists to
+  the right. Callouts sit in the right lane at `calloutRightGap` 24; direct children go below. The
+  group leader leaves the parent's right port and the anchor mark identifies the branch.
+- **B2** (two below trunks): direct children below at trunk inset 12 and indent 26; callouts below
+  at inset 24 and indent 38; callouts come first.
+- **Stacked**: the only fallback when neither fits; legacy callout geometry.
+
+A callout may paginate like any other branch. It is never clipped or auto-scaled; an impossible one
+is a defect.
 
 ### 7.5 Paginator
 
-- The paginator converts the continuous layout into A4 pages using `pageSetup`, chapter boundaries, and optional `manualBreakBeforeBlockIds`.
-- The paginator ignores the collapsed set: Page layout and PDF always paginate the full document. Collapse affects only the outline and Continuous rendering.
-- It first prefers page breaks **between blocks**. If a block would cross the page bottom, the paginator may continue the block at a **safe internal boundary**:
-  - paragraph boundary;
-  - list-item boundary;
-  - blockquote paragraph boundary;
-  - between code lines (never inside a code line);
-  - between table rows (never inside a row or cell).
-- The paginator MUST NOT cut a text line, an image, a formula, a table row, or a code line.
-- **Table rows are atomic.** A table may continue across pages only between rows. If one row is taller than the page content height, the table cannot be split safely: it is a pagination defect, not permission to cut. Header-row repetition on continuation pages is not required in v1.
-- A block that continues across pages is a **block continuation**:
-  - the previous page shows "continues on page N" at the bottom of the block;
-  - the next page shows "continued from page M" at the top and a compact ghost parent (the parent block's label and relevant anchor quote) for context;
-  - the block exists once and is not duplicated.
-- A lower-level block that continues on the next page also gets a ghost parent at the top, even if the block itself is not continued.
-- A top-level block that starts a new page is not a continuation; it is a normal top-level page start.
-- Manual break hints are best-effort requests to start a page before a block. The paginator honors them unless doing so would create an empty page or an impossible break. Hints are not page containers.
-- A block with an image or formula that is taller than the page content height is a pagination defect; a block whose only safe boundary is a line/image/formula/code line is also a defect. The app MUST warn and MUST NOT cut or auto-scale; the user splits the block, changes page setup, or reduces content.
-- The paginator is deterministic: the same layout, page setup, and hints produce the same pages and continuations.
-- Derived pages are numbered in reading order across the document. Page count and continuations are computed, never stored.
+- A page is a slice of the continuous layout, numbered in reading order.
+- Breaks fall between blocks first. Chapter starts always begin a page.
+- A long block continues only at a paragraph, list item, blockquote paragraph, between code lines,
+  or between table rows. A text line, image, formula, code line and table row are never cut.
+- A continuation shows a ghost parent at the top of the next page and a "continues on page N" marker
+  at the bottom of the previous one. The block exists once.
+- A manual hint starts a page before its block only when the block can start a row; otherwise it is
+  reported and the actual break is used.
+- Pagination is deterministic and idempotent. No empty trailing page.
+- A block too wide, or too tall with no safe boundary, is a defect: warned, export blocked, never
+  clipped or scaled.
 
-### 7.6 Collapsed subtrees
+### 7.6 Collapse
 
-- Collapse is a navigation aid in the outline and Continuous layout. Collapsing a block hides its primary descendants and their anchored callouts there. The block itself remains visible with a hidden-count badge.
-- The full layout is computed for the Page layout/PDF; the Continuous renderer omits hidden descendants from the rendered scroll. Their order is preserved for expansion.
-- The Page layout and PDF always show the full document. Collapse never changes their content, page count, or export. If collapse is added to Page later, it is a separate product decision with explicit export semantics (ADR-0007).
-- Expanding a block reflows its subtree in the Continuous layout; it SHOULD avoid moving unaffected blocks. Page/PDF pagination is unaffected because it always includes the full document.
-- Collapse state is shared by the outline and Continuous layout. The Page layout does not inherit it.
-- Navigating to a hidden block (search, reference follow, explicit reveal) expands the necessary ancestors and goes to its derived page; this is view state, not a document edit.
+Collapse hides primary descendants and anchored callouts in Outline and Continuous, reclaims space,
+shows a hidden count and keeps an edge stub. It is view state, shared by both views, and never
+removes content from Page or PDF.
 
 ### 7.7 Shared children and reference edges
 
-- A shared child is placed once, at its primary home in the continuous layout. Reference edges do not move it.
-- In M3, a reference edge is dashed when both endpoints are visible; otherwise a "See also"/"Referenced by" chip is shown. M3 chips show the chapter/label; page numbers are added in M4 (OD-9).
-- Layout neutrality is a tested invariant, not a comment: `layout(D)` deep-equals `layout(D + reference edges)` for blocks, pages, continuations, and primary edges; only the reference-edge list differs. Adding, removing, or reordering reference edges leaves chapters, top-level lists, and primary branch orders unchanged.
-- Reference edges are routed after node placement. The router SHOULD avoid crossing block rectangles where possible and MAY fall back to a curved route.
-- Reference cycles are allowed. The renderer must terminate and must not recurse through reference edges when building the outline or PDF.
-- Primary edges are visually stronger than reference edges. A reference edge label is shown on hover/selection or when it fits.
-- Changing a block's home moves the block and its subtree; pagination is recomputed. Adding or removing a reference edge MUST NOT change any block position or pagination.
-- If a reference target is on another derived page, the edge ends at a page-edge indicator with the target page number; it is not silently removed.
-- Cross-page primary edges use continuation markers at the page boundary; they are not drawn as long lines through unrelated pages.
+A shared child renders once, at its primary home. Its position and page breaks depend only on the
+primary parent. Reference edges are visually distinct, never move a node and never change
+pagination. A reference to another page ends at a page-edge indicator with the target page; no line
+leaves the page. Anchor-first order is shared by every view.
 
 ### 7.8 Chapters and top-level blocks
 
-- A chapter MAY have multiple top-level blocks. They stack vertically in top-level order.
-- A document MAY have multiple chapters. Each chapter starts a new derived page; chapter order is document order.
-- Every top-level block is a content block; it may be a standalone sentence or a short phrase with children.
-- A top-level block with no children is still a card on the page and can be followed by a page break.
-- There is no synthetic super-root and no "page container" in the document.
-- Page setup is document-level in v1. Mixed portrait/landscape pages are not required (D15).
+Each chapter starts at the top of a new page. Top-level blocks stack vertically; a top-level block is
+itself a content block, never a placeholder. Inserting, deleting or reordering chapters preserves the
+internal layout of the other chapters; only page numbers change.
 
 ### 7.9 Stability and incremental layout
 
-- Layout MUST be deterministic: the same document, page setup, measurements, and hints produce the same continuous layout and derived pages. Collapse changes only the Continuous/outline display, never Page/PDF content or pagination.
-- Reference edge changes MUST NOT move blocks or change pagination.
-- Content edits re-measure the edited block and reflow its subtree and affected siblings; they must not reflow unrelated chapters.
-- Adding or removing a top-level block may move subsequent top-level blocks in continuous coordinates; it must not move unrelated chapters.
-- Sibling reorder and top-level reorder change order only; they do not create free positions.
-- Layout has three stability modes:
-  - **Incremental (default):** recompute the edited block's subtree and affected siblings; keep unaffected continuous positions stable. Page breaks may shift locally.
-  - **Freeze study:** snapshot the current layout and pagination; disable editing; allow reading/navigation only. Nothing moves until the user exits.
-  - **Full reflow:** recompute the entire chapter/document layout and pagination. Run on explicit request or after a short idle (default 2 s) in editable mode, not while typing. Page breaks may change; show a brief "layout updated" notice.
-- Freeze mode must be deterministic and read-only; it cannot be used to bypass structural validation or to apply edits without reflow.
-- Full reflow must preserve the logical tree, sibling order, page setup, and break hints; only geometry/page breaks may change.
-- Layout runs after a short debounce during typing (for example, 100–200 ms) and immediately on structural commands. Pagination re-runs with layout. Layout animations are optional, 120–200 ms, and disabled during typing.
-- Reopening a document with unchanged content and page setup SHOULD produce the same layout and page count. Font loading and measurement must settle before final layout/pagination; avoid a visible jump after first paint.
+Authoring uses incremental reflow: only the dirty subtree and the affected sibling group move. A
+page setup, chapter or orientation change recomputes the whole layout. There is no freeze mode in
+v1.
 
-### 7.10 Collision and pagination defects
+Stability gates: adding one block keeps at least 95 % of pre-existing blocks within 2 px in
+continuous coordinates; deleting one moves survivors outside the affected subtree and sibling group
+by at most 1 px; unrelated chapters do not move. Page breaks may change.
 
-- Blocks in the continuous layout MUST NOT overlap.
-- A callout must not overlap its anchor's block, another card, or another callout. Adaptive wrapping must prevent horizontal overflow; if it cannot, it is a layout defect.
-- Edge crossings are allowed; the layout does not guarantee crossing minimization.
-- Hidden blocks do not participate in collision tests until expanded.
-- The UI exposes layout/pagination defects on the affected block and page: content too wide, a block with no safe continuation boundary, or an impossible manual break hint.
-- The UI offers resolve actions: shorten/split the block, change page orientation/margins, or remove the break hint. It never clips, auto-scales, or silently reflows across pages.
+### 7.10 Defects and collisions
+
+- Nodes never overlap after applying the minimum clear gap, including callouts, labels and trunks.
+- A block too wide for the page is `content-too-wide`.
+- A block too tall with no safe boundary is `content-unbreakable`.
+- An unhonoured manual hint is reported.
+- A defect names the block and offers resolution; export is blocked until it is resolved, except
+  where the UX allows exporting with the paginator's actual breaks.
 
 ### 7.11 Performance strategy
 
-- Measure blocks once and cache width/height; invalidate on content, font, or page setup changes.
-- Lay out only dirty subtrees; keep top-level order and sibling order stable.
-- Paginate incrementally: recompute from the first affected block; avoid re-paginating the whole document on every keystroke.
-- Virtualize Continuous/Page rendering: mount the visible region plus a small prefetch window; page thumbnails are lightweight.
-- Collapse is a primary scale tool; page navigation and LOD are the others.
-- At low zoom, use simplified cards; at high zoom, render full content and enable editing.
-- Do not animate edges during text editing.
+Measure only what is visible. Continuous renders the mounted subtree with virtualization and
+collapse; Page mounts visible pages ±2; both cache measurement and invalidate on content, width or
+font change. Layout touches the dirty subtree, not the document. Pagination is cached and
+invalidated by dirty content only.
 
-### 7.12 Layout non-goals
+### 7.12 Non-goals
 
-- Infinite canvas, free positioning, manual pins, fixed pixel columns per depth, or arbitrary drag-to-place.
-- Global DAG layout, layered Sugiyama-style reordering, or force-directed placement.
-- Automatic edge-crossing minimization as a product guarantee.
-- RTL or vertical page layouts.
-- Automatic conversion of a block into multiple blocks to satisfy pagination; a paginator continuation at a safe boundary is allowed, but the document model is not rewritten.
-- 10,000-block documents.
+No free positioning, pins, nudges, fixed depth columns, manual resize (v1), stored page containers,
+second paginator, CSS paged-media breaks, or a separate reader layout.
 
-### 7.13 Layout tolerances and stability gates
+### 7.13 Tolerances
 
-The Sentinel's proposed tolerances are adopted as v1 targets, with definitions so they are testable:
-
-| Metric | Value | Definition | Status |
-|---|---|---|---|
-| **Minimum clear gap** | 16 logical px at 100% zoom | Shortest distance between the axis-aligned bounds of two visible blocks in the continuous layout. Edge crossings and leader lines do not count. | Confirmed for v1. |
-| **Anchor alignment** | 2 px | At 100% zoom, a callout's left edge is within 2 px of the resolved anchor's left edge, and the callout top is below the anchor bottom. A continuation after a page break is exempt but marked. | Confirmed for v1. |
-| **Add-block stability** | ≥95% within 2 px | Across the stability fixture suite, after adding one block, at least 95% of pre-existing blocks keep both continuous x and y within 2 px. Blocks in the added block's parent subtree or sibling group may move; unrelated chapters must not move. Page breaks may change. | Confirmed as a suite-level floor. |
-| **Delete stability** | ≤1 px outside the affected group | After deleting one block, every surviving block outside the deleted block's former parent subtree and sibling group moves no more than 1 px in continuous coordinates. Unrelated chapters must not move. Page breaks may change. | Confirmed for v1. |
-
-Notes:
-
-- These values are measured in continuous layout coordinates at 100% zoom; page-local positions may change when pagination shifts. Page-count changes are not stability failures.
-- There is no pin exception. A block that must wrap below its parent is a normal adaptive-layout result, not a defect.
-- Chapter insertion/deletion/reordering is a chapter-stack operation: existing chapters keep their internal continuous layout; only chapter order/page numbers change. These are tested separately from block stability.
-- The 95% figure is a suite-level floor, not a promise that every block is stable in every operation. A single operation may move an entire affected subtree; the suite must still meet the floor.
-- If a fixture fails a gate, treat it as a layout defect. Changing a tolerance requires an ADR or an explicit product decision, not a silent test adjustment.
+Anchor alignment to its block within 2 px at 100 %; callout alignment to the anchor's left within
+2 px; node gap at least the minimum clear gap; print geometry parity within a small tolerance
+asserted by the PDF gate.
 
 ---
 
@@ -1240,152 +810,77 @@ Notes:
 
 ### 8.1 Creation
 
-1. The user selects content inside one block: a text range, a formula term or whole formula, a code token/line range, or an image point/region.
-2. The app validates that the selection is inside one block and non-empty (except an image point, which may be a zero-size region with a visible marker).
-3. The app creates an anchor ID and binds it to the content: an inline mark for text, a node attribute for a whole formula/image/code block, or a term/offset selector for a sub-formula or code range.
-4. The app stores the fallback quote and context.
-5. If the action is "branch," the app creates the target block (or selects an existing one) and a primary branch from the anchor, as one undoable command. The child is placed below the anchor; the paginator may continue it on the next page with a continuation marker.
-6. The anchor highlight and branch are shown in both views.
+An anchor is created with a branch, never standalone. The command creates the record and the content
+binding in one transaction. Text: one contiguous mark over the selection. Formula: node binding plus
+the LaTeX substring. Code: node binding plus the quoted range. Image: node binding plus the
+normalized region. A selection that crosses blocks, display math, an image, a code block or a table
+cell is rejected with a message.
 
 ### 8.2 Resolution
 
-Anchors are resolved on load and after edits that can affect them. Resolution is ordered by confidence:
+Resolution order: the content binding, then the selector (`quote` + context + occurrence hint). An
+exact unique match resolves silently. Multiple candidates produce `ambiguous`; repair requires an
+explicit choice. No candidate produces `broken`. Ambiguity never auto-resolves to a different
+occurrence.
 
-1. **Exact binding.** The inline mark or node attribute with the anchor ID exists in the block content. This is the strongest match.
-2. **Exact quote with unique context.** The quote appears exactly once, or once with the stored prefix/suffix. Resolve automatically.
-3. **Quote with multiple candidates.** Use the occurrence hint, context score, and last-known position only to rank candidates for display. Do not auto-resolve when more than one candidate remains: mark **ambiguous** and show candidates for confirmation. Only an exact binding or a unique fallback (exactly one quote/context match) may resolve silently (AC-55).
-4. **No match.** Mark **broken**.
+### 8.3 States
 
-Resolution MUST NOT mutate content automatically. An ambiguous or broken anchor is a visible state, not a reason to delete the branch. `lastKnown` is a repair hint only; it never overrides the content binding.
+| State | Meaning |
+|---|---|
+| `resolved` | The binding or selector resolves to a span. |
+| `ambiguous` | Several candidates; repair needs confirmation. |
+| `broken` | No candidate; the branch is preserved and surfaced. |
+| `idle` | A record with no branch; the marker is hidden; removable explicitly. |
+| `block-missing` | The declared block no longer exists; surfaced in Health. |
 
-**Exact-unique rule.** A formula term with two occurrences is ambiguous even if `occurrenceHint` points at one. A code quote with two occurrences is ambiguous even if `startOffset` points at one. A text quote with two occurrences is ambiguous unless the exact prefix and suffix select exactly one. An image asset change is broken, never auto-resolved to the new asset. Candidate ranking is UI order only; it is not an auto-resolution heuristic.
+State is derived and never stored.
 
-### 8.3 Anchor states
+### 8.4 Detection
 
-| State | Meaning | Rendering |
-|---|---|---|
-| **Resolved** | The binding or a unique fallback resolves to a span/region. | Normal anchor highlight; callout attached to the span. |
-| **Ambiguous** | Multiple plausible candidates; automatic resolution is unsafe. | Warning marker; callout attached to `lastKnown` or the block; "Choose location" repair. |
-| **Broken** | No candidate resolves. | Warning marker on the block; callout attached to the block's warning point; "Relink" repair. |
-| **Idle** | The anchor record exists but has no outgoing branch. | Marker hidden; no callout; not listed as broken or in the health panel until a branch exists. An explicit **Remove anchor** command deletes the idle record (OD-2). |
+Resolve on load, after an edit that touches the block, after a split/merge, after an image
+replacement, and when the anchor health surface opens. A mark without a record is inert; a record
+without a mark resolves by selector.
 
-Anchor state is derived from content, selector, and assets; it is never stored. An anchor mark with no anchor record is inert. It must not create a phantom branch. The app SHOULD clean up such marks on an explicit repair or save, but must not delete content. An idle anchor is a valid record, not an error.
+### 8.5 Repair
 
-### 8.4 Detection triggers
-
-Re-resolve anchors in the affected block after:
-
-- a text, formula, or code edit;
-- a block split or merge;
-- an image replacement or crop;
-- a block delete (delete its anchors and branches, as specified);
-- an undo/redo that changes content or structure;
-- document load;
-- import or paste that creates anchors.
-
-Incremental resolution is scoped to the edited block. A full-document anchor scan is required on load, after migration, and after a recovery repair. Broken-anchor UI updates may be debounced, but the state must be correct before save and export.
-
-### 8.5 Repair UX
-
-The anchor health surface is a **status chip plus sheet/dialog** in M3, not a full right inspector (OD-10). The status chip shows the count of broken and ambiguous anchors and is hidden when the count is zero. Clicking it opens the sheet. The sheet lists every ambiguous or broken anchor with:
-
-- block label and chapter/path (derived page in the Page layout/PDF when available);
-- stored quote and context;
-- branch target(s) and roles;
-- reason (text deleted, code changed, image replaced, multiple matches, missing target, `split-inside-anchor`, `selector-mismatch`, `block-missing`);
-- last-known continuous layout position, as a repair hint only.
-
-An **All anchors** filter includes idle anchors and offers **Remove anchor**. The sheet is keyboard reachable, is not a modal on load, and does not block saving or export.
-
-Actions:
-
-- **Relink to selection.** Select a new range/region in the same block; update the selector; keep the anchor and branch IDs.
-- **Choose candidate.** For ambiguous anchors, show the candidate spans with context; pick one.
-- **Attach branches to block.** Remove the anchor and make the branches block-sourced; target content is untouched.
-- **Delete branch.** Remove one or all branches from the anchor; confirm if destructive.
-- **Delete anchor.** Remove the anchor; branches must be reattached or deleted.
-- **Remove anchor (idle).** Delete an idle anchor record and its binding; no target is deleted; undoable (OD-2).
-- **Keep broken.** Dismiss the warning for now; the branch remains visible with a warning marker.
-
-Repair is undoable. Relinking must preserve the anchor's identity, branch labels, and target blocks. The repair UI must never require the user to retype content.
+The broken state shows a marker in the block and a row in Health. Actions: relink to a new selection,
+attach to the whole block, or delete the anchor. Repair keeps the anchor and branch IDs; it rewrites
+the selector and binding. An idle anchor is removed only by an explicit action.
 
 ### 8.6 Edit effects
 
-| Edit | Expected anchor behavior |
+| Edit | Effect |
 |---|---|
-| Insert text before the anchor | Resolved; the mark moves with the text. |
-| Insert text inside a text anchor | Resolved; the range grows. |
-| Delete text before/after the anchor | Resolved; the mark moves. |
-| Delete part of the anchored text | Resolved if the mark survives; otherwise broken/ambiguous. |
-| Delete the entire anchored span | Broken; branch preserved; repair offered. |
-| Replace the anchored span | Broken unless the exact binding survives; repair offered. |
-| Split the block before the anchor | Anchor moves to the new block; `blockId` updates. |
-| Split the block inside the anchor | Anchor clips to the original side and is marked for repair; branch preserved. |
-| Merge blocks | Anchor moves to the surviving block; `blockId` updates. |
-| Move the block | Resolved; anchor moves with the block and derived pagination. |
-| Reformat text (bold, italic, list) | Resolved; marks move with the text. |
-| Change code language | Resolved; offsets/quote unchanged. |
-| Edit code inside the anchored range | Re-resolve by quote/context; ambiguous or broken if the quote changes. |
-| Replace the image | Broken; asset hash mismatch; branch preserved. |
-| Resize the image display | Resolved if the asset is unchanged; the normalized rect maps to the new display. |
-| Change the image crop | Broken or explicit confirmation; the old region may no longer mean the same thing. The normalized selector is not silently reinterpreted. |
-| Text selection contains inline math/image | Supported; the selector quote uses the plain-text projection, and the mark binding remains truth (OD-12). |
-| Undo/redo | Re-resolve; the previous state is restored with the transaction. |
-| Reload | Resolve from the binding first, then fallback; never silently drop. |
+| Text before/after the span | Anchor moves with the text. |
+| Text inside the span | Anchor survives if the mark survives; otherwise broken. |
+| Split inside the anchor | Both parts keep the ID; the anchor keeps a `split-inside-anchor` repair flag. |
+| Delete the anchored text | Broken; the branch and quote remain. |
+| Duplicate the block | The duplicate keeps its own marks; anchors do not retarget. |
+| Replace an image | The image anchor is broken unless the new asset matches; never a silent wrong region. |
 
-### 8.7 Anchor geometry
+### 8.7 Geometry
 
-- **Text:** union of the marked range's line rectangles in continuous layout coordinates; attach at the right edge of the last line. Multi-line anchors are allowed.
-- **Formula:** whole-formula anchors use the formula node rectangle. Term anchors use a best-effort term rectangle; if unavailable, use the formula rectangle and show the quoted term in the callout marker. The branch is still semantically anchored to the term.
-- **Code:** token/line range rectangle; if unavailable, the code block rectangle. Highlight the range.
-- **Image:** the normalized region scaled to the displayed image; point anchors use a small marker. The region outline is visible on hover/selection.
-- **Broken/ambiguous:** the block's warning point (for example, top-right) with a warning icon; the callout target is the block, clearly labeled as detached.
-
-All geometry is continuous and recomputed on layout/pagination; none of it is stored in the document.
+Text: the union rectangle of the marked range, attached at the right edge of the last line. Formula:
+the node rectangle, with a best-effort term rectangle. Code: the token or line range, otherwise the
+block. Image: the normalized region scaled to the displayed image; a point is a zero-size region
+with a visible marker. Geometry never enters the document; it is recomputed after measurement.
 
 ### 8.8 Multi-block anchors
 
-A selection spanning multiple blocks is rejected in v1. The message explains that anchors are single-block and offers to create a branch from the first or last block instead. Multi-block anchors are a future extension; they must not be half-supported.
+Rejected in v1. A selection spanning blocks produces a clear message and creates nothing.
 
-A text selection containing inline math or images is **not** a multi-block selection; it is supported through the plain-text projection (OD-12). A selection is rejected when it crosses a block boundary, a block-level atomic node (display math, image, code block), or a table-cell boundary. An anchor entirely inside one table cell is allowed; an anchor spanning cells is rejected with "Anchors work within one table cell."
+### 8.9 Health and export
 
-### 8.9 Anchor health and export
+Health lists broken and ambiguous anchors with quote, source block and actions, and audits structure
+(orphan edges, duplicate orders, invalid chapters). Locate reveals the block. Export warns about
+broken anchors and renders the branch from the whole block; it never drops it.
 
-- The status area shows the count of broken and ambiguous anchors for the document (status chip + sheet/dialog in M3; OD-10).
-- The anchor health sheet is available from the status area and from a warning marker.
-- Broken anchors do not block saving or export. In the paginated PDF, a broken anchor produces a marker and an "anchor lost" note, and the branch content still appears exactly once in the continuous layout or its continuation.
-- **M3 evidence (OD-5):** a pure `buildExportPlan` manifest proves that every primary block/branch appears exactly once, every shared child appears only at its primary home, reference edges add no entries, and broken/ambiguous anchors add a marker/annotation record but no duplicate target. **M4 evidence:** the PDF marker, page count, and rendering. M3 does not need a PDF to pass AC-56.
-- No automatic anchor deletion, no automatic branch deletion, and no silent omission from export.
-- An optional anchor appendix MAY list broken or ambiguous anchors, their quotes/terms, their targets, their derived pages, and the reason. It is a diagnostic aid, not a replacement for the branch content.
+### 8.10 Policy: formula, code, image
 
-### 8.10 Anchor policy for formula, code, and image anchors (D5, closed)
-
-This is the highest-risk policy in the spec. The data model preserves anchors and branches, and the v1 behavior below is **ratified (D5 closed)**. It must be implemented and tested before anchor implementation and PDF export are locked.
-
-| Concern | Formula | Code | Image |
-|---|---|---|---|
-| **Orphan detection** | Formula node missing; recorded LaTeX term no longer present; invalid LaTeX; multiple term occurrences. | Code node missing; exact quote absent; offsets invalid; multiple quote matches. | Asset hash changed or asset missing; image node missing; rect outside 0–1; crop or replacement. |
-| **Automatic resolution** | Whole formula by atomic node binding (`attrs.anchorIds`); term only when the exact LaTeX term and context are unique. Multiple occurrences are ambiguous. | Exact quote plus context unique; offsets are a hint, never the sole match. Multiple matches are ambiguous. | Atomic node binding plus unchanged asset hash plus valid normalized rect; display resize is safe; asset change is broken. |
-| **Reattach confirmation** | Required for ambiguous anchors; show old and new LaTeX term and occurrence. | Required for ambiguous anchors; show the old and new line/quote and surrounding lines. | Required when the asset or crop changed; show old and new image and the old region. |
-| **Export behavior** | Branch content appears exactly once in the paginated layout, with a continuation marker if needed; marker says "formula anchor lost" or "ambiguous"; the term is shown in the marker if available. | Branch content appears exactly once in the paginated layout, with a continuation marker if needed; marker says "code anchor lost" or "ambiguous"; a short code excerpt is shown. | Branch content appears exactly once in the paginated layout, with a continuation marker if needed; missing asset shows a labeled placeholder; marker says "image anchor lost." |
-| **No silent data loss** | Preserve anchor ID, selector, branch, and target; invalid LaTeX source is retained. | Preserve anchor ID, selector, branch, and target; offsets and quote are retained. | Preserve anchor ID, asset hash, normalized region, branch, and target; original asset is not deleted. |
-
-Policy:
-
-- Detection runs on the triggers in §8.4. A broken or ambiguous anchor is never deleted automatically, and its branch target is never deleted by anchor repair.
-- High-confidence exact bindings may resolve silently. Ambiguous matches, changed image assets, and any reattachment require explicit user confirmation.
-- Reattachment shows a before/after preview and is undoable. It keeps the anchor ID and branch IDs.
-- Export must include every branch exactly once in the paginated layout, with a continuation marker if it crosses a page. A broken or ambiguous anchor gets a visible marker and, optionally, an entry in the anchor appendix; it is never omitted.
-- **Formula:** whole-formula anchors are precise. Term anchors store the exact LaTeX substring and occurrence; rendering geometry is best-effort, with the formula rectangle and a term label as the fallback. Invalid LaTeX is preserved as source.
-- **Code:** the quote and context are the durable selector; offsets are a hint. Changing the code language does not break the anchor. Replacing the code content or removing the quote marks it broken or ambiguous.
-- **Image:** the normalized region is relative to the intrinsic image. Resizing the display is safe. Replacing the asset, changing the crop, or losing the asset marks the anchor broken or requires confirmation, because the old region may no longer mean the same thing.
-- **Text projection:** a text anchor may include inline math or images; the selector quote uses the plain-text projection, while the mark binding remains truth (OD-12).
-- **Idle:** an anchor with no outgoing branch is idle, not broken; its marker is hidden and it is not listed in health until a branch exists (OD-2).
-- A broken or ambiguous anchor falls back to the whole block for its visual origin, shows a visible marker, and offers a repair dialog. The fallback is not a source change: repairing the anchor restores the span; the branch and target stay intact.
-- An anchored child that does not fit below its anchor in the paginated layout gets a continuation marker on the next page. No auto-move or arbitrary placement.
-- **D5 is closed.** All four anchor kinds are in v1; exact unique bindings may auto-resolve; ambiguous reattachment requires confirmation; broken anchors never delete branches; export includes every branch exactly once. Formula-term geometry is best-effort; whole-formula anchors are precise.
-
-Acceptance criteria for this policy are AC-54 through AC-57.
+Formula terms are best-effort; whole formulas are precise. Code offsets are hints, and quote plus
+context is the fallback. Image regions are normalized to intrinsic size, so display resizing is
+safe; replacement or crop invalidates unless the asset hash still matches. In every case a broken
+anchor keeps the branch.
 
 ---
 
@@ -1393,150 +888,58 @@ Acceptance criteria for this policy are AC-54 through AC-57.
 
 ### 9.1 Requirements
 
-The content model MUST support:
+Rich text with inline marks; paragraphs, headings, lists, quotes; fenced code with a language;
+inline and display math; images with optional regions; tables with inline-only cells; Unicode
+including CJK, emoji and RTL; anchors carried by the content itself; unknown nodes preserved.
 
-- rich text with paragraphs, headings, emphasis, strong text, inline code, links, blockquotes, horizontal rules, and hard breaks;
-- bullet and ordered lists, including nesting;
-- code blocks with a language hint and plain-text code;
-- inline math and display math with LaTeX source;
-- images with alt text, optional caption, intrinsic dimensions, and asset references;
-- tables (SHOULD; no anchors spanning cells in v1);
-- inline anchor marks with stable IDs;
-- Unicode text, IME composition, paste, and drag/drop;
-- no executable HTML, scripts, or remote content;
-- round-trip-safe storage of unknown nodes for forward compatibility.
+### 9.2 Nodes and marks
 
-The authoring experience SHOULD feel Markdown-like: typing `#`, `-`, `**`, backticks, `$...$`, and fenced code blocks should create the corresponding structure. This does not require Markdown to be the storage format.
+Block nodes: `doc`, `paragraph`, `heading` (levels 1–3 in a note), `bulletList`, `orderedList`,
+`listItem`, `blockquote`, `codeBlock` (with language), `mathBlock`, `image`, `table`, `tableRow`,
+`tableCell`, `horizontalRule`. Inline: `text`, `hardBreak`, `inlineMath`.
 
-### 9.2 Node types
-
-| Node / mark | Purpose |
-|---|---|
-| Paragraph | Body text. |
-| Heading | Visual heading inside a block. Not structural; branches define structure. |
-| Text | Plain text run. |
-| Emphasis / strong / inline code / link | Inline marks. |
-| Bullet list / ordered list / list item | Lists and nesting. |
-| Blockquote | Quoted material. |
-| Code block | Plain text code with a language hint. |
-| Inline math | LaTeX rendered inline. |
-| Display math | LaTeX rendered as a block. |
-| Image | Asset reference, alt text, optional caption. |
-| Table | Rows and cells; SHOULD for v1. A row is atomic for pagination. |
-| Horizontal rule | Visual separator. |
-| Hard break | Explicit line break. |
-| Anchor mark | Inline binding carrying `anchorIds` (array; `anchorId` string accepted on read for M2 compatibility). Atomic nodes carry `attrs.anchorIds`. |
+Marks: `anchor` (semantic binding, carries anchor IDs), `highlight` (one `tone`: blue, green, amber,
+rose), plus bold, italic, strike, code and link. Unknown marks and nodes survive validation and
+save.
 
 ### 9.3 Authoring behavior
 
-- Markdown-like input shortcuts create the corresponding nodes; the user does not have to type raw Markdown to get rich content.
-- Pasting Markdown SHOULD convert common syntax; unsupported syntax is preserved as plain text.
-- Pasting an image copies it into the package and inserts an image node. Pasting a URL creates a link; it does not fetch a remote image.
-- Invalid LaTeX is stored as source and rendered with a visible error. The user can edit the source; the app never drops the formula.
-- Code blocks do not execute. Language hints affect highlighting only.
-- Tables are editable; anchors inside tables are text ranges, but an anchor spanning cells is rejected in v1. A table may break across pages only between rows; a row and its cells are never split.
-- Empty blocks are allowed. They are valid authoring state and are not silently deleted.
+Enter creates a block; Shift+Enter inserts a line break. Tab and Shift+Tab change block structure;
+`⌘]` and `⌘[` indent list items. Code fences auto-close and offer a language. Formulas use `$…$` and
+`$$…$$` with in-place editing. The table picker inserts N×M; Tab appends a row; cells are inline
+only. Images are inserted from disk and copied into the package.
 
-### 9.4 Option A — Markdown-canonical
+### 9.4 Decision: structured JSON canonical
 
-**Description.** Each block's content is stored as Markdown source, or the document is a set of Markdown files. Anchors use a custom inline syntax or a sidecar record; branches, page setup, and pagination hints live in a sidecar JSON or in frontmatter.
+Structured ProseMirror-shaped JSON is canonical. Markdown is an import/export and guest-file format.
+This is closed: it keeps anchors, tables and math lossless inside the app, while Markdown remains
+portable outside it. A Markdown-native canonical format would need anchored spans and regions that
+Markdown cannot express.
 
-**Strengths:**
+### 9.5 Adapter
 
-- human-readable and inspectable;
-- git-friendly and diffable;
-- portable to Obsidian, Logseq, and plain-text tools;
-- easy external editing and scripting;
-- export is nearly free.
+A narrow adapter converts Markdown to content and back for guest files and export. The adapter never
+invents structure: headings stay headings, and the result is a flat content body. The canonical
+document is never rebuilt from Markdown.
 
-**Weaknesses:**
+### 9.6 Block granularity
 
-- WYSIWYG editing over Markdown is lossy for syntax variants, escaping, and formatting; a round-trip can change the user's text.
-- Stable inline anchor IDs require custom syntax that is not standard Markdown; external editors may strip or mangle it.
-- Branches, page setup, and pagination hints cannot be represented cleanly in Markdown; they need a sidecar, so Markdown is not the sole source of truth.
-- Formulas, code fences, images, tables, and nested lists all have edge cases; parsing and serializing correctly is a large project.
-- Raw offsets into Markdown are fragile under edits; anchor marks in raw text are awkward to render.
-- A user editing the Markdown outside the app can break anchors and structure.
+A block is a rich body, not a single node. A block with only code, only a formula or only an image
+is a normal block whose body contains that node. This is closed (D2) and drives identity, branching
+and layout.
 
-### 9.5 Option B — Structured JSON canonical
+### 9.7 Import and export expectations
 
-**Description.** Block content is a structured rich-text tree with stable node identities and inline marks. Anchors are marks or node attributes; branches, chapters, page setup, and assets are first-class fields in the same document. Markdown is an export/import format.
+Markdown import produces a flat guest file, not a forest. Export is best-effort for formatting;
+it never claims byte-identical round-trip. Anchors and branches are not representable in Markdown
+and are reported as lost if exported.
 
-**Strengths:**
+### 9.8 Limits and safety
 
-- stable anchor marks move with edits;
-- schema validation and migrations are tractable;
-- branches, anchors, chapters, and content share one versioned document;
-- editor rendering and PDF rendering can share the same content model;
-- no dual source of truth;
-- forward-compatible with unknown nodes and fields.
-
-**Weaknesses:**
-
-- less human-readable than Markdown;
-- not directly editable in external tools;
-- requires a documented export path to avoid lock-in;
-- JSON diffs are noisy;
-- the schema is a long-term commitment and must be versioned carefully.
-
-### 9.6 Comparison
-
-| Criterion | Markdown-canonical | Structured JSON-canonical |
-|---|---|---|
-| Anchor stability | Weak without custom syntax; raw offsets fragile | Strong; marks/nodes move with edits |
-| WYSIWYG fidelity | Lossy round-trip risk | Native |
-| Branches/page setup | Sidecar needed; split source of truth | First-class fields |
-| Portability | Excellent for text, poor for structure | Requires export; documented schema |
-| External editing | Easy, but can break anchors | Not intended |
-| Git diffs | Good for text | Noisy, but inspectable |
-| Schema/migrations | Markdown variants and sidecar versions | One versioned document |
-| Implementation risk | High for editor/anchors | High for editor, lower for model |
-| PDF fidelity | Requires parsing/rendering Markdown | Direct render from the content tree |
-
-### 9.7 Decision and adapter
-
-**Decided: Option B, structured JSON/ProseMirror JSON canonical, with a flat Markdown guest view.** The product owner delegated the choice; `AGENTS.md` records it. D1 is closed.
-
-Rationale: the product's differentiator is anchored branches. Anchors need stable inline identity; branches, chapters, and anchors need one canonical home; and the page PDF needs a reliable content tree.
-
-**Adapter requirement.** The content layer MUST keep a narrow adapter between the canonical document and the editor/rendering representation. The adapter exists so the content representation can be revisited after the prototype without rewriting branches, anchors, chapters, or persistence. The adapter must not become a second canonical source.
-
-Markdown remains import/export only. Do not store Markdown as the live document and do not keep a live Markdown mirror. If the team later revisits the content model, it must be a versioned migration, not a silent format change.
-
-### 9.8 Block granularity (D2, closed)
-
-**Decided: a block is a rich body, not a single content node.** A block may contain several paragraphs, a list, a code block, a formula, an image, and a table. It is the unit of branching, identity, and layout.
-
-Why: the product describes blocks that hold Markdown, LaTeX, code, images, and lists together. A single-node block would force a definition and its formula into separate blocks, fragmenting the page and the outline. A rich body keeps a study idea together.
-
-Implications:
-
-- block height can be large and may exceed an A4 page; it may continue at a safe internal boundary, or report a pagination defect if no safe boundary exists;
-- the UI should encourage focused blocks, but no hard character limit is imposed in v1;
-- anchors can target any node inside the body;
-- a code block or formula can be a node inside a block, not necessarily a separate block;
-- a table is a node inside a block; its rows are the only safe break points inside it.
-
-D2 is closed. Single-node blocks are not the v1 model; switching later would be a versioned content migration and a layout change, not a silent default.
-
-### 9.9 Export and import expectations
-
-- **Markdown export (post-v1):** outline order; blocks separated by headings or blank lines; page-break markers as comments/separators; anchored branches rendered as footnotes/callouts with their anchor quote; reference edges as links or a "See also" list; frontmatter with title and schema version; assets in a relative folder. Page setup, derived page numbers, and exact anchor geometry are lost. Do not promise round-trip fidelity.
-- **Markdown import (post-v1):** headings/paragraphs/lists/code/math/images become blocks or nodes; no anchors or branches are reconstructed from plain Markdown; imported blocks get new IDs. Report lossy conversions.
-- **JSON Canvas export (post-v1):** nodes are blocks, edges are branches; anchors are not representable and become block-level edges with a warning. Treat as map interchange, not the document format.
-- **JSON Canvas import (post-v1):** nodes become blocks, edges become reference edges by default; no anchors; canvas x/y is ignored, and imported nodes are placed in a deterministic tree, never as free positions or pins.
-- **HTML export:** not required. PDF is the print format.
-
-### 9.10 Content limits and safety
-
-- No hard block size limit in v1; the UI SHOULD warn above a large threshold (for example, 50,000 characters) because layout and editing may degrade.
-- Images: PNG, JPEG, WebP, and GIF (first frame for PDF) are supported. SVG is not required in v1; if added, it must be sanitized.
-- Math: a KaTeX-compatible LaTeX subset is the target. Unsupported commands render an error, not a crash.
-- Code: plain text only; no execution, no embedded outputs, no Jupyter-style state.
-- Tables: SHOULD; anchors may target text inside a cell but not span cells. Page breaks occur only between rows; a row taller than the page is a pagination defect.
-- Raw HTML: never executed. HTML-like input is escaped or treated as text.
-- Links: sanitized; external links open outside the document; `javascript:` and similar schemes are rejected.
-- Remote content: not loaded into the document; images are local assets.
+Sanitize Markdown/HTML at every boundary: no script, iframe or event handlers. Links open externally
+with confirmation. LaTeX is limited to KaTeX-safe commands. SVG is treated as untrusted or
+rasterized. Remote images are not fetched. Table cells are inline only; a legacy cell with block
+content opens in the recovery state and is never flattened.
 
 ---
 
@@ -1544,154 +947,87 @@ D2 is closed. Single-node blocks are not the v1 model; switching later would be 
 
 ### 10.1 Document package
 
-A note document is a folder the user chooses, containing one canonical JSON file and an assets folder:
+A note is a folder package:
 
-```text
-<user-chosen-folder>/
-  document.json        # canonical document: chapters, top-level blocks, blocks, anchors, branches, pageSetup, break hints, schemaVersion
+```
+My note/
+  document.json
   assets/
-    <content-hash>.<ext>
+    <hash>.<ext>
 ```
 
-- `document.json` is the canonical source; `assets/` holds content-addressed files. There is no mandatory manifest, database, or sidecar.
-- Backups, exports, and audit logs are app-managed and live outside the canonical package. They are not required to open the document.
-- All paths inside the document are relative to the package. Absolute paths are forbidden.
-- Assets are content-addressed and deduplicated. The original filename is metadata only.
-- A zip bundle MAY be offered for sharing; the folder remains the working format.
-- User note documents are standard files in a user-chosen folder. They are **not stored in git**; git is for code and project docs only.
+`document.json` is UTF-8 canonical JSON. Assets are content-addressed and shared within the package.
+Backups are **not** stored in the package; they live in app support.
 
-### 10.2 Canonical and derived data
+### 10.2 Canonical and derived
 
-**Canonical:** page setup, manual break hints, chapters, top-level block order, blocks, anchors, branches, assets, schema version, title, timestamps, monotonic revision.
-
-**Derived:** search index, thumbnails, continuous layout geometry, derived pages and continuations, PDF and Markdown exports, page/block labels for PDF.
-
-**Non-canonical view state:** layout, interaction mode, current derived page, zoom/fit, scroll, focus, selection, collapse. It is stored outside `document.json`.
-
-There MUST NOT be two canonical sources. Derived data may be rebuilt. View state may be discarded.
+Canonical: `document.json`. Derived: layout, pages, markers, labels, statistics. Personal: page
+settings, view state, shell state. The document never contains derived or personal data.
 
 ### 10.3 Save and autosave
 
-- Autosave after a short idle debounce (for example, 1 second), with a maximum interval during continuous editing (for example, 5 seconds).
-- Atomic save: write a temporary file in the same directory, flush it, then rename over the old file. Keep the previous file as a backup.
-- Save on window close, app quit, and explicit save. If save fails, do not close silently; show a blocking, actionable prompt.
-- The save status is visible: saved, saving, unsaved changes, save failed.
-- Saving a large document must not block typing; asset writes may be asynchronous, but the document JSON write must be atomic and ordered.
-- Autosave does not create undo entries and does not change the user's selection.
+- Save is atomic: write a temporary file, fsync, rename. A crash leaves the old or the new complete
+  file, never a partial one.
+- Autosave is debounced and off the typing path; it does not run during migration or export.
+- Save on quit is reliable and flushes pending writes.
+- A package lock prevents two writers; a stale lock is detected and taken over only when safe.
+- A failed save is visible in the shell; the app never claims a save that did not happen.
 
 ### 10.4 Backups and recovery
 
-**Backup rotation (v1 defaults).**
-
-| Backup | Trigger | Retention | Contents |
-|---|---|---|---|
-| **Autosave snapshot** | Before each successful atomic save, after the previous version is secured. | Last 20. | `document.json` only; assets are shared by content hash. |
-| **Daily snapshot** | First save of the day. | Last 7 days. | Same. |
-| **Pre-migration snapshot** | Immediately before a migration. | Until a post-migration save succeeds and at least 7 days, whichever is longer. | Same. |
-| **Pre-repair snapshot** | Before a destructive repair or bulk delete. | At least 7 days. | Same. |
-| **Manual backup** | User command. | Until deleted. | Same. |
-
-- Backups are app-managed and are not part of the canonical document. The UI can reveal them in the file manager.
-- Assets are content-addressed and shared, so JSON snapshots do not duplicate image data.
-- Never delete the last known-good backup. Retention is configurable, but v1 defaults must keep at least 10 versions.
-- Back up before a migration and before a destructive repair.
-- Crash recovery order: validate the newest temporary file, then the newest valid backup, then the canonical file. Show timestamp, block count, and a short preview; never auto-open a recovery candidate.
-- If a crash leaves a temporary file newer than the canonical file, offer: "Restore autosave," "Open last backup," "Open canonical file."
-- Recovery must never overwrite the last good file without confirmation. Restoring should write a new copy or require an explicit overwrite.
-- Backups are not a user-facing version history in v1 (D11); they are a safety net.
+- Backups: `<appSupport>/backups/<documentId>/<kind>-<timestamp>-r<revision>.json`.
+- Retention: 20 autosave snapshots, 7 daily snapshots, pre-migration snapshots for at least 7 days.
+  The autosave floor is 10.
+- Recovery offers the newest valid backup plus the canonical file when it is readable.
+- Restore writes atomically and keeps the original until the new file is complete.
+- Backup retention is by **content reference**: an image becomes reclaimable only when the backups
+  that show it rotate out. That rotation is the grace period.
 
 ### 10.5 Load and validation
 
-On open:
-
-1. Read `document.json`. Malformed JSON is a fatal load error with a recovery path.
-2. Validate the schema version and run migrations if needed.
-3. Validate the schema shape and the invariants in §4.10.
-4. Resolve anchors and assets.
-5. Rebuild derived indexes and compute the continuous layout and pagination.
-
-**Error classes:**
-
-- **Fatal:** malformed JSON, duplicate IDs, missing block references, primary cycles, multiple primary parents. Open in recovery/read-only mode, show a report, offer backup/raw export. Never overwrite.
-- **Repairable with warning:** missing top-level block assignment, block in no chapter, top-level block in two chapters, stale view state, missing asset, broken anchor, duplicate branch order, invalid manual break hint. Apply safe repairs (add missing top-level block to a chapter, drop stale view state, placeholder asset, drop invalid hint) and mark the document dirty; structural repairs require user confirmation.
-- **Forward-compatible:** unknown fields, unknown node types, newer optional fields. Preserve them; render a placeholder for unsupported content.
-
-Safe automatic repairs are limited to visibility and non-destructive cleanup. Cycles, duplicate primary parents, and duplicate IDs are never auto-fixed.
+Load checks: JSON shape, `schemaVersion`, unique IDs, one primary parent per non-root, acyclic
+primary forest, resolving endpoints, anchors belonging to their block, unique sibling order, no
+duplicate source-target branch, assets present. Failures are specific and do not partially apply.
+A newer schema is read with a warning when safe, or refused read-only; it is never downgraded by a
+write.
 
 ### 10.6 Schema versioning and migrations
 
-- `schemaVersion` is an integer, starting at 1.
-- Migrations are pure, ordered functions from version N to N+1. Old migration code is never edited.
-- Keep unknown fields when reading and writing.
-- Back up before migrating. Migrate into memory, validate, then write atomically. If migration fails, restore the backup and open read-only.
-- A file written by a newer app version opens read-only with a clear message. Never downgrade silently.
-- Test fixtures for every schema version that has existed, plus an "old app opens new file" test.
-- If the content model evolves independently, a separate content-schema version MAY be added; it must still migrate within the document version.
-
-**Migration matrix (minimum).**
-
-| From → To | Fixture | Backup | Validation | Failure behavior |
-|---|---|---|---|---|
-| v1 → v1 (current) | Current golden document. | Normal autosave. | Full schema and invariants. | Open read-only; no overwrite. |
-| v1 → v2 | Golden v1 document. | Required. | Full after migration. | Restore backup; open read-only. |
-| vN → vN+1 | One golden fixture for every prior version. | Required. | Full after each step; run migrations in order. | Restore backup; report the failing step. |
-| vN+1 → vN (newer file) | Newer-version fixture. | None. | Read-only load; no migration. | Clear "newer version" message; no write. |
-| Unknown fields → current | Fixture with unknown fields at every level. | Required. | Unknown data preserved. | Restore backup if preservation fails. |
-| Unknown nodes/marks → current | Fixture with unknown content nodes and marks. | Required. | Preserve and render placeholders. | Restore backup if data would be dropped. |
-| Broken anchor / missing asset → current | Fixture with both. | Required. | Load with warnings; no data loss. | Open with warnings; repair later. |
-| Injected migration failure | Fixture plus a forced failure. | Required. | Detect failure; do not write partial output. | Restore backup; open read-only. |
-| Content-schema version change (if added) | Separate fixture for each content-schema version. | Required. | Content and document both validate. | Restore backup; open read-only. |
-
-No migration ships without a golden fixture for every prior version and a failure-path test. The matrix is part of the persistence acceptance gate (AC-59).
+`schemaVersion` is 2. Version 1 → 2 removed `pageSetup`, `manualBreakBeforeBlockIds` and `viewState`
+from the document; page settings moved to personal settings. Migrations are pure, forward, and
+backed up before writing. A migration failure leaves the original intact. Unknown fields are
+preserved.
 
 ### 10.7 Unknown fields and content
 
-- Unknown JSON fields at every level (document, pageSetup, chapter, top-level order, block, anchor, branch, asset, annotation) are preserved on save.
-- Unknown content node types are preserved and rendered as an "unsupported content" placeholder; they are not dropped.
-- Unknown inline marks are preserved; anchors inside unknown content may be broken and require repair.
-- Unknown annotation data is preserved even though v1 does not render it.
-- A migration must not discard unknown data unless the user explicitly chooses a lossy conversion.
-- A load/save round-trip with unknown fields and unknown content must not drop them; persistence tests assert this explicitly.
+Unknown object fields and unknown content nodes or marks are preserved on save. An unknown field is
+never silently dropped; a load projection that cannot represent legacy content refuses or keeps the
+original with a warning.
 
 ### 10.8 Assets
 
-- Copy assets into the package on import; deduplicate by content hash.
-- Store MIME, byte size, intrinsic dimensions, alt text, and original filename.
-- Never store absolute paths or remote URLs as canonical.
-- If an asset is missing, show a placeholder with its alt text or filename, keep the reference, and warn. Do not delete the image node or any anchors that depend on it.
-- Garbage collection of unreferenced assets is deferred in v1. If added, it must run only after a backup and a grace period, and never delete an asset referenced by a block, anchor, annotation, retained backup, or export in progress.
-- Large images may be downsampled for display and PDF, but the original asset is preserved unless the user explicitly replaces it.
+Assets are validated on load: the record exists, the file exists, the hash matches when known. A
+missing asset renders the placeholder and is reported, and the document still opens. Removing an
+asset that is still referenced is refused. Unused assets can be cleaned through Health, with a
+preview, and bytes go to the OS Trash.
 
 ### 10.9 Privacy and security
 
-- Local-only by default: no telemetry, no analytics, no outbound network requests, no cloud sync, no local API server.
-- No secrets in the document package. API tokens are stored hashed outside the document.
-- Raw HTML, scripts, and remote content are never executed.
-- Links are sanitized; external links open outside the document.
-- The document package is readable JSON plus standard asset formats; the user can inspect and back it up without the app.
-- File permissions follow the OS user's normal document permissions; the app does not add encryption in v1.
+No telemetry, analytics or background network calls. File access is confined to the library and the
+package; asset paths cannot traverse. No secrets in code or logs; note content is not logged by
+default. PDF export fetches no remote resources.
 
 ### 10.10 Concurrency and external edits
 
-- v1 is single-user. Do not implement CRDTs, merge, or multi-device sync.
-- Enforce a single instance per document package; opening it again focuses the existing window or opens read-only.
-- Every write uses the single-writer/lock policy and `baseRevision`; two writers must not corrupt the file (OS advisory lock + lock file, one writer, concurrent readers).
-- Detect external modification by comparing the file's modification time and/or content hash before saving. If it changed, prompt: reload, overwrite, or save a copy. Never silently overwrite.
-- If two windows somehow open the same package, the second is read-only and says so.
-- A future sync or collaboration feature requires a separate ADR and a CRDT or equivalent design; it is not retrofitted into this model by assumption.
+A package lock prevents two app instances from writing. External modification is detected by content
+hash or mtime before writing; the app refuses to overwrite silently. A conflict offers reload,
+overwrite, or cancel. A `.md` guest file has no lock: it detects external change the same way and
+offers the same choices.
 
 ### 10.11 Failure behavior
 
-| Failure | Required behavior |
-|---|---|
-| Disk full | Stop autosave, keep the document editable in memory, show a persistent banner, do not write a partial file. |
-| Permission denied | Same as disk full; offer Save As to a writable location. |
-| Crash during save | Leave the old file intact; recover from temp or backup on next open. |
-| Corrupt JSON | Open recovery/read-only; never overwrite; offer backup and raw export. |
-| Newer schema | Open read-only; explain; do not downgrade. |
-| Missing asset | Placeholder; keep reference; warn. |
-| Duplicate IDs | Fatal recovery; report the duplicate IDs; do not auto-rename. |
-| External modification | Prompt before writing; default to the safest option. |
+A failed save, migration, export or recovery leaves the document unchanged or recoverable. A corrupt
+file is backed up before any recovery write. A destructive action is undoable or confirmed.
 
 ---
 
@@ -1699,261 +1035,170 @@ No migration ships without a golden fixture for every prior version and a failur
 
 ### 11.1 Goals and non-goals
 
-**Goals:**
+Goal: reproduce the Page layout as a real-text PDF that opens anywhere and is comfortable to study.
+Non-goals: a separate reader PDF, a map export, annotations, or a second pagination engine.
 
-- produce a page-based PDF with real, selectable text;
-- use the same paginator as the Page layout, so the PDF matches the Page layout (Page Read and Page Edit geometry);
-- preserve every block exactly once, including shared children;
-- keep anchored branches below their anchors, with continuation/ghost-parent markers when a branch crosses a page;
-- break between blocks first; allow a long block to continue only at safe internal boundaries;
-- never cut a text line, image, formula, table row, or code line;
-- respect A4 portrait/landscape and document margins.
+### 11.2 Mode
 
-**Non-goals:**
+One Page PDF: the Page layout in Read mode, all pages, from the shared paginator. There is no range
+export in v1. Export is available from Continuous, Page, the palette, the menu and the Page toolbar.
 
-- a separate linear reader PDF in v1; the Continuous layout is an editor layout, not an export;
-- a spatial map page or poster export;
-- a screenshot of the Page layout;
-- interactive forms, embedded audio/video, or encryption;
-- a tagged/PDF-UA document in v1;
-- the future annotation/study layer.
+### 11.3 Page setup and theme
 
-### 11.2 Export mode
-
-v1 has one export mode: **Page PDF**. It exports every derived page of the document, in reading order, using the same paginator and page setup as the Page layout. The export is the Page layout in **Read mode**, with editor chrome excluded (ADR-0007).
-
-There is no "reader PDF," "annotation-margin reader," or "map page" mode in v1. Those are future options and must not be implied by the export UI.
-
-### 11.3 Page setup and print theme
-
-| Setting | Value |
-|---|---|
-| Page size | A4 only: 210 × 297 mm portrait, 297 × 210 mm landscape. |
-| Orientation | From `pageSetup.orientation`; document-wide in v1. |
-| Margins | From `pageSetup.margins`; default 20 mm on all sides. |
-| Header | Document title left, chapter/page label right (8 pt, subdued). |
-| Footer | Page number centered: "Page X of Y". |
-| Body text | 10.5 pt, 1.45 line height; print theme, not screen theme. |
-| Code | 9 pt monospace; preserve indentation. |
-| Headings | 16/13/11 pt hierarchy; block labels may act as headings. |
-| Background | White; no dark mode, no shadows; block borders only if enabled, at a subtle weight. |
-
-The print theme is separate from the screen theme. The Page layout and the PDF MUST use the same typography metrics for measurement and pagination; the screen may change colors, borders, and non-metric decoration, but it must not change the font metrics used for page breaks. The Continuous layout may use a screen theme; its page-break markers are derived hints from the same paginator, not print geometry, and must not claim pixel parity with the Page layout or PDF.
+The resolved personal settings apply: page size (A4), orientation, margins, compact/comfortable
+theme, density, chrome (header, footer, page number), manual breaks. The paper is light in both app
+themes; the chrome follows the print theme, not the app theme.
 
 ### 11.4 Pagination and page count
 
-- The PDF uses the paginator described in §7.5. Page count equals the derived page count.
-- The PDF prefers breaks between blocks. A long block may continue at a safe internal boundary (paragraph, list item, blockquote paragraph, between code lines, or between table rows), with "continues on page N" on the source page and "continued from page M" plus a ghost parent on the target page.
-- The PDF MUST NOT cut a text line, image, formula, table row, or code line. If no safe boundary exists, export is blocked with a clear "no safe page break" error; the user splits the block or changes page setup.
-- A table row is atomic. The PDF breaks a table only between rows, never inside a row or cell. A row taller than the page content height blocks export with a "no safe page break" error rather than cutting it. Header-row repetition is not required in v1.
-- A lower-level block that continues on the next page gets the same continuation and ghost-parent markers as the Page layout.
-- Manual page-break hints are honored where the paginator honors them in the Page layout; the PDF must not diverge.
-- Each chapter starts on a new derived page.
-- Avoid blank pages. A page with no content and only a header/footer is a defect unless it is the intentional title page.
-- Page numbers and running headers are generated after pagination. Export is deterministic for the same document, page setup, hints, and font state.
-- Page/PDF show the full document content; the Continuous collapse state is not exported (ADR-0007).
-- If the document has no blocks, export is disabled with a message; it never produces a blank PDF.
+The print model consumes the paginator's pages; it never re-paginates and never lets CSS decide
+breaks. Page count, size, orientation and margins are validated against the paginator before the
+file is written. A mismatch, a blank page, or a wrong count is an export failure.
 
-### 11.5 Content order and layout fidelity
+### 11.5 Order and fidelity
 
-- The PDF renders the same page layout geometry as Page Read: top-level blocks stacked, adaptive children to the right or wrapped below, anchored branches below their anchors, with the paginator's derived pages.
-- Every block appears exactly once. A shared child appears at its primary home; reference edges are drawn as vector arrows, not repeated content.
-- Primary edges are solid arrows; reference edges are dashed or otherwise distinct. Cross-page primary edges use continuation markers at the page boundary.
-- Block cards, labels, formulas, code, images, and block borders use the print theme but keep their computed positions and sizes.
-- PDF export includes all document content, not the current collapse state. Collapse is an outline/Continuous navigation aid; Page/PDF always show the full document. There is no "export visible only" option in v1 (Q13, ADR-0007).
-- The PDF is not a screenshot. Text, arrows, and borders are vector/text where the PDF pipeline supports it.
+Reading order matches the outline. Anchored callouts appear at their laid-out position; continuation
+markers and ghost parents match Page. No block is clipped. Tables break only between rows. Content
+stays inside the margins.
 
-### 11.6 Text layer, fonts, formulas, and links
+### 11.6 Text, fonts, formulas
 
-- Body text, labels, code, and table text MUST be real text and selectable/searchable.
-- Fonts MUST be embedded or subset; missing glyphs are a defect. Test `λ`, `∑`, arrows, code ligatures, and non-Latin content.
-- Formulas MUST be visually correct. Their text layer is best-effort: simple formulas may extract, complex layout may not. Do not claim that all formulas are searchable.
-- Images MUST be embedded at sufficient resolution (target 150–200 DPI for print; never upscale beyond the source). Alt text is preserved in metadata where the PDF pipeline supports it.
-- Internal "see also" references have a text label with the target page; clickable internal links are SHOULD where the PDF pipeline supports them.
-- External links are preserved where possible; the text label is the fallback.
-- No missing-glyph boxes (`�`) and no clipped content are acceptable.
+Body text is real text with an embedded font subset; no outlines or bitmaps. Math and code fonts are
+embedded. Code keeps monospace and indentation. Missing glyphs and `�` are failures. Links are
+emitted only if valid; otherwise none.
 
-### 11.7 Arrows, borders, and the study layer
+### 11.7 Arrows and borders
 
-- All page arrows are vector: primary solid, reference dashed, anchored edges starting at an anchor dot or region. Arrowheads are vector.
-- Block borders follow the print theme: subtle if enabled, absent if not; no shadows.
-- The future study layer has an "Include study layer" toggle. In v1 the layer is empty and the toggle is hidden or disabled. When implemented, the content-only export must remain possible.
+Arrows are vector, with a single arrowhead size and no shaft through the head. Trunks and page-edge
+indicators match Page. Borders print with the resolved theme. Anchor markers do not print.
 
 ### 11.8 Fidelity expectations
 
-| Aspect | Expectation |
-|---|---|
-| Content | High: every block's content appears once, correctly rendered. |
-| Reading order | Exact: same as the paginator and Page layout. |
-| Spatial layout | High: same page geometry and page breaks as Page Read, within print typography. |
-| Text layer | Body/code/labels: required. Formulas: best-effort. Images: alt text where supported. |
-| Formulas | Visually correct; no clipping; no missing glyphs; source preserved in the document. |
-| Images | Embedded at print resolution; missing assets render a labeled placeholder. |
-| Links | Text labels required; clickable links best-effort. |
-| Annotations | Not in v1. |
-| Page count | Deterministic for the same document, page setup, hints, and font state, excluding timestamps. |
+Geometry parity within a small tolerance; a raster comparison is part of the gate. The PDF is not a
+screenshot: the print DOM is the same structure with print CSS.
 
 ### 11.9 File name and metadata
 
-- Default file name: `<document title> — <YYYY-MM-DD>.pdf`, sanitized for the filesystem.
-- Metadata: title, subject (optional), creator/app version, page size, creation date.
-- Do not put sensitive local paths in PDF metadata.
-- Export writes to a temporary file and renames on success; a failed export does not leave a partial PDF in place.
+The file name is `<title>.pdf`, with a safe fallback for an empty title. No date, author or metadata
+in v1.
 
 ### 11.10 Verification
 
-Automated checks (where the toolchain allows):
+- Page count, page size, orientation and margins equal the paginator.
+- Real text via `pdftotext`; no `�`, no blank page, no text as image.
+- No cut line, image, formula, code line or table row; markers match.
+- Fonts embedded; code and math readable.
+- Raster parity within tolerance; print CSS metrics asserted.
+- The 50+ page A4 gate and the 300-block timing gate pass.
 
-- extract text and assert that every block's plain text is present, allowing line-break normalization;
-- count PDF pages and assert they equal the paginator's derived page count;
-- assert no text line, image, formula, table row, or code line is cut; a long block may continue at a safe boundary with continuation/ghost-parent markers;
-- assert every block appears exactly once (shared children once);
-- assert continuation markers exist where the paginator reports continuations;
-- assert no unexpected blank page;
-- assert no `�` or missing-glyph markers;
-- assert image count and that missing assets have placeholders;
-- check page size, orientation, and margins against `pageSetup`;
-- assert the PDF/Page Read geometry matches the Page layout's computed geometry within the print-theme tolerance.
+### 11.11 Out of scope
 
-Manual checks:
+Reader PDF, map export, page ranges, annotations, tagged PDF, PDF/A, and any app-specific annotation
+workflow. Annotation happens outside the app with any standard tool.
 
-- open in Preview and Chrome, select and highlight body text, search for a term; app-specific annotation apps are out of scope for the export gate;
-- verify formulas and code are readable;
-- verify pages match Page Read, including breaks and continuations;
-- verify a broken anchor produces a marker without losing the branch;
-- verify no text line, image, formula, table row, or code line is cut; verify continuation/ghost markers where expected.
+### 11.12 Pipeline
 
-### 11.11 PDF out of scope
+1. Resolve settings and the measured run; compute a fingerprint (theme, page setup, manual breaks,
+   document ID).
+2. Build the print model from the real `layoutDocument` + `paginate` output.
+3. Render it in a hidden window; wait for layout, fonts, images and KaTeX.
+4. `printToPDF` with the resolved page size and numeric zero margins.
+5. Inspect the produced PDF (page count, size, text, blank pages).
+6. Write atomically (temp → inspect → rename) and report success or a specific failure.
 
-- Separate reader PDF, annotation-margin reader, or map pages.
-- Screenshot/poster export of the Page layout.
-- Freehand ink or annotation authoring in the PDF.
-- Tagged PDF/PDF-UA compliance.
-- Interactive forms, embedded media, encryption, or digital signatures.
-- Pixel-identical screen colors or browser chrome.
-
-### 11.12 PDF pipeline (decided)
-
-The PDF pipeline is **decided (ADR-0002): Electron `webContents.printToPDF`, driven by the shared paginator.**
-
-- `packages/layout` computes the continuous layout and the derived pages. The paginator is the only component that decides page breaks.
-- A print-only renderer composes the *already-derived* pages at exact A4 dimensions, in print theme, with one fixed-size page container per derived page. It never lets CSS paged media re-paginate and it never decides breaks.
-- `printToPDF` runs with `preferCSSPageSize`, explicit `@page` size/margins, `printBackground`, no scale, embedded fonts, and a settled document (fonts, images, KaTeX, layout measurement) before capture.
-- Hard gate before PDF is considered done: a 50+ page A4 spike with real selectable text, page numbers, repeated headers, no cut line/image/formula/code line/table row, page count equal to the paginator, and geometry matching Page Read within print-theme tolerance.
-- If `printToPDF` fails the gate, the fallback is a new ADR, not a silent switch. Candidates: Chromium CDP `Page.printToPDF` from the same engine; a native PDF compositor (PDFKit) drawing the same page slices. Typst is not a drop-in for WYSIWYG page export because it would be a second layout engine.
+The model rejects a missing or different fingerprint, page setup, manual-break set or document ID
+before rendering. A dimensioned asset that disappears after measurement prints the app placeholder
+and reports a warning.
 
 ---
 
-## 12. Markdown file view
+## 12. Markdown guest file
 
-The External Agent API (ADR-0003) was **withdrawn** by the product owner on 14 November 2026. V1 has
-no local HTTP server, MCP adapter, tokens, scopes, audit log, in-app agent panel, or forest builder.
+A `.md` file anywhere in the library opens as a **guest file**:
 
-A `.md` file can be opened as a **guest file**: Continuous only, Edit/Read, rendered from the
-declared GFM subset + math/code/tables/local images. It has no document id, revision, anchors,
-branches, Page/PDF, export, or per-document Page settings. Edits save back to the same file with an
-atomic write and an external-change conflict check. The design is
-`docs/design/markdown-file-view.md`; the roadmap is `docs/plan.md` phase 2.
+- its own tab, titled by the file name; Continuous only, Edit and Read;
+- parsed into the flat content schema and rendered with the same prose, code, math, table and image
+  views;
+- no chapters, blocks, branches, anchors, shared children or DAG; no document ID, revision, package
+  lock or per-document page settings;
+- no Page, no PDF, no Markdown export;
+- edits save back to the same file: autosave plus `⌘S`, atomic write, UTF-8, one `.md.bak`;
+- external change is detected before writing and offers Reload, Overwrite or Cancel; never a silent
+  merge;
+- local images resolve relative to the file, confined to its folder tree; remote images are not
+  fetched;
+- frontmatter is shown verbatim and read-only; raw HTML and unknown syntax are preserved as text;
+- a large file above the documented cap opens read-only instead of freezing the window;
+- copy from the guest file into a note preserves rich nodes; the reverse is not a goal;
+- a file badge marks the tab, and forest chrome is hidden.
 
-There is no automatic Markdown→forest import. An external agent (or the user) may prepare Markdown,
-open it as a guest file, and copy snippets into a note; the app does not build a forest from it.
+---
 
 ## 13. Edge cases
 
 ### 13.1 Structure and model
 
-| Case | Required behavior |
+| Case | Behavior |
 |---|---|
-| Attempt to create a second primary incoming branch | Reject, or create a reference / explicit reparent. Never two primary parents. |
-| Reparent a block into its own descendant | Reject before mutation; explain that it would create a primary cycle. |
-| Reference cycle | Allow; render arrows; outline and PDF do not recurse; no infinite loop. |
-| Self-branch | Reject for both roles. |
-| Duplicate exact source-target branch | Focus the existing branch; do not create a second, regardless of role (OD-3). |
-| Make home on a root target | Disabled; use Move here or Add as child (OD-7). |
-| Delete a block with anchored primary children (promote) | Promote every primary child, including anchored ones; create a new primary branch from the deleted block's parent or make the child top-level; remove the old anchored branch; keep target/block IDs; undo restores (C9). |
-| Cross-chapter merge | Rejected in M3 (OD-11); both blocks must share a primary parent port or be top-level in the same chapter. |
-| Block with no primary parent missing from the chapter top-level list | Append it as a top-level block with a warning; make it visible. |
-| Non-root block present in the chapter top-level list | Remove it from the top-level list with a warning; keep its primary parent. |
-| Block unreachable because of a cycle or corruption | Recovery mode; list it; do not silently drop it. |
-| Delete a block with external reference parents | Confirm and list them; remove the incoming references; no dangling edges. |
-| Delete a primary branch | Target becomes a root and a top-level block after the former top-level block; subtree, anchors, and outgoing branches stay. |
-| Shared child primary-role change | "Make home" swaps primary/reference; "move here" deletes the old primary; target moves once. |
-| Block assigned to two chapters | Fatal recovery; user chooses one chapter; never duplicate. |
-| Duplicate IDs | Fatal recovery; report; no automatic rename; no overwrite. |
-| Unknown field or content node | Preserve; render a placeholder for unsupported content. |
-| Empty block | Allowed; persists; visible; not auto-deleted. |
+| Duplicate IDs, two primary parents, primary cycle | Rejected on load and at the command layer with a specific error; no partial mutation. |
+| Reference cycle | Allowed; traversal never loops. |
+| Reparent under own descendant | Rejected atomically. |
+| Delete a block with children | Defined policy (promote, reparent or cascade), confirmed or undoable. |
+| Empty document | Valid; shows guidance, never a dead end. |
+| Chapter with no top-level blocks | Valid; no synthetic node is created. |
+| Legacy primary+reference duplicate | Keep primary, drop reference, warn. |
 
 ### 13.2 Anchors
 
-| Case | Required behavior |
+| Case | Behavior |
 |---|---|
-| Anchored text deleted | Anchor becomes broken; branch and target remain; repair UI. |
-| Last branch removed from an anchor | Anchor stays idle; marker hidden; no callout; explicit Remove anchor deletes it (OD-2). |
-| Text anchor spans inline math/image | Allowed; selector quote uses the plain-text projection; mark binding remains truth (OD-12). |
-| Text anchor crosses a block-level atomic node or table-cell boundary | Reject with a clear message; no partial anchor. |
-| Duplicate text binding (second disjoint run) | Broken/repair; one contiguous binding per anchor ID (I10, C8). |
-| Block split inside an anchor | Clip to the original side; mark for repair; never discard; the new side gets no second anchor record. |
-| Anchor block merged | Move the anchor to the surviving block; update `blockId`; keep the branch. |
-| Anchor at a block boundary or multiple anchors overlapping | Allow; order by start position then ID; keep deterministic. |
-| Code edit shifts offsets | Re-resolve by quote/context; ambiguous if multiple candidates; broken if none. |
-| Formula invalid after edit | Preserve source; show error; anchor the whole formula if the term cannot resolve. |
-| Image replaced or missing | Anchor broken; branch remains; placeholder; asset hash mismatch recorded. |
-| Image crop changed | Broken or explicit confirmation; the old region may no longer mean the same thing. |
-| Broken anchor | Branch remains; visual origin falls back to the whole block; marker + repair dialog; export uses the fallback; no silent loss. |
-| Anchor mark duplicated or missing | Validation/broken state; repair; no phantom branch. |
-| Branch source anchor deleted with block | Primary: promote the target with a new primary branch from the deleted block's parent, remove the old anchored branch (C9). Reference: remove the edge; target unchanged. No dangling source. |
-| Branch target missing | Quarantine the branch; show a load warning; repair or delete. |
-| Multi-block selection, block-level atomic node, or table-cell boundary | Reject in v1 with a clear message; inline math/images inside one block are allowed via projection (OD-12). |
+| Duplicate quote | Occurrence hint; ambiguous repair needs confirmation. |
+| Split inside an anchor | Both parts keep the ID; repair flag. |
+| Delete anchored text | Broken; branch and quote remain. |
+| Replace an image | Broken unless the hash matches; never a wrong region. |
+| Multi-block selection | Rejected with a message. |
+| Mark without record | Inert; no phantom branch. |
 
 ### 13.3 Layout
 
-| Case | Required behavior |
+| Case | Behavior |
 |---|---|
-| Blocks overlap in the continuous layout | Layout defect; do not ship; fix the adaptive placement or report the impossible constraint. |
-| Anchored callout collides with a sibling subtree | Wrap it below the anchor with the indent; if still impossible, report a layout defect. |
-| Collapsed ancestor hides a block | Hide it and its descendants in the outline/Continuous layout; expand restores; Page/PDF remain full; no pins exist. |
-| Multiple large top-level blocks | Stack vertically in top-level order; no overlap. |
-| Block taller than one derived page | Continue at a safe internal boundary with continuation + ghost parent; if no safe boundary (single line/image/formula/code line), pagination defect; user splits the block or changes page setup. |
-| Very wide content | Wrap the block's text within page width; if still too wide, layout defect; never horizontal scroll a block. |
-| Deep nesting or very many siblings | Adaptive wrapping; warn if performance degrades; do not silently drop nodes. |
-| Broken anchor | Attach the callout to the block's warning point; label "anchor lost"; target remains. |
-| Reference edge crosses a card | Route around where possible; fall back to a curve; crossing is allowed. |
+| Block wider than the page | `content-too-wide`; export blocked; resolution offered. |
+| Unbreakably tall block | `content-unbreakable`; export blocked. |
+| Unhonoured manual break | Reported; the paginator's break is used. |
+| Callout cannot fit | Defect; never clipped or scaled. |
+| 1,000 blocks | Usable with virtualization, collapse and focus. |
+| Deep chain in Continuous | Horizontal scroll; the canvas does not force a wrap. |
 
-### 13.4 Files, assets, and recovery
+### 13.4 Files, assets and recovery
 
-| Case | Required behavior |
+| Case | Behavior |
 |---|---|
-| Malformed JSON | Recovery/read-only; no overwrite; offer backup/raw export. |
-| Newer schema version | Read-only; clear message; no downgrade. |
-| Missing asset | Placeholder; keep reference; warn; PDF placeholder. |
-| Disk full or permission denied | No partial save; keep editing; persistent banner; Save As. |
-| External modification | Prompt before writing; never silently overwrite. |
-| Crash during save | Old file intact; temp/backup recovery on next open. |
-| Duplicate IDs | Fatal recovery; report; no auto-fix. |
-| Unknown node type | Preserve; placeholder; no drop on save. |
-| Asset referenced by a deleted block | Keep until a safe GC pass; do not break other references. |
+| Corrupt `document.json` | Recovery surface; backup offered; original kept. |
+| Newer schema | Read-only or refused; never downgraded. |
+| Missing asset | Placeholder + warning; document opens. |
+| Failed save | Visible; no claim of success; document unchanged. |
+| Crash mid-save | Old or new complete file; never truncated. |
+| External modification | Refuse silent overwrite; offer reload/overwrite/cancel. |
+| `.md` moved or deleted | Missing state; no silent recreate. |
 
 ### 13.5 PDF
 
-| Case | Required behavior |
+| Case | Behavior |
 |---|---|
-| Block taller than a page | Continue at a safe internal boundary (paragraph/list item/between code lines) with continuation + ghost parent; if no safe boundary, export blocked. |
-| Formula or image taller than the page | Export blocked; user splits/shortens the block or changes page setup; never clip, cut, or auto-scale. |
-| Anchored branch crosses a page | Continuation + ghost parent on both pages; branch content appears once. |
-| Nested anchored branches | Paginate as normal; continuation markers as needed. |
-| Missing font/glyph | Fallback font or visible error; no `�`; block export if content is unreadable. |
-| Broken anchor | Marker plus "anchor lost" note; branch content still appears once. |
-| Empty document | Disable export with a message; no blank PDF. |
-| Paginator/Page Read mismatch | Export defect; block release until the PDF and Page Read agree. |
+| Blank produced page | Export failure, classified from the model or raster ink. |
+| Dimensioned missing asset at print time | Placeholder + asset warning. |
+| Count or size mismatch | Export failure. |
+| Broken anchor | Exports with the whole-block fallback and a warning. |
+| Landscape document | Preserves orientation and dimensions. |
 
 ### 13.6 Scale
 
-| Case | Required behavior |
+| Case | Behavior |
 |---|---|
-| 1,000+ blocks | Warn; use collapse/LOD; remain stable; do not promise 10,000. |
-| Very large image | Downsample for display/PDF; keep the original asset; no layout freeze. |
-| Very long code block | Continue between code lines at a safe boundary; never cut a code line. If a single line is too tall, pagination defect; split the block or change page setup. |
-| Many broken anchors | Anchor health panel filters/sorts; export still completes; no bulk auto-delete. |
+| 300 blocks | Smooth authoring and export under the budgets. |
+| 1,000 blocks | Usable with virtualization and collapse; measured, not promised. |
+| Very large library | Library tree stays responsive; search is bounded. |
 
 ---
 
@@ -1961,63 +1206,35 @@ open it as a guest file, and copy snippets into a note; the app does not build a
 
 ### 14.1 Assumptions
 
-| Dimension | Typical | Supported ceiling | Notes |
-|---|---|---|---|
-| Blocks per document | 50–300 | ~1,000 | 10,000 is out of scope. |
-| Derived pages | 1–50 | ~200 | Computed by the paginator; not stored. |
-| Branches | 1.2–2× blocks | ~2,000 | Reference edges add arrows but not layout. |
-| Anchors | 0.2–1× blocks | ~1,000 | Most blocks have zero or one anchor. |
-| Images per document | 5–50 | ~200 | Large assets are stored separately. |
-| Document package size | 1–20 MB JSON + assets | ~500 MB with assets | Not a hard limit; warn on huge assets. |
-| Concurrent users | 1 | 1 | No collaboration in v1. |
+Target machine: base Apple silicon Mac (M1, 16 GB), release build, fit-page and 100 % zoom, dark
+theme, no DevTools, cold cache for open. Fixtures: 300 and 1,000 blocks.
 
 ### 14.2 Targets
 
-Measured on the reference Mac (M1/M2 class, 8 GB or more), release build, no developer tools, warm file cache. Targets are engineering goals, not marketing promises.
-
-**Scale promise.** 300 blocks is the guaranteed target: the frame-rate and layout targets below are gates. 1,000 blocks is a usability target with focus/collapse and level-of-detail; it is not a guaranteed 60 fps. The spec does not claim 60 fps at 1,000 unless a measurement records it. Report measured results rather than extrapolating. The limit is a rendering/layout limit, not a shell limit: do not assume Electron is the hard ceiling. A GPUI-like native/Rust rewrite is considered later only if benchmarks justify it.
-
-| Metric | Target | Fixture / notes |
+| Metric | 300 blocks | 1,000 blocks |
 |---|---|---|
-| Open 300-block document | < 2 s to interactive | Includes parse, validate, layout, first paint. |
-| Open 1,000-block document | < 5 s to interactive, or open with focus/collapse/LOD | Usability target with focus/collapse; no 60 fps claim. |
-| Outline scroll | 60 fps at 1,000 rows | Outline only; not a Continuous/Page frame-rate claim. |
-| Continuous/Page rendering | 60 fps at 300 visible blocks; ≥ 30 fps at 500 | 1,000 usable with collapse/LOD; measured, not promised at 60 fps. |
-| Warm layout, 300 blocks | < 50 ms | Excludes initial text measurement. |
-| Warm pagination, 300 blocks | < 50 ms | Incremental from the first affected block. |
-| Warm layout + pagination, 1,000 blocks | < 500 ms | Dirty-subtree optimization required. |
-| Keystroke echo | < 16 ms | Local editor; no full-document reflow per key. |
-| Reflow after edit | < 100 ms after debounce | Edited block and affected subtree only. |
-| Selection sync between views | < 50 ms | No full re-layout. |
-| Anchor resolution, 1,000 anchors | < 100 ms on load | Incremental per edited block after. |
-| Save, 300 blocks | < 100 ms | Excludes asset writes. |
-| Save, 1,000 blocks | < 500 ms | Excludes large assets. |
-| Undo/redo | < 50 ms | Structural command inverse. |
-| Search, 1,000 blocks | < 100 ms | In-memory index; rebuild on load. |
-| PDF export, 300 blocks / ~100 pages | < 10 s | Page PDF; fonts/images ready. |
-| PDF export, 1,000 blocks | < 30 s | May show progress; no blank/clipped pages. |
-| Memory, typical document | < 500 MB | Monitor; includes app baseline. |
-| Memory, 1,000 blocks | < 1.5 GB | Monitor; degrade rather than crash. |
+| App cold start to usable window | < 3 s | < 3 s |
+| Open to interactive | < 2 s | < 5 s |
+| First content paint | < 1 s | < 2 s |
+| Full layout p95 | < 50 ms | < 250 ms |
+| Pagination p95 | < 30 ms | < 150 ms |
+| Incremental layout (≤ 20 nodes) p95 | < 8 ms | < 8 ms |
+| Keystroke to paint p95 | < 50 ms | < 50 ms |
+| Pan/zoom frame p95 | ≤ 18 ms | ≤ 18 ms |
+| Page switch p95 | < 100 ms | < 150 ms |
+| Jump to page p95 | < 150 ms | < 250 ms |
+| Autosave | < 150 ms | < 500 ms |
+| PDF export | < 10 s | < 30 s |
+| App RSS | < 600 MB | < 1.2 GB |
 
-### 14.3 Degradation strategy
+### 14.3 Degradation
 
-- Collapse is the primary scaling tool; suggest collapsing large subtrees.
-- At low zoom, render simplified cards; at high zoom, render full content.
-- Virtualize offscreen cards, outline rows, and derived pages; do not mount editors for invisible blocks.
-- Cache measurements; invalidate only the dirty subtree.
-- Disable layout animation while typing and during bulk operations.
-- At 1,000 blocks, show a soft warning and offer focus/collapse; do not silently drop features.
-- If a target is missed, profile before changing the data model or the rendering approach. Do not jump to a different architecture without a measured bottleneck.
+300 blocks is guaranteed. 1,000 blocks is usable with virtualization, collapse and focus; only the
+visible pages are rendered. Do not promise 5,000. A missing budget is fixed, scoped down, or
+recorded in an ADR with a user-visible mitigation; never silently raised.
 
-### 14.4 Measurement protocol
+### 14.4 Measurement
 
-- Use fixed fixtures: 50, 300, and 1,000 blocks; a shared-child case; a deep tree; a wide fan; a document with long code and formulas; a document with many images.
-- Use a dedicated stability fixture suite: add and delete one block at a leaf, in a wide fan, and near the top of a chapter; assert the 16 px gap, 2 px anchor alignment, 95%/2 px add-block floor, and 1 px delete stability in continuous coordinates.
-- Measure pagination separately: page count, continuation count, no cut line/image/formula/code line, and manual break hints honored.
-- Measure cold open and warm open; report median and 95th percentile over at least five runs.
-- Measure pan/zoom with 300 and 500 visible cards at 100% zoom, and at the minimum readable zoom.
-- Measure a text edit that changes block height, and a structural edit that reflows a subtree.
-- Record machine, OS, build, font state, and whether animations are enabled.
-- Visual/geometry tests should assert layout invariants, not pixel-perfect screenshots, except for a small style baseline set.
-
----
+Five runs, median and p95, machine and fixture hash recorded. Measure layout, pagination, page
+switch and navigation separately. Numbers come from instrumentation, not from watching the screen.
+Performance work ships separately from features.
