@@ -4187,7 +4187,147 @@ function demoDocument(): Document {
   return document;
 }
 
-function performanceDocument(count = 300): Document {
+/**
+ * Give one paragraph the text anchor mark. The quote is the first word of the
+ * first paragraph, which stays unique inside the generated block.
+ */
+function withTextAnchor(
+  content: ContentNode,
+  anchorId: string,
+): { content: ContentNode; quote: string } {
+  const children = [...(content.children ?? [])];
+  const index = children.findIndex((node) => node.type === 'paragraph');
+  const target = index >= 0 ? children[index] : undefined;
+  if (target === undefined) return { content, quote: '' };
+  const first = target.children?.[0];
+  const value = typeof first?.text === 'string' ? first.text : '';
+  const quote = value.split(/\s+/)[0] ?? '';
+  if (quote.length === 0) return { content, quote: '' };
+  const rest = value.slice(quote.length);
+  const anchored: ContentNode = {
+    type: 'text',
+    text: quote,
+    marks: [{ type: 'anchor', attrs: { anchorIds: [anchorId] } }],
+  };
+  const replacement: ContentNode = {
+    ...target,
+    children: [
+      anchored,
+      ...(rest.length > 0 ? [{ type: 'text', text: rest }] : []),
+      ...(target.children ?? []).slice(1),
+    ],
+  };
+  children[index] = replacement;
+  return { content: { ...content, children }, quote };
+}
+
+/**
+ * Anchored performance seed: the 300-block stress tree plus an anchor every
+ * tenth block with one primary branch to a new child, and a few code and
+ * formula anchors. The app-level budgets then measure resolution work, not an
+ * anchor-free document (the plain seeds have no anchors).
+ */
+function withAnchoredBranches(document: Document): Document {
+  const createdIds = Object.keys(document.blocks);
+  const add = (sourceBlockId: string, anchorId: string): void => {
+    const targetId = crypto.randomUUID();
+    document.blocks[targetId] = {
+      id: targetId,
+      content: contentOf(paragraph(`Anchor target for ${anchorId}.`)),
+    };
+    const siblings = Object.values(document.branches)
+      .filter((candidate) => candidate.source.blockId === sourceBlockId)
+      .map((candidate) => candidate.order)
+      .sort();
+    const record = branch(sourceBlockId, targetId, orderKeysAfter(siblings.at(-1) ?? null, 1)[0] ?? 'm');
+    record.source.anchorId = anchorId;
+    document.branches[record.id] = record;
+  };
+
+  for (const [index, blockId] of createdIds.entries()) {
+    if (index % 10 !== 0) continue;
+    const block = document.blocks[blockId];
+    if (block === undefined) continue;
+    const anchorId = `perf-anchor-text-${index}`;
+    const anchored = withTextAnchor(block.content, anchorId);
+    if (anchored.quote.length === 0) continue;
+    block.content = anchored.content;
+    document.anchors[anchorId] = {
+      id: anchorId,
+      blockId,
+      kind: 'text',
+      selector: { kind: 'text', quote: anchored.quote, occurrenceHint: 1 },
+      quote: anchored.quote,
+      occurrenceHint: 1,
+    };
+    add(blockId, anchorId);
+  }
+
+  const chapter = document.chapters[0];
+  if (chapter === undefined) throw new Error('missing seed chapter');
+  for (let index = 0; index < 3; index += 1) {
+    const codeId = crypto.randomUUID();
+    const codeAnchorId = `perf-anchor-code-${index}`;
+    const codeText = `const total${index} = sum(matrix, vector);\nreturn total${index};`;
+    document.blocks[codeId] = {
+      id: codeId,
+      content: contentOf({
+        type: 'codeBlock',
+        attrs: {
+          text: codeText,
+          language: 'typescript',
+          anchorIds: [codeAnchorId],
+        },
+      }),
+    };
+    chapter.topLevelBlockIds.push(codeId);
+    document.anchors[codeAnchorId] = {
+      id: codeAnchorId,
+      blockId: codeId,
+      kind: 'code',
+      selector: {
+        kind: 'code',
+        form: 'range',
+        quote: 'sum(matrix, vector)',
+        prefix: `const total${index} = `,
+        suffix: ';',
+        occurrenceHint: 1,
+        startOffset: `const total${index} = `.length,
+        endOffset: `const total${index} = `.length + 'sum(matrix, vector)'.length,
+        lineStart: 1,
+        lineEnd: 1,
+      },
+      quote: 'sum(matrix, vector)',
+      occurrenceHint: 1,
+    };
+    add(codeId, codeAnchorId);
+
+    const formulaId = crypto.randomUUID();
+    const formulaAnchorId = `perf-anchor-formula-${index}`;
+    const latex = `E_${index} = mc^2`;
+    document.blocks[formulaId] = {
+      id: formulaId,
+      content: contentOf({
+        type: 'mathBlock',
+        attrs: { latex, anchorIds: [formulaAnchorId] },
+      }),
+    };
+    chapter.topLevelBlockIds.push(formulaId);
+    document.anchors[formulaAnchorId] = {
+      id: formulaAnchorId,
+      blockId: formulaId,
+      kind: 'formula',
+      selector: { kind: 'formula', form: 'whole', latex },
+      quote: latex,
+    };
+    add(formulaId, formulaAnchorId);
+  }
+
+  document.updatedAt = new Date().toISOString();
+  return document;
+}
+
+function performanceDocument(count = 300, anchored = false): Document {
   const document = createCoreDocument({ title: `${count} blocks`, chapterTitle: 'Stress test' });
   const chapter = document.chapters[0];
   if (chapter === undefined) throw new Error('missing seed chapter');
@@ -4224,16 +4364,22 @@ function performanceDocument(count = 300): Document {
       total += 1;
     }
   }
+  if (anchored) withAnchoredBranches(document);
   document.updatedAt = new Date().toISOString();
   return document;
 }
 
-export async function seedDocument(kind: 'demo' | 'performance' | 'performance-1000'): Promise<{
+export async function seedDocument(
+  kind: 'demo' | 'performance' | 'performance-1000' | 'performance-anchors',
+): Promise<{
   snapshot: OpenDocumentSnapshot;
   library: LibraryView;
 }> {
   if (!seedAllowed()) throw new Error('seeding is disabled');
-  const document = kind === 'demo' ? demoDocument() : performanceDocument(kind === 'performance-1000' ? 1000 : 300);
+  const document =
+    kind === 'demo'
+      ? demoDocument()
+      : performanceDocument(kind === 'performance-1000' ? 1000 : 300, kind === 'performance-anchors');
   const packagePath = await writeSeedDocument(document.title, document);
   const opened = await openStore(packagePath);
   if ('error' in opened) throw new Error(opened.error);

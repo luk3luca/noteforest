@@ -175,14 +175,38 @@ function contentIntrinsicWidths(content: ContentNode, hasAsset: (id: string) => 
   return { natural, min };
 }
 
+/**
+ * Anchor IDs on one binding container. `anchorIds` is canonical; the legacy
+ * singular `anchorId` is the fallback. This mirrors the core reader without
+ * importing core into the layout package.
+ */
+function bindingAnchorIds(attrs: Record<string, unknown> | undefined): string[] {
+  if (attrs === undefined) return [];
+  const ids: string[] = [];
+  const value = attrs['anchorIds'];
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      if (typeof entry === 'string' && entry.length > 0 && !ids.includes(entry)) ids.push(entry);
+    }
+  }
+  const legacy = attrs['anchorId'];
+  if (ids.length === 0 && typeof legacy === 'string' && legacy.length > 0) ids.push(legacy);
+  return ids;
+}
+
 function anchorIdsInMarks(node: ContentNode): string[] {
   const ids: string[] = [];
   for (const mark of node.marks ?? []) {
-    if (mark.type === 'anchor' && typeof mark.attrs?.['anchorId'] === 'string') {
-      ids.push(mark.attrs['anchorId'] as string);
+    if (mark.type !== 'anchor') continue;
+    for (const id of bindingAnchorIds(mark.attrs)) {
+      if (!ids.includes(id)) ids.push(id);
     }
   }
   return ids;
+}
+
+function anchorIdsInAttrs(node: ContentNode): string[] {
+  return bindingAnchorIds(node.attrs);
 }
 
 function collectInlineAnchors(
@@ -199,13 +223,15 @@ function collectInlineAnchors(
   }
   if (node.type === 'inlineMath') {
     const latex = typeof node.attrs?.['latex'] === 'string' ? node.attrs['latex'] : '';
-    const anchorId = node.attrs?.['anchorId'];
-    if (typeof anchorId === 'string') out.push({ anchorId, offset, length: Math.max(4, latex.length) });
+    for (const anchorId of anchorIdsInAttrs(node)) {
+      out.push({ anchorId, offset, length: Math.max(4, latex.length) });
+    }
     return offset + Math.max(1, latex.length);
   }
   if (node.type === 'image') {
-    const anchorId = node.attrs?.['anchorId'];
-    if (typeof anchorId === 'string') out.push({ anchorId, offset, length: 4 });
+    for (const anchorId of anchorIdsInAttrs(node)) {
+      out.push({ anchorId, offset, length: 4 });
+    }
     return offset + 4;
   }
   let next = offset;
@@ -450,8 +476,7 @@ function measureAt(
 
     const node = block.content.children?.[segment.nodePath[0] ?? -1];
     if (node?.type === 'codeBlock') {
-      const anchorId = node.attrs?.['anchorId'];
-      if (typeof anchorId === 'string') {
+      for (const anchorId of anchorIdsInAttrs(node)) {
         const token = typeof node.attrs?.['anchorToken'] === 'string' ? node.attrs['anchorToken'] : '';
         const lineText = segment.text ?? '';
         if (!token) {
@@ -461,7 +486,7 @@ function measureAt(
             y: y + topGap,
             width: Math.min(120, contentWidth),
             height: CODE_LINE,
-            occurrence: 0,
+            occurrence: anchors.filter((candidate) => candidate.anchorId === anchorId).length,
           });
         } else {
           let search = 0;
@@ -482,21 +507,19 @@ function measureAt(
       }
     }
     if (node?.type === 'mathBlock') {
-      const anchorId = node.attrs?.['anchorId'];
-      if (typeof anchorId === 'string') {
+      for (const anchorId of anchorIdsInAttrs(node)) {
         anchors.push({
           anchorId,
           x: Math.max(0, contentWidth / 2 - 20),
           y: y + topGap,
           width: Math.min(40, contentWidth),
           height: Math.max(20, segment.height),
-          occurrence: 0,
+          occurrence: anchors.filter((candidate) => candidate.anchorId === anchorId).length,
         });
       }
     }
     if (node?.type === 'image') {
-      const anchorId = node.attrs?.['anchorId'];
-      if (typeof anchorId === 'string') {
+      for (const anchorId of anchorIdsInAttrs(node)) {
         const width = typeof node.attrs?.['width'] === 'number' ? node.attrs['width'] : 220;
         anchors.push({
           anchorId,
@@ -504,7 +527,7 @@ function measureAt(
           y: y + topGap,
           width: Math.min(width, contentWidth),
           height: segment.height,
-          occurrence: 0,
+          occurrence: anchors.filter((candidate) => candidate.anchorId === anchorId).length,
         });
       }
     }

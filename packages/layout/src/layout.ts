@@ -9,7 +9,9 @@ import { clamp } from './geometry.js';
 import { PAGE_EDGE_STYLE } from './edge-style.js';
 import type {
   AnchorAttachment,
+  AnchorResolutionView,
   AnchorState,
+  AnchorViewEntry,
   BlockMeasurement,
   BlockRole,
   BranchRecord,
@@ -186,7 +188,9 @@ class LayoutBuilder {
   readonly subtreeColumnStack = new Set<string>();
   readonly visited = new Set<string>();
   readonly stack = new Set<string>();
-  readonly anchorStates = new Map<string, AnchorState>();
+  /** Resolved anchors whose range had no measured rect (diagnostic only). */
+  readonly anchorGeometryFallbacks: string[] = [];
+  readonly anchorView: AnchorResolutionView | null;
   measurementCalls = 0;
 
   constructor(
@@ -194,11 +198,13 @@ class LayoutBuilder {
     port: MeasurementPort,
     options: LayoutOptions,
     pageSetup: PageSetup,
+    anchorView: AnchorResolutionView | null = null,
   ) {
     this.document = document;
     this.port = port;
     this.options = options;
     this.pageSetup = pageSetup;
+    this.anchorView = anchorView;
     this.geometry = pageGeometry(pageSetup);
     this.childrenMap = primaryChildrenMap(document);
     for (const defect of validateDocument(document)) this.addDefect(defect);
@@ -305,6 +311,7 @@ class LayoutBuilder {
       anchors: this.anchors,
       edges: this.edges,
       defects: this.defects,
+      anchorGeometryFallbacks: [...this.anchorGeometryFallbacks],
       measurementCalls: this.measurementCalls,
     };
   }
@@ -894,6 +901,9 @@ class LayoutBuilder {
           chapterId,
           role: 'callout',
           placement: 'below',
+          ...(plan.attachment?.calloutTrunkInset === undefined
+            ? {}
+            : { trunkInset: plan.attachment.calloutTrunkInset }),
           parentBlockId: block.id,
           anchorId: plan.anchorId,
           depth: context.depth + 1,
@@ -920,16 +930,20 @@ class LayoutBuilder {
         const attachment = anchorId
           ? anchorAttachments.find((candidate) => candidate.anchorId === anchorId)
           : undefined;
-        const anchorPoint = attachment?.rect ?? null;
         const warningPoint = attachment?.warningPoint ?? {
           x: x + width - 16,
           y: y + 8,
         };
-        const calloutX = anchorPoint ? anchorPoint.x : warningPoint.x;
+        // The card keeps its measured/fallback lane even when the anchor is a
+        // dot; the dot and the edge stay at the warning point.
+        const calloutX = attachment?.calloutX ?? warningPoint.x;
         const placed = this.layoutBlock(target, chapterId, calloutX, calloutCursor, {
           chapterId,
           role: 'callout',
           placement: 'below',
+          ...(attachment?.calloutTrunkInset === undefined
+            ? {}
+            : { trunkInset: attachment.calloutTrunkInset }),
           parentBlockId: block.id,
           anchorId,
           depth: context.depth + 1,
@@ -1446,7 +1460,7 @@ class LayoutBuilder {
         : null;
       const desiredX = Math.max(
         laneLeft,
-        attachment?.rect?.x ??
+        attachment?.calloutX ??
           attachment?.warningPoint?.x ??
           x + width - LEGACY_BESIDE_ANCHOR_INSET,
       );
@@ -1531,6 +1545,12 @@ class LayoutBuilder {
     return placeholder;
   }
 
+  /**
+   * Turn the document's semantic anchor states into layout geometry. The state
+   * comes from the session's `AnchorResolutionView`; this method only picks the
+   * measured rectangle(s) and the attach point. It never derives a state from
+   * rect counts or an occurrence hint.
+   */
   private resolveAnchors(
     block: ContentBlock,
     measurement: BlockMeasurement,
@@ -1541,66 +1561,124 @@ class LayoutBuilder {
     const attachments: AnchorAttachment[] = [];
     const contentLeft = x + this.options.cardPadding + this.options.cardBorder;
     const contentTop = y + measurement.contentTop;
-    for (const record of Object.values(this.document.anchors)) {
-      if (record.blockId !== block.id) continue;
+    const contentRect = {
+      x: contentLeft,
+      y: contentTop,
+      width: measurement.contentWidth,
+      height: measurement.contentHeight,
+    };
+    const entries: readonly AnchorViewEntry[] = this.anchorView?.byBlock[block.id] ?? [];
+    /** Card lane for a range the measurement cannot locate (callout indent). */
+    const laneX = x + this.options.calloutCardIndent;
+    const laneTrunkX = x + this.options.calloutTrunkInset;
+    for (const entry of entries) {
+      // Idle anchors have no branch yet and block-missing anchors have no placed
+      // block: neither gets an attachment, a defect or a dot.
+      if (entry.state === 'idle' || entry.state === 'block-missing') continue;
       const rects = measurement.anchors
-        .filter((anchor) => anchor.anchorId === record.id)
+        .filter((anchor) => anchor.anchorId === entry.anchorId)
         .sort((a, b) => a.occurrence - b.occurrence);
-      let chosen = rects.length === 1 ? rects[0] : undefined;
-      let state: AnchorState;
-      if (rects.length === 0) {
-        state = 'broken';
-      } else if (rects.length > 1) {
-        const hint = record.occurrenceHint;
-        const hinted = hint ? rects.find((rect) => rect.occurrence === hint - 1) : undefined;
-        if (hinted) {
-          chosen = hinted;
-          state = 'resolved';
+      if (entry.state === 'resolved') {
+        let rect = contentRect;
+        let attachPoint = {
+          x: contentRect.x + contentRect.width,
+          y: contentRect.y + contentRect.height / 2,
+        };
+        let calloutX = contentRect.x;
+        // Every callout placed below uses the callout trunk inset; the zero-rect
+        // fallback also starts its edge there.
+        const calloutTrunkInset = this.options.calloutTrunkInset;
+        if (rects.length === 0) {
+          // A selector-resolved range has no measured wrapper. Attach to the
+          // whole block content box and record the fallback; the state stays
+          // resolved and no dot is drawn (spec §8.7). The callout uses the
+          // dedicated lane offset so it never touches the page border, and its
+          // edge starts at the callout trunk inset.
+          this.anchorGeometryFallbacks.push(entry.anchorId);
+          calloutX = laneX;
+          attachPoint = {
+            x: laneTrunkX,
+            y: contentTop + measurement.contentHeight / 2,
+          };
         } else {
-          state = 'ambiguous';
+          // A resolved binding is contiguous by definition, so the union of its
+          // measured wrappers is exactly the range's box. The attach point is
+          // the right-centre of the range's last line.
+          const left = Math.min(...rects.map((candidate) => candidate.x));
+          const top = Math.min(...rects.map((candidate) => candidate.y));
+          const right = Math.max(...rects.map((candidate) => candidate.x + candidate.width));
+          const bottom = Math.max(...rects.map((candidate) => candidate.y + candidate.height));
+          rect = {
+            x: contentLeft + left,
+            y: contentTop + top,
+            width: right - left,
+            height: bottom - top,
+          };
+          calloutX = rect.x;
+          const last = rects[rects.length - 1] as (typeof rects)[number];
+          attachPoint = {
+            x: contentLeft + last.x + last.width,
+            y: contentTop + last.y + last.height / 2,
+          };
         }
-      } else {
-        state = 'resolved';
+        // The card never starts left of the callout lane: the below trunk sits
+        // at +24 and the card at +38, so the stem stays visible even when the
+        // measured range begins at the block's content left.
+        calloutX = Math.max(calloutX, laneX);
+        const attachment: AnchorAttachment = {
+          anchorId: entry.anchorId,
+          blockId: block.id,
+          state: 'resolved',
+          rect,
+          calloutX,
+          calloutTrunkInset,
+          attachPoint,
+          warningPoint: null,
+        };
+        attachments.push(attachment);
+        this.anchors.push(attachment);
+        continue;
       }
-      const rect = chosen
-        ? {
-            x: contentLeft + chosen.x,
-            y: contentTop + chosen.y,
-            width: chosen.width,
-            height: chosen.height,
-          }
-        : null;
-      const warningPoint =
-        state === 'resolved'
-          ? null
-          : {
-              x: x + measurement.cardWidth - 16,
-              y: y + Math.max(8, measurement.contentTop / 2),
-            };
+      // A broken/ambiguous anchor is a dot at the block's top-right, but its
+      // callout card keeps the measured lane it would have had while the
+      // binding still resolved. A range with no measured rect uses the callout
+      // indent so the card cannot touch the page border.
+      const warningPoint = {
+        x: x + measurement.cardWidth - 16,
+        y: y + Math.max(8, measurement.contentTop / 2),
+      };
+      const hasRects = rects.length > 0;
       const attachment: AnchorAttachment = {
-        anchorId: record.id,
+        anchorId: entry.anchorId,
         blockId: block.id,
-        state,
-        rect,
+        state: entry.state,
+        rect: null,
+        // A warning card keeps the measured lane when it is already right of
+        // the callout lane, but never starts left of it: the below trunk at
+        // +24 would otherwise pass behind the card.
+        calloutX: hasRects
+          ? Math.max(contentLeft + Math.min(...rects.map((candidate) => candidate.x)), laneX)
+          : laneX,
+        calloutTrunkInset: this.options.calloutTrunkInset,
+        attachPoint: null,
         warningPoint,
       };
       attachments.push(attachment);
       this.anchors.push(attachment);
-      this.anchorStates.set(record.id, state);
-      if (state === 'broken') {
+      if (entry.state === 'broken') {
         this.addDefect({
           code: 'broken-anchor',
           severity: 'warning',
-          message: `Anchor ${record.id} on block ${block.id} could not be resolved; its branch still exports once, marked at a fallback point.`,
+          message: `Anchor ${entry.anchorId} on block ${block.id} could not be resolved; its branch still exports once, marked at a fallback point.`,
           blockId: block.id,
           chapterId,
           blocksExport: false,
         });
-      } else if (state === 'ambiguous') {
+      } else {
         this.addDefect({
           code: 'ambiguous-anchor',
           severity: 'warning',
-          message: `Anchor ${record.id} on block ${block.id} matches multiple spans and needs explicit repair; the branch still exports once from a warning point.`,
+          message: `Anchor ${entry.anchorId} on block ${block.id} matches multiple spans and needs explicit repair; the branch still exports once from a warning point.`,
           blockId: block.id,
           chapterId,
           blocksExport: false,
@@ -1645,6 +1723,11 @@ class LayoutBuilder {
   }
 
   private buildEdges(): void {
+    // One lookup map per run: an anchor-bearing document can have many branches,
+    // and a linear scan per branch was quadratic.
+    const attachmentById = new Map(
+      this.anchors.map((attachment) => [attachment.anchorId, attachment]),
+    );
     for (const branch of Object.values(this.document.branches).sort((a, b) =>
       a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
     )) {
@@ -1654,15 +1737,9 @@ class LayoutBuilder {
       let fromPoint = { x: from.x + from.width, y: from.y + from.height / 2 };
       let anchorQuote: string | null = null;
       if (branch.source.anchorId) {
-        const attachment = this.anchors.find(
-          (candidate) =>
-            candidate.anchorId === branch.source.anchorId && candidate.blockId === from.blockId,
-        );
-        if (attachment?.rect) {
-          fromPoint = {
-            x: attachment.rect.x + attachment.rect.width,
-            y: attachment.rect.y + attachment.rect.height / 2,
-          };
+        const attachment = attachmentById.get(branch.source.anchorId);
+        if (attachment?.attachPoint) {
+          fromPoint = attachment.attachPoint;
         } else if (attachment?.warningPoint) {
           fromPoint = attachment.warningPoint;
         }
@@ -1686,14 +1763,45 @@ class LayoutBuilder {
   }
 }
 
+/**
+ * Lay out one measured document.
+ *
+ * `anchorView` is the session index's projection. It is optional only so
+ * anchor-free documents (most layout tests and PDF fixtures) need no view; a
+ * document with anchor records and no view throws instead of silently falling
+ * back to rect counting. A mismatched document or revision throws too, so a
+ * stale projection can never be rendered.
+ */
 export function layoutDocument(
   document: NoteDocument,
   port: MeasurementPort,
   options: Partial<LayoutOptions> = {},
   pageSetup: PageSetup = DEFAULT_PAGE_SETTINGS.setup,
+  anchorView?: AnchorResolutionView,
 ): ContinuousLayout {
+  if (Object.keys(document.anchors).length > 0 && anchorView === undefined) {
+    throw new Error(
+      `layout: document ${document.id} has anchors but no anchor resolution view`,
+    );
+  }
+  if (anchorView !== undefined) {
+    if (anchorView.documentId !== document.id) {
+      throw new Error(
+        `layout: anchor view is for ${anchorView.documentId}, not ${document.id}`,
+      );
+    }
+    if (
+      anchorView.revision !== undefined &&
+      document.revision !== undefined &&
+      anchorView.revision !== document.revision
+    ) {
+      throw new Error(
+        `layout: anchor view revision ${anchorView.revision} does not match document revision ${document.revision}`,
+      );
+    }
+  }
   const resolvedOptions: LayoutOptions = { ...DEFAULT_LAYOUT_OPTIONS, ...options };
-  return new LayoutBuilder(document, port, resolvedOptions, pageSetup).run();
+  return new LayoutBuilder(document, port, resolvedOptions, pageSetup, anchorView ?? null).run();
 }
 
 export function blockRect(block: LayoutBlock): { x: number; y: number; width: number; height: number } {

@@ -20,6 +20,7 @@ export interface ExportSnapshotRuntime {
   packagePath: string;
   document: DocumentRuntime['document'];
   assetAvailability: DocumentRuntime['assetAvailability'];
+  anchorIndex: DocumentRuntime['anchorIndex'];
 }
 
 export function createExportSnapshot(
@@ -45,6 +46,9 @@ export function createExportSnapshot(
     // font; the fingerprint covers it so a stale export fails loudly (R3).
     settingsFingerprint: pageSettingsFingerprint(settings, codeFont),
     codeFont,
+    // One projection for Page and the PDF: the layout identity guard refuses a
+    // view whose revision differs from `document`.
+    anchorView: runtime.anchorIndex.view(),
     assetUrls: assetUrlsForRuntime(runtime),
     failedAssetIds: failedAssetIdsForRuntime(runtime),
   };

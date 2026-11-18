@@ -24,6 +24,7 @@
 import type { Editor } from '@tiptap/core';
 import type {
   AnchorBinding,
+  AnchorIndex,
   AnchorRepairCommand,
   Asset,
   AssetAvailability,
@@ -276,10 +277,14 @@ export class DocumentRuntime {
       recordFailure: (code, message, details) =>
         this.saves.recordFailure(code, message, details),
       saveError: () => this.saves.saveError,
+      // The anchor index reads image availability through this port: a command
+      // can flip an image anchor's state without changing block content.
+      assetAvailability: () => this.availability,
     });
     this.projection = new EditorProjection({
       document: () => this.document,
       assetAvailability: () => this.assetAvailability,
+      anchorIndex: () => this.anchorIndex,
       collapsed: () => this.collapsed,
       selectedBlockId: () => this.selectedBlockId,
       reveal: (blockId) => this.expandAncestors(blockId),
@@ -440,6 +445,11 @@ export class DocumentRuntime {
   /** Canonical document at the current revision. */
   get document(): Document {
     return this.session.canonical;
+  }
+
+  /** The session's one anchor-resolution index, read by every surface. */
+  get anchorIndex(): AnchorIndex {
+    return this.session.anchorIndex;
   }
 
   /** Image assets observed missing/changed in this open session. */
@@ -1809,6 +1819,8 @@ export class DocumentRuntime {
       undefined,
       undefined,
       this.assetAvailability,
+      undefined,
+      this.anchorIndex,
     );
     if (json === null) return false;
     let node: ProseNode;

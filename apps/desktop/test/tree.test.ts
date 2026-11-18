@@ -1,3 +1,4 @@
+import { buildAnchorIndex } from '@noteforest/core';
 import { describe, expect, it } from 'vitest';
 import type { Branch, ContentBlock, Document } from '@noteforest/core';
 import { contentBlockTitle } from '@noteforest/layout';
@@ -128,7 +129,7 @@ describe('block tree', () => {
     expect(children[0]?.branchId).toBe('A-C');
     expect(children[1]?.anchorId).toBeNull();
     expect(anchorQuote(document, 'an1')).toBe('Alpha body');
-    expect(anchorState(document, 'an1')).toBe('resolved');
+    expect(anchorState(buildAnchorIndex(document), 'an1')).toBe('resolved');
   });
 
   it('treats an anchor as idle only when it has no live outgoing branch', () => {

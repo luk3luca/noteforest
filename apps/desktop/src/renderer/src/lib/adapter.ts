@@ -8,6 +8,7 @@
  */
 
 import type {
+  AnchorIndex,
   AnchorKind,
   AnchorState,
   AssetAvailabilityIndex,
@@ -17,6 +18,7 @@ import type {
 } from '@noteforest/core';
 import {
   anchoredChildBranches,
+  buildAnchorIndex,
   directChildBranches,
   directChildIds,
   normalizeAnchorIds,
@@ -354,7 +356,7 @@ function toCallout(
   document: Document,
   parentId: string,
   branch: Branch,
-  assetAvailability?: AssetAvailabilityIndex,
+  anchorIndex: AnchorIndex,
 ): CalloutDescriptor {
   const anchorId = branch.source.anchorId ?? '';
   return {
@@ -364,11 +366,7 @@ function toCallout(
     anchorId,
     kind: document.anchors[anchorId]?.kind ?? 'text',
     quote: anchorQuote(document, anchorId),
-    state: anchorState(
-      document,
-      anchorId,
-      assetAvailability === undefined ? {} : { assetAvailability },
-    ),
+    state: anchorState(anchorIndex, anchorId),
   };
 }
 
@@ -398,10 +396,13 @@ export function projectPrimaryChildren(
   document: Document,
   parentBlockId: string,
   assetAvailability?: AssetAvailabilityIndex,
+  anchorIndex: AnchorIndex = buildAnchorIndex(document, {
+    assetAvailability,
+  }),
 ): PrimaryChildProjection {
   const callouts = anchoredChildBranches(document, parentBlockId)
     .filter((branch) => document.blocks[branch.targetBlockId] !== undefined)
-    .map((branch) => toCallout(document, parentBlockId, branch, assetAvailability));
+    .map((branch) => toCallout(document, parentBlockId, branch, anchorIndex));
   const direct = directChildBranches(document, parentBlockId)
     .filter((branch) => document.blocks[branch.targetBlockId] !== undefined)
     .map((branch) => ({ branchId: branch.id, blockId: branch.targetBlockId }));
@@ -438,13 +439,14 @@ export function buildBlockNode(
   belowChildIds: ReadonlySet<string> = EMPTY_PLACEMENT,
   assetAvailability?: AssetAvailabilityIndex,
   knownAssets: ReadonlySet<string> = knownImageAssets(document, assetAvailability),
+  anchorIndex: AnchorIndex = buildAnchorIndex(document, { assetAvailability }),
 ): PMNode | null {
   if (seen.has(id)) return null;
   const block = document.blocks[id];
   if (block === undefined) return null;
   seen.add(id);
   const isCollapsed = collapsed.has(id);
-  const projection = projectPrimaryChildren(document, id, assetAvailability);
+  const projection = projectPrimaryChildren(document, id, assetAvailability, anchorIndex);
   // The branch port's hidden count is every primary child, anchored callouts
   // included, because collapsing hides both groups.
   const childCount = directChildIds(document, id).filter(
@@ -503,6 +505,7 @@ export function buildBlockNode(
           belowChildIds,
           assetAvailability,
           knownAssets,
+          anchorIndex,
         ),
       )
       .filter((node): node is PMNode => node !== null);
@@ -528,6 +531,7 @@ export function buildBlockNode(
         belowChildIds,
         assetAvailability,
         knownAssets,
+        anchorIndex,
       ),
     )
     .filter((node): node is PMNode => node !== null);
@@ -567,6 +571,7 @@ export function buildEditorDocument(
   collapsed: ReadonlySet<string>,
   belowChildIds: ReadonlySet<string> = EMPTY_PLACEMENT,
   assetAvailability?: AssetAvailabilityIndex,
+  anchorIndex: AnchorIndex = buildAnchorIndex(document, { assetAvailability }),
 ): PMNode {
   const seen = new Set<string>();
   const knownAssets = knownImageAssets(document, assetAvailability);
@@ -581,6 +586,7 @@ export function buildEditorDocument(
       belowChildIds,
       assetAvailability,
       knownAssets,
+      anchorIndex,
     );
 
   // Every chapter is rendered, including a legacy empty one. The `chapter`

@@ -23,7 +23,14 @@
  * from the gateway result the main process produced for that exact state.
  */
 
-import type { ContentNode, Document, DocumentCommand } from '@noteforest/core';
+import type {
+  AnchorIndex,
+  AssetAvailabilityIndex,
+  ContentNode,
+  Document,
+  DocumentCommand,
+} from '@noteforest/core';
+import { buildAnchorIndex } from '@noteforest/core';
 import type { ApplyResult, SaveFailureCode } from '../../../shared/api';
 import { createSerialQueue, type SerialQueue } from '../lib/serial-queue';
 import type { DocumentGateway } from './document-gateway';
@@ -71,6 +78,12 @@ export interface DocumentSessionPorts {
   recordFailure(code: SaveFailureCode, message: string, details?: string): void;
   /** Message of the current save failure, or null. */
   saveError(): string | null;
+  /**
+   * Session asset availability, read by the anchor index at build and on every
+   * update. Image states depend on it, so an index update must read the current
+   * value instead of capturing one.
+   */
+  assetAvailability?(): AssetAvailabilityIndex;
 }
 
 export class DocumentSession {
@@ -88,6 +101,9 @@ export class DocumentSession {
 
   private historyOperation: HistoryOperation | null = null;
 
+  /** One anchor-resolution index for the canonical document snapshot. */
+  private anchorIndexInstance: AnchorIndex;
+
   constructor(
     document: Document,
     private readonly ports: DocumentSessionPorts,
@@ -95,11 +111,42 @@ export class DocumentSession {
     this.document = document;
     this.queue = createSerialQueue();
     this.recomputeHashes();
+    this.anchorIndexInstance = buildAnchorIndex(this.document, this.anchorIndexOptions());
   }
 
   /** Canonical document at the current revision. */
   get canonical(): Document {
     return this.document;
+  }
+
+  /**
+   * The one anchor-resolution index. Every renderer surface and the layout read
+   * it; the index is refreshed before `bumpVersion`/`notify` on every canonical
+   * change.
+   */
+  get anchorIndex(): AnchorIndex {
+    return this.anchorIndexInstance;
+  }
+
+  /**
+   * The exact JSON text of each block's canonical content. The anchor index
+   * compares these keys instead of hashing, so no rebuild can be skipped.
+   */
+  blockContentKeys(): ReadonlyMap<string, string> {
+    return this.hashes;
+  }
+
+  private anchorIndexOptions(): Parameters<typeof buildAnchorIndex>[1] {
+    return {
+      blockKeys: this.hashes,
+      assetAvailabilityPort: () => this.ports.assetAvailability?.(),
+    };
+  }
+
+  private refreshAnchorIndex(
+    change?: Parameters<AnchorIndex['update']>[1],
+  ): void {
+    this.anchorIndexInstance = this.anchorIndexInstance.update(this.document, change);
   }
 
   /** Canonical revision the next command will be applied against. */
@@ -182,9 +229,10 @@ export class DocumentSession {
     }
     this.redoStack.length = 0;
     this.historyOperation = 'structural';
+    this.recomputeHashes();
+    this.refreshAnchorIndex({ blockKeys: this.hashes });
     this.ports.bumpVersion();
     this.ports.noteStructuralChange();
-    this.recomputeHashes();
   }
 
   /**
@@ -211,9 +259,10 @@ export class DocumentSession {
       this.redoStack.push(inverse);
     }
     this.historyOperation = 'structural';
+    this.recomputeHashes();
+    this.refreshAnchorIndex({ blockKeys: this.hashes });
     this.ports.bumpVersion();
     this.ports.noteStructuralChange();
-    this.recomputeHashes();
   }
 
   /** Accept a successful redo: the returned inverse becomes the undo entry. */
@@ -226,9 +275,10 @@ export class DocumentSession {
       this.undoStack.push(inverse);
     }
     this.historyOperation = 'structural';
+    this.recomputeHashes();
+    this.refreshAnchorIndex({ blockKeys: this.hashes });
     this.ports.bumpVersion();
     this.ports.noteStructuralChange();
-    this.recomputeHashes();
   }
 
   /** True when the merged content differs from the last accepted content. */
@@ -249,6 +299,7 @@ export class DocumentSession {
   async commitContent(changes: readonly ContentChange[]): Promise<boolean> {
     if (changes.length === 0) return true;
     let documentChanged = false;
+    const acceptedBlockIds: string[] = [];
     for (const change of changes) {
       const result = await this.apply({
         type: 'block.editContent',
@@ -263,6 +314,14 @@ export class DocumentSession {
           result.code === 'read-only' || result.code === 'not-found'
             ? result.code
             : 'unknown';
+        // The accepted prefix is canonical: make its derived anchor state
+        // coherent before the failure callback can notify a surface.
+        if (acceptedBlockIds.length > 0) {
+          this.refreshAnchorIndex({
+            blockKeys: this.hashes,
+            editedBlockIds: acceptedBlockIds,
+          });
+        }
         this.ports.recordFailure(
           code,
           result.message ?? 'Could not save the edit.',
@@ -275,8 +334,15 @@ export class DocumentSession {
         documentChanged = true;
       }
       this.hashes.set(change.blockId, JSON.stringify(change.content));
+      acceptedBlockIds.push(change.blockId);
     }
-    if (documentChanged) this.ports.bumpVersion();
+    if (documentChanged) {
+      this.refreshAnchorIndex({
+        blockKeys: this.hashes,
+        editedBlockIds: acceptedBlockIds,
+      });
+      this.ports.bumpVersion();
+    }
     this.ports.markContentCommitted();
     if (documentChanged) this.ports.notify();
     return true;
@@ -286,6 +352,10 @@ export class DocumentSession {
   applyRevision(revision: number | undefined): void {
     if (revision === undefined) return;
     this.document = { ...this.document, revision };
+    // The index describes this exact snapshot, including its revision: the
+    // Page/print identity guard compares it, so advance it without rebuilding
+    // any block (content keys are unchanged).
+    this.refreshAnchorIndex({ blockKeys: this.hashes });
   }
 
   /**
@@ -296,6 +366,10 @@ export class DocumentSession {
   reset(document: Document): void {
     this.document = document;
     this.recomputeHashes();
+    this.anchorIndexInstance = buildAnchorIndex(
+      this.document,
+      this.anchorIndexOptions(),
+    );
     this.undoStack.length = 0;
     this.redoStack.length = 0;
     this.historyOperation = null;

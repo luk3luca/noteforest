@@ -12,6 +12,7 @@ import {
   type PageSetup,
 } from '../src/index.js';
 
+import { anchorViewFor } from './helpers.js';
 /**
  * R2j Page callout-mode lab.
  *
@@ -229,6 +230,7 @@ function metrics(name: string, document: NoteDocument, setup: PageSetup, callout
     createEstimatedMeasurement(document),
     options(calloutModes),
     setup,
+      anchorViewFor(document),
   );
   const pages = paginate(layout, document);
   const usedArea = layout.blocks.reduce((total, block) => total + block.width * block.height, 0);
@@ -316,7 +318,7 @@ describe('r2j page callout-mode lab', () => {
     const stacked = rows.find((row) => row.name === 'stacked-fallback')!;
     if (stacked.after.blockingDefects > 0) {
       const doc = cases.find((entry) => entry.name === 'stacked-fallback')!.document;
-      const debug = layoutDocument(doc, createEstimatedMeasurement(doc), options(true), A5_PORTRAIT_STACKED);
+      const debug = layoutDocument(doc, createEstimatedMeasurement(doc), options(true), A5_PORTRAIT_STACKED, anchorViewFor(doc));
       console.error('STACKED DEFECTS', debug.defects.filter((d) => d.blocksExport).map((d) => `${d.code}:${d.blockId}:${d.message}`));
       console.error('BLOCKS', debug.blocks.map((b) => `${b.blockId}:${b.x},${b.y},${b.width}`));
     }

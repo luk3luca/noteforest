@@ -4,7 +4,6 @@ import {
   codePointSlice,
   formulaLatex,
   getNodeAtPath,
-  resolveAnchor,
 } from '@noteforest/core';
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import {
@@ -616,9 +615,7 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
       if (document.anchors[id]?.kind === 'image') continue;
       const group = groups.get(id);
       if (group === undefined) {
-        const state = anchorState(document, id, {
-          assetAvailability: bindings.runtime.assetAvailability,
-        });
+        const state = anchorState(bindings.runtime.anchorIndex, id);
         groups.set(id, {
           anchorId: id,
           quote: anchorQuote(document, id),
@@ -650,8 +647,8 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
       if (anchor === undefined || anchor.kind !== 'formula') continue;
       const selector = anchor.selector as unknown as Record<string, unknown>;
       if (selector['kind'] !== 'formula' || selector['form'] !== 'term') continue;
-      const resolution = resolveAnchor(runtimeDocument, id);
-      if (resolution.state !== 'resolved' || resolution.resolved === null) continue;
+      const resolution = bindings.runtime.anchorIndex.entry(id);
+      if (resolution?.state !== 'resolved' || resolution.resolved === null) continue;
       const range = resolution.resolved.range;
       if (range.kind !== 'formula' || range.form !== 'term') continue;
       const node = getNodeAtPath(block.content, range.nodePath);
@@ -680,8 +677,8 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
       if (id === undefined || targets.has(id)) continue;
       const anchor = runtimeDocument.anchors[id];
       if (anchor === undefined || anchor.kind !== 'code') continue;
-      const resolution = resolveAnchor(runtimeDocument, id);
-      if (resolution.state !== 'resolved' || resolution.resolved === null) continue;
+      const resolution = bindings.runtime.anchorIndex.entry(id);
+      if (resolution?.state !== 'resolved' || resolution.resolved === null) continue;
       const range = resolution.resolved.range;
       if (range.kind !== 'code') continue;
       targets.set(id, {
@@ -784,9 +781,7 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
     const document = bindings.runtime.document;
     return document.anchors[anchorId] === undefined
       ? null
-      : anchorState(document, anchorId, {
-          assetAvailability: bindings.runtime.assetAvailability,
-        });
+      : anchorState(bindings.runtime.anchorIndex, anchorId);
   }, [bindings, callout, anchorId, runtimeVersion]);
   const effectiveAnchorState = liveCalloutState ?? anchorStateAttr;
 
@@ -1146,14 +1141,14 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
   const anchorWarnings = useMemo<Array<{
     anchorId: string;
     state: string;
-    reason: ReturnType<typeof resolveAnchor>['reason'];
+    reason: string;
   }>>(() => {
     if (bindings === null) return [];
     const document = bindings.runtime.document;
     const warnings: Array<{
       anchorId: string;
       state: string;
-      reason: ReturnType<typeof resolveAnchor>['reason'];
+      reason: string;
     }> = [];
     const seen = new Set<string>();
     for (const branch of Object.values(document.branches)) {
@@ -1161,13 +1156,11 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
       const anchorId = branch.source.anchorId;
       if (anchorId === undefined || seen.has(anchorId)) continue;
       seen.add(anchorId);
-      const resolution = resolveAnchor(document, anchorId, {
-        assetAvailability: bindings.runtime.assetAvailability,
-      });
+      const resolution = bindings.runtime.anchorIndex.entry(anchorId);
       if (
-        resolution.state === 'broken' ||
-        resolution.state === 'ambiguous' ||
-        resolution.state === 'block-missing'
+        resolution?.state === 'broken' ||
+        resolution?.state === 'ambiguous' ||
+        resolution?.state === 'block-missing'
       ) {
         warnings.push({
           anchorId,

@@ -13,14 +13,14 @@ import {
   type NoteDocument,
   type PageSetup,
 } from '../src/index.js';
-import { FIXTURE_PAGE_SETUP, loadFixture, layoutFixture } from './helpers.js';
+import { anchorViewFor, FIXTURE_PAGE_SETUP, loadFixture, layoutFixture} from './helpers.js';
 
 function layoutOf(
   document: NoteDocument,
   options: Partial<LayoutOptions> = {},
   setup: PageSetup = FIXTURE_PAGE_SETUP,
 ) {
-  return layoutDocument(document, createEstimatedMeasurement(document), options, setup);
+  return layoutDocument(document, createEstimatedMeasurement(document), options, setup, anchorViewFor(document));
 }
 
 function visibleBlocks(layout: ReturnType<typeof layoutOf>): LayoutBlock[] {
@@ -46,7 +46,7 @@ describe('adaptive layout', () => {
     expect(layout.defects).toEqual([]);
   });
 
-  it('aligns anchored callouts to the anchor left edge and below the anchor', () => {
+  it('aligns anchored callouts to the anchor left edge, or the callout lane, below the anchor', () => {
     const layout = layoutFixture('golden-eigenvalues.json', { setup: FIXTURE_PAGE_SETUP });
     for (const blockId of ['b3', 'b5']) {
       const block = layout.blockById[blockId]!;
@@ -56,7 +56,11 @@ describe('adaptive layout', () => {
       )!;
       expect(anchor.state).toBe('resolved');
       expect(anchor.rect).not.toBeNull();
-      expect(Math.abs(block.x - anchor.rect!.x)).toBeLessThanOrEqual(2);
+      // The card may not start left of the callout lane: the below trunk sits
+      // at +24 and the card at +38, so a range near the content left cannot
+      // hide the stem behind the card.
+      const laneX = parent.x + DEFAULT_PAGE_SETTINGS.theme.calloutCardIndent;
+      expect(Math.abs(block.x - Math.max(anchor.rect!.x, laneX))).toBeLessThanOrEqual(2);
       expect(block.y).toBeGreaterThanOrEqual(anchor.rect!.y + anchor.rect!.height);
     }
   });
@@ -172,7 +176,12 @@ describe('adaptive layout', () => {
 
     expect(after.blocks).toEqual(baseline.blocks);
     expect(after.chapters).toEqual(baseline.chapters);
-    expect(after.anchors).toEqual(baseline.anchors);
+    // The reference branch makes the previously idle a3 anchor live; that
+    // attachment is the only difference and it is not a placement input.
+    expect(after.anchors.filter((anchor) => anchor.anchorId !== 'a3')).toEqual(
+      baseline.anchors,
+    );
+    expect(after.anchors.find((anchor) => anchor.anchorId === 'a3')?.state).toBe('resolved');
     expect(afterPages).toEqual(baselinePages);
     const callouts = (layout: typeof baseline) =>
       layout.blocks.filter((block) => block.role === 'callout').map((block) => block.blockId);
@@ -228,7 +237,7 @@ describe('adaptive layout', () => {
 
   it('uses the default A4 landscape geometry when no setup is injected', () => {
     const document = loadFixture('golden-eigenvalues.json');
-    const layout = layoutDocument(document, createEstimatedMeasurement(document));
+    const layout = layoutDocument(document, createEstimatedMeasurement(document), {}, DEFAULT_PAGE_SETTINGS.setup, anchorViewFor(document));
     expect(layout.pageSetup).toEqual(DEFAULT_PAGE_SETTINGS.setup);
     expect(layout.geometry.pageWidthMm).toBe(297);
     expect(layout.geometry.pageHeightMm).toBe(210);

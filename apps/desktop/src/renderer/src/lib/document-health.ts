@@ -20,6 +20,7 @@
 
 import type {
   Anchor,
+  AnchorIndex,
   AnchorKind,
   AnchorResolution,
   AssetAvailabilityIndex,
@@ -142,6 +143,32 @@ export interface DocumentHealthOptions {
   assetAvailability?: AssetAvailabilityIndex;
   /** View state: a marker whose ancestor is collapsed is listed as hidden. */
   collapsedBlockIds?: ReadonlySet<string>;
+  /** The session's one anchor index; absent only in pure unit tests. */
+  anchorIndex?: AnchorIndex;
+}
+
+interface AnchorResolutionsLookup {
+  anchorIds: readonly string[];
+  byId: Readonly<Record<string, AnchorResolution>>;
+}
+
+function anchorResolutionsFor(
+  document: Document,
+  options: DocumentHealthOptions,
+): AnchorResolutionsLookup {
+  if (options.anchorIndex !== undefined) {
+    const all = options.anchorIndex.all();
+    const byId: Record<string, AnchorResolution> = {};
+    for (const resolution of all) byId[resolution.anchorId] = resolution;
+    return { anchorIds: all.map((resolution) => resolution.anchorId), byId };
+  }
+  const resolved = resolveDocumentAnchors(
+    document,
+    options.assetAvailability === undefined
+      ? {}
+      : { assetAvailability: options.assetAvailability },
+  );
+  return { anchorIds: resolved.anchorIds, byId: resolved.byId };
 }
 
 export const DOCUMENT_HEALTH_CATEGORY_LABELS: Record<DocumentHealthCategory, string> = {
@@ -362,12 +389,14 @@ function compareRows(left: DocumentHealthRow, right: DocumentHealthRow): number 
  */
 function contentAnchorReferences(
   document: Document,
+  anchorIndex?: AnchorIndex,
 ): Map<string, ContentAnchorReference[]> {
   const references = new Map<string, ContentAnchorReference[]>();
   for (const blockId of Object.keys(document.blocks).sort(compareStrings)) {
     const block = document.blocks[blockId];
     if (block === undefined || !contentHasAnchorBinding(block.content)) continue;
-    const index = buildBlockAnchorIndex(block.id, block.content);
+    const index =
+      anchorIndex?.blockIndex(block.id) ?? buildBlockAnchorIndex(block.id, block.content);
     for (const [anchorId, occurrences] of index.occurrences) {
       const list = references.get(anchorId) ?? [];
       for (const occurrence of occurrences) {
@@ -535,13 +564,8 @@ export function auditDocumentHealth(
   document: Document,
   options: DocumentHealthOptions = {},
 ): DocumentHealthReport {
-  const resolutions = resolveDocumentAnchors(
-    document,
-    options.assetAvailability === undefined
-      ? {}
-      : { assetAvailability: options.assetAvailability },
-  );
-  const references = contentAnchorReferences(document);
+  const resolutions = anchorResolutionsFor(document, options);
+  const references = contentAnchorReferences(document, options.anchorIndex);
   const branchesByAnchor = outgoingBranchesByAnchor(document);
   const branchesByBlock = outgoingBranchesByBlock(document);
   const rows: DocumentHealthRow[] = [];

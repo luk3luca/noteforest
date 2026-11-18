@@ -10,6 +10,7 @@ import {
   type PageSetup,
 } from '../src/index.js';
 
+import { anchorViewFor } from './helpers.js';
 /**
  * M4e2 Page density topology probe.
  *
@@ -101,6 +102,7 @@ function layoutAt(document: NoteDocument, density: number) {
     createEstimatedMeasurement(document, options),
     options,
     A4_PORTRAIT,
+      anchorViewFor(document),
   );
   return { settings, options, layout, effective: effectivePageTheme(settings.theme) };
 }

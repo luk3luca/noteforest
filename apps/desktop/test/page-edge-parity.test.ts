@@ -15,6 +15,7 @@ import {
   type EdgePlacement as ContinuousEdgePlacement,
 } from '../src/renderer/src/lib/tree';
 
+import { anchorViewForDocument } from './layout-view.js';
 /**
  * R2f Continuous/Page parity: both surfaces consume one `EdgePlacement` type
  * and classify the same primary branches the same way. Coordinates may differ
@@ -118,6 +119,7 @@ describe('Continuous/Page edge placement parity', () => {
       measurement,
       pageLayoutOptions(DEFAULT_PAGE_SETTINGS.theme),
       DEFAULT_PAGE_SETTINGS.setup,
+        anchorViewForDocument(document),
     );
     const pages = paginate(layout, document);
     const pageEdges = buildPageEdges(layout, pages.pages).flat();

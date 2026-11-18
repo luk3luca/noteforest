@@ -38,6 +38,7 @@ import {
   PrintModelIdentityError,
   type PrintModel,
 } from '@noteforest/pdf';
+import { isAnchorResolutionView } from '../../../shared/export';
 import type {
   ExportFailureCode,
   ExportSnapshot,
@@ -399,6 +400,7 @@ function isExportSnapshot(value: unknown): value is ExportSnapshot {
     snapshot.document !== null &&
     typeof snapshot.settings === 'object' &&
     snapshot.settings !== null &&
+    isAnchorResolutionView(snapshot.anchorView) &&
     typeof snapshot.assetUrls === 'object' &&
     snapshot.assetUrls !== null &&
     Array.isArray(snapshot.failedAssetIds)
@@ -447,6 +449,7 @@ async function build(snapshot: ExportSnapshot): Promise<PrintBuildResult> {
       measurement,
       snapshot.settings,
       snapshot.codeFont,
+      snapshot.anchorView,
     );
     model = buildPrintModel(
       snapshot.document,

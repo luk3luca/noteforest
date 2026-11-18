@@ -922,8 +922,10 @@ function registerIpc(): void {
     }
   });
 
-  ipcMain.handle('debug:seed', async (_event, kind: 'demo' | 'performance' | 'performance-1000') =>
-    seedDocument(kind),
+  ipcMain.handle(
+    'debug:seed',
+    async (_event, kind: 'demo' | 'performance' | 'performance-1000' | 'performance-anchors') =>
+      seedDocument(kind),
   );
 
   ipcMain.handle('document:import-image', async (_event, packagePath: unknown) => {

@@ -12,7 +12,6 @@ import {
 } from 'react';
 import {
   normalizeAnchorIds,
-  resolveAnchor,
   validateAnchorSelector,
 } from '@noteforest/core';
 import type { Anchor, ImageAnchorSelector } from '@noteforest/core';
@@ -285,10 +284,8 @@ export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Elem
       ).length;
       // OD-2: an anchor with no live branch is idle; its marker is hidden.
       if (branchCount === 0) continue;
-      const resolution = resolveAnchor(document, anchorId, {
-        assetAvailability: runtime.assetAvailability,
-      });
-      if (resolution.state !== 'resolved' || resolution.resolved === null) continue;
+      const resolution = runtime.anchorIndex.entry(anchorId);
+      if (resolution?.state !== 'resolved' || resolution.resolved === null) continue;
       const range = resolution.resolved.range;
       if (range.kind !== 'image') continue;
       const display = displayRectForAnchor(range.rect, range.crop ?? crop);

@@ -40,6 +40,7 @@ export function documentHealthReport(runtime: DocumentRuntime): DocumentHealthRe
       ? {}
       : { assetAvailability: runtime.assetAvailability }),
     collapsedBlockIds: runtime.collapsed,
+    anchorIndex: runtime.anchorIndex,
   });
   cache.set(runtime, {
     version: runtime.version,

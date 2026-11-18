@@ -118,13 +118,22 @@ export function usePageModel(
         try {
           const source = runtime.document;
           const noteDocument = toLayoutDocument(source);
+          // Same revision as the document above: the layout's identity guard
+          // refuses a view that belongs to another snapshot.
+          const anchorView = runtime.anchorIndex.view();
           const urls = assetUrlsForRuntime(runtime);
           const measurement = createDomPageMeasurement(noteDocument, urls, settings);
           try {
             await measurement.prepare(Object.values(noteDocument.blocks), controller.signal);
             if (controller.signal.aborted) return;
             const computeStartedAt = performance.now();
-            const computed = computePageModel(noteDocument, measurement, settings, codeFont);
+            const computed = computePageModel(
+              noteDocument,
+              measurement,
+              settings,
+              codeFont,
+              anchorView,
+            );
             const computeMs = performance.now() - computeStartedAt;
             if (controller.signal.aborted) return;
             setModel(computed);

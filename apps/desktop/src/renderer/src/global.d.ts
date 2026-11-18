@@ -61,11 +61,13 @@ declare global {
       clearPrint?: () => boolean;
       /** Test-only: derived page block/continuation summary of the active Page model. */
       pageModelPages?: () => unknown;
-      seed: (kind: 'demo' | 'performance' | 'performance-1000') => Promise<string>;
+      seed: (kind: 'demo' | 'performance' | 'performance-1000' | 'performance-anchors') => Promise<string>;
       /** Test-only: apply a typed command through the active runtime stack. */
       applyStructural?: (command: DocumentCommand) => Promise<unknown>;
       /** Test-only: exact canonical structural records of the active document. */
       structure?: () => unknown;
+      /** Test-only: the session anchor index's semantic states. */
+      anchorStates?: () => unknown;
       /** Test-only: canonical asset records of the active document. */
       assets?: () => unknown;
       /** Test-only: session asset availability of the active document. */

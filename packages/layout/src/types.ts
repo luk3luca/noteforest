@@ -38,7 +38,6 @@ export interface AnchorRecord {
   quote?: string;
   prefix?: string;
   suffix?: string;
-  occurrenceHint?: number;
   /** For code anchors: the 1-based line number inside the code block. */
   codeLine?: number;
   /** For code anchors: the token to wrap. */
@@ -185,6 +184,39 @@ export interface LayoutDefect {
 export type BlockRole = 'top-level' | 'child' | 'callout';
 export type AnchorState = 'resolved' | 'broken' | 'ambiguous' | 'none';
 
+/** Semantic anchor state, mirrored from the core `AnchorResolutionView`. */
+export type AnchorViewState =
+  | 'resolved'
+  | 'ambiguous'
+  | 'broken'
+  | 'idle'
+  | 'block-missing';
+
+/** Structural mirror of the core resolved range; the layout reads `kind`. */
+export interface AnchorViewRange {
+  kind: 'text' | 'formula' | 'code' | 'image';
+  nodePath?: readonly number[];
+}
+
+export interface AnchorViewEntry {
+  anchorId: string;
+  state: AnchorViewState;
+  range: AnchorViewRange | null;
+}
+
+/**
+ * The layout-facing anchor projection, produced by `DocumentSession`'s index
+ * and carried across the print snapshot. `packages/layout` does not import
+ * core; the desktop parity test assigns the core type here so drift fails to
+ * compile.
+ */
+export interface AnchorResolutionView {
+  documentId: string;
+  revision?: number;
+  /** Every anchor, including idle and block-missing, under its declared block. */
+  byBlock: Readonly<Record<string, readonly AnchorViewEntry[]>>;
+}
+
 /**
  * Semantic primary-child placement, shared by Continuous edge descriptors and
  * Page/PDF tree edges. `right` is the beside/level-column language; `below` is
@@ -283,6 +315,22 @@ export interface AnchorAttachment {
   state: AnchorState;
   /** Chapter-local rectangle, when resolved. */
   rect: { x: number; y: number; width: number; height: number } | null;
+  /**
+   * Chapter-local x where a callout card is placed. A resolved range uses its
+   * rect; a broken/ambiguous anchor keeps the measured lane it had before the
+   * state became a dot; a range with no measured rect uses the callout indent.
+   */
+  calloutX: number;
+  /**
+   * Below-trunk inset when this callout needs its own lane (a fallback range
+   * with no measured rect). Absent keeps the shared trunk inset.
+   */
+  calloutTrunkInset?: number;
+  /**
+   * Chapter-local point an edge leaves from: the resolved range's last line
+   * right-centre, or the callout trunk inset for a geometry fallback.
+   */
+  attachPoint: { x: number; y: number } | null;
   /** Chapter-local warning point, when broken/ambiguous. */
   warningPoint: { x: number; y: number } | null;
 }
@@ -328,6 +376,12 @@ export interface ContinuousLayout {
   anchors: AnchorAttachment[];
   edges: EdgeLayout[];
   defects: LayoutDefect[];
+  /**
+   * Resolved anchors whose range had no measured rect; they attach to the whole
+   * block content box. Diagnostic only: the state stays resolved and no dot is
+   * drawn (spec §8.7).
+   */
+  anchorGeometryFallbacks: string[];
   /** Measurement calls made by this layout pass (diagnostics only). */
   measurementCalls: number;
 }

@@ -206,6 +206,20 @@ export function createTestSurface(): NonNullable<Window['__noteforestTest']> {
       if (runtime === undefined) return { ok: false, message: 'No active document.' };
       return runtime.applyStructural(command);
     },
+    anchorStates: () => {
+      const state = useShell.getState();
+      const runtime = allRuntimes().find(
+        (item) => item.packagePath === state.activeTab,
+      );
+      if (runtime === undefined) return null;
+      return runtime.anchorIndex.all().map((resolution) => ({
+        anchorId: resolution.anchorId,
+        blockId: resolution.blockId,
+        state: resolution.state,
+        reason: resolution.reason,
+        range: resolution.resolved?.range ?? null,
+      }));
+    },
     structure: () => {
       const state = useShell.getState();
       const runtime = allRuntimes().find(

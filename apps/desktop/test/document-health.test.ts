@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buildAnchorIndex } from '@noteforest/core';
 import type {
   Anchor,
   Branch,
@@ -409,5 +410,45 @@ describe('document health audit', () => {
       expect(report.counts.all).toBeGreaterThan(0);
       console.log(`document health audit: ${count} blocks in ${elapsed.toFixed(1)} ms`);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Anchor index ownership
+// ---------------------------------------------------------------------------
+
+describe('document health from the anchor index', () => {
+  it('agrees with the pure audit for every checked-in fixture', async () => {
+    const { readFileSync, readdirSync } = await import('node:fs');
+    const path = await import('node:path');
+    const fixtures = path.resolve(import.meta.dirname, '../../../fixtures');
+    const files = readdirSync(fixtures)
+      .filter((name) => name.endsWith('.json'))
+      .sort();
+    for (const file of files) {
+      const document = JSON.parse(
+        readFileSync(path.resolve(fixtures, file), 'utf8'),
+      ) as Document;
+      const pure = auditDocumentHealth(document);
+      const indexed = auditDocumentHealth(document, {
+        anchorIndex: buildAnchorIndex(document),
+      });
+      expect(indexed.rows.map((row) => row.id), file).toEqual(
+        pure.rows.map((row) => row.id),
+      );
+      expect(indexed.summary, file).toEqual(pure.summary);
+    }
+  });
+
+  it('reads cached block projections and never mutates the index', () => {
+    const document = mixedDocument();
+    const index = buildAnchorIndex(document);
+    const stats = { ...index.stats };
+    const firstBlock = Object.keys(document.blocks)[0] as string;
+    const cached = index.blockIndex(firstBlock);
+    const report = auditDocumentHealth(document, { anchorIndex: index });
+    expect(report.rows.length).toBeGreaterThan(0);
+    expect(index.stats).toEqual(stats);
+    expect(index.blockIndex(firstBlock)).toBe(cached);
   });
 });

@@ -14,6 +14,7 @@ import {
   type BlockMeasurement,
   type BranchRecord,
   type ContentBlock,
+  type ContentNode,
   type LayoutOptions,
   type MeasurementMode,
   type MeasurementPort,
@@ -22,6 +23,7 @@ import {
   type PageTheme,
 } from '../src/index.js';
 
+import { anchorViewFor } from './helpers.js';
 /**
  * R2j Page callout modes A + B2.
  *
@@ -133,12 +135,19 @@ function makeDocument(
 ): { document: NoteDocument; port: MeasurementPort } {
   const blocks: Record<string, ContentBlock> = {};
   for (const blockId of Object.keys(specs)) {
+    // A synthetic anchor must resolve in core: each id is one unique, marked
+    // text run. The stub measurement supplies the geometry.
+    const children: ContentNode[] = [{ type: 'text', text: blockId }];
+    for (const anchor of anchors[blockId] ?? []) {
+      children.push({
+        type: 'text',
+        text: ` ${anchor.anchorId} `,
+        marks: [{ type: 'anchor', attrs: { anchorIds: [anchor.anchorId] } }],
+      });
+    }
     blocks[blockId] = {
       id: blockId,
-      content: {
-        type: 'doc',
-        children: [{ type: 'paragraph', children: [{ type: 'text', text: blockId }] }],
-      },
+      content: { type: 'doc', children: [{ type: 'paragraph', children }] },
     };
   }
   const branchRecords: Record<string, BranchRecord> = {};
@@ -155,7 +164,13 @@ function makeDocument(
   const anchorRecords: Record<string, AnchorRecord> = {};
   for (const [blockId, list] of Object.entries(anchors)) {
     for (const anchor of list) {
-      anchorRecords[anchor.anchorId] = { id: anchor.anchorId, blockId, kind: 'text' };
+      anchorRecords[anchor.anchorId] = {
+        id: anchor.anchorId,
+        blockId,
+        kind: 'text',
+        selector: { kind: 'text', quote: anchor.anchorId },
+        quote: anchor.anchorId,
+      };
     }
   }
   const root = Object.keys(specs)[0]!;
@@ -187,7 +202,7 @@ function layout(
   setup: PageSetup = A4_LANDSCAPE,
   themeOverrides: Partial<PageTheme> = {},
 ) {
-  return layoutDocument(document, port, pageOptions(themeOverrides), setup);
+  return layoutDocument(document, port, pageOptions(themeOverrides), setup, anchorViewFor(document));
 }
 
 function assertNoOverlaps(result: ReturnType<typeof layout>): void {
@@ -584,11 +599,13 @@ describe('page callout stacked fallback (R2j)', () => {
     const k1 = result.blockById['k1']!;
     const k2 = result.blockById['k2']!;
 
-    // The callout keeps the anchor-aligned stacked x, not the B2 38 px column.
+    // A callout whose anchor starts left of the callout lane uses the lane, so
+    // the below trunk (+24) stays outside the card; a farther anchor keeps its
+    // measured stack x.
     const contentLeft = root.x + THEME.cardPadding + THEME.cardBorder;
-    expect(c1.x).toBe(contentLeft + 10);
+    const laneX = root.x + THEME.calloutCardIndent;
+    expect(c1.x).toBe(laneX);
     expect(c2.x).toBe(contentLeft + 40);
-    expect(c1.x).not.toBe(root.x + THEME.calloutCardIndent);
     expect(c1.placement).toBe('below');
     expect(c2.placement).toBe('below');
     expect(c1.y).toBe(root.y + root.height + THEME.calloutGap);

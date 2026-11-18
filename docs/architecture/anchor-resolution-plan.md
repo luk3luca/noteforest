@@ -442,8 +442,9 @@ preflight summary (`anchorWarningBlockIds`, `packages/pdf/src/printModel.ts:306-
    `ambiguous`. After: the Page shows the ambiguous dot and the branch is drawn from the warning
    point. This is the exact case ADR-0005 forbids auto-resolving.
 3. **Image anchors whose asset or crop changed.** Core says `broken` (spec §8.6, §13.2). Today the
-   Page still draws the anchor on the image node because the rect exists. After: the Page/PDF show
-   the lost-anchor dot instead of pointing at the wrong region.
+   Page still draws the anchor on the image node because the rect exists. After: the Page shows the
+   lost-anchor dot instead of pointing at the wrong region. The PDF carries no anchor marks (paper
+   rule B1); the export preflight reports the same anchor state.
 4. **Selector-resolved anchors with no binding.** Core resolves by a unique quote; the Page has no
    measured wrapper, so today it calls them broken. After: no dot; the callout attaches to the whole
    block. That is a geometry fallback for a range measurement cannot locate (spec §8.7 defines text

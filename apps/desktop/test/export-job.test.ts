@@ -39,6 +39,7 @@ function snapshot(overrides: Partial<ExportSnapshot> = {}): ExportSnapshot {
       manualBreakBeforeBlockIds: [],
     },
     settingsFingerprint: 'fingerprint-1',
+    anchorView: { documentId: 'doc-1', revision: 4, byBlock: {} },
     assetUrls: {},
     failedAssetIds: [],
     ...overrides,

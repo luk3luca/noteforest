@@ -15,6 +15,7 @@ import {
   type PageSetup,
 } from '../src/index.js';
 
+import { anchorViewFor } from './helpers.js';
 const PACKING_SETUP: PageSetup = {
   size: 'A4',
   orientation: 'landscape',
@@ -148,6 +149,7 @@ function layout(
     port,
     { ...DEFAULT_LAYOUT_OPTIONS, pagePacking },
     PACKING_SETUP,
+      anchorViewFor(document),
   );
 }
 
@@ -215,6 +217,7 @@ describe('page subtree-aware wrap (R2i)', () => {
       port,
       { ...DEFAULT_LAYOUT_OPTIONS, pagePacking: 'beside', wrapPolicy: 'right-first-per-child' },
       PACKING_SETUP,
+        anchorViewFor(document),
     );
     expect(oracle.blockById['c1']!.x).toBe(root.x + root.width + GAP);
     expect(oracle.blockById['g1']!.x).toBe(root.x + root.width + GAP + 18);
@@ -289,6 +292,7 @@ describe('page subtree-aware wrap (R2i)', () => {
       port,
       { ...DEFAULT_LAYOUT_OPTIONS, pagePacking: 'beside', wrapPolicy: 'right-first-per-child' },
       PACKING_SETUP,
+        anchorViewFor(document),
     );
     expect(oracle.blockById['c1']!.x).toBe(root.x + root.width + GAP);
     expect(oracle.blockById['c2']!.x).toBe(root.x + root.width + GAP);

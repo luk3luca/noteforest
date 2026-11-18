@@ -5,6 +5,7 @@
  */
 
 import type {
+  AnchorResolutionView,
   CodeFontId,
   ContinuousLayout,
   DerivedPage,
@@ -43,12 +44,14 @@ export function computePageModel(
   port: MeasurementPort,
   settings: PageSettings,
   codeFont: CodeFontId = DEFAULT_CODE_FONT,
+  anchorView?: AnchorResolutionView,
 ): PageModelData {
   const layout = layoutDocument(
     document,
     port,
     pageLayoutOptions(settings.theme),
     pageSetupOf(settings),
+    anchorView,
   );
   const paginated = paginate(layout, document, {
     manualBreakBeforeBlockIds: [...settings.manualBreakBeforeBlockIds],

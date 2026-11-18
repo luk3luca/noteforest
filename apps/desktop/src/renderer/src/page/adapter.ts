@@ -97,11 +97,11 @@ function anchorQuote(anchor: Anchor): string | undefined {
 /**
  * Map one canonical anchor to the layout anchor record.
  *
- * Layout anchors only need a quote plus an optional occurrence hint. Code
- * anchors additionally expose the quote as a token hint so the static segments
- * renderer can place the same anchor span the measurement pass resolves. A
- * multi-line code quote stays a whole-code anchor (no token hint); full code
- * range geometry is M4d work.
+ * Layout anchors only need a quote and, for code, a token hint so the static
+ * segments renderer can place the same anchor span the measurement pass
+ * resolves. The semantic state comes from the session's anchor view, never from
+ * an occurrence hint. A multi-line code quote stays a whole-code anchor (no
+ * token hint); full code range geometry is M4d work.
  */
 export function toLayoutAnchorRecord(anchor: Anchor): AnchorRecord {
   const quote = anchorQuote(anchor);
@@ -122,11 +122,6 @@ export function toLayoutAnchorRecord(anchor: Anchor): AnchorRecord {
     selectorString(anchor.selector, 'latexSuffix') ??
     optionalString(anchor.suffix);
   if (suffix !== undefined) record.suffix = suffix;
-
-  const occurrence =
-    positiveInteger(selectorInteger(anchor.selector, 'occurrenceHint')) ??
-    positiveInteger(anchor.occurrenceHint);
-  if (occurrence !== undefined) record.occurrenceHint = occurrence;
 
   if (anchor.kind === 'code') {
     const line = positiveInteger(selectorInteger(anchor.selector, 'lineStart'));

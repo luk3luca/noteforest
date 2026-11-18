@@ -1119,7 +1119,7 @@ export interface NoteForestApi {
    * Save/Don't Save/Cancel close flow. Resolve only after every atomic write.
    */
   onRequestMarkdownSave(handler: () => Promise<MarkdownFlushResult>): () => void;
-  debugSeed(kind: 'demo' | 'performance' | 'performance-1000'): Promise<SeedResult>;
+  debugSeed(kind: 'demo' | 'performance' | 'performance-1000' | 'performance-anchors'): Promise<SeedResult>;
   /** Native image picker; the chosen file is copied into the package assets. */
   importImage(packagePath: string): Promise<ImportImageResult>;
   /** Paste/drop import; bytes are copied into the package assets. */

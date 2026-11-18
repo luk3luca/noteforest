@@ -590,3 +590,249 @@ describe('DocumentSession revision and canonical state', () => {
     expect(memory.currentDocument().title).toBe('Renamed');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Anchor index ownership
+// ---------------------------------------------------------------------------
+
+function anchoredDocument(): Document {
+  const document = baseDocument();
+  document.blocks['a'] = {
+    id: 'a',
+    content: {
+      type: 'doc',
+      children: [
+        {
+          type: 'paragraph',
+          children: [
+            { type: 'text', text: 'Alpha ' },
+            {
+              type: 'text',
+              text: 'target',
+              marks: [{ type: 'anchor', attrs: { anchorIds: ['a1'] } }],
+            },
+          ],
+        },
+      ],
+    },
+  };
+  document.anchors['a1'] = {
+    id: 'a1',
+    blockId: 'a',
+    kind: 'text',
+    selector: { kind: 'text', quote: 'target', occurrenceHint: 1 },
+    quote: 'target',
+    occurrenceHint: 1,
+  };
+  document.branches['e1'] = {
+    id: 'e1',
+    source: { blockId: 'a', anchorId: 'a1' },
+    targetBlockId: 'b',
+    role: 'reference',
+    order: 'a1',
+  };
+  return document;
+}
+
+function imageAnchorDocument(): Document {
+  const document = baseDocument();
+  document.assets['img'] = { id: 'img', path: 'assets/img', mime: 'image/png' };
+  document.blocks['a'] = {
+    id: 'a',
+    content: {
+      type: 'doc',
+      children: [
+        {
+          type: 'image',
+          attrs: { assetId: 'img', width: 100, height: 100, anchorIds: ['i1'] },
+        },
+      ],
+    },
+  };
+  document.anchors['i1'] = {
+    id: 'i1',
+    blockId: 'a',
+    kind: 'image',
+    selector: {
+      kind: 'image',
+      assetId: 'img',
+      rect: { x: 0.1, y: 0.1, width: 0.2, height: 0.2 },
+      crop: { x: 0, y: 0, width: 1, height: 1 },
+      point: false,
+    },
+    quote: 'Image',
+  };
+  document.branches['i1-branch'] = {
+    id: 'i1-branch',
+    source: { blockId: 'a', anchorId: 'i1' },
+    targetBlockId: 'b',
+    role: 'reference',
+    order: 'a1',
+  };
+  return document;
+}
+
+interface AnchorProbe {
+  anchorId: string;
+  versionStates: Array<string | null>;
+  notifyStates: Array<string | null>;
+  failureStates: Array<string | null>;
+  availability: import('@noteforest/core').AssetAvailabilityIndex;
+}
+
+function anchorHarness(document: Document, gateway?: DocumentGateway): {
+  session: DocumentSession;
+  memory: ReturnType<typeof createInMemoryDocumentGateway>;
+  probe: AnchorProbe;
+} {
+  const memory = gateway === undefined
+    ? createInMemoryDocumentGateway({ packagePath, document })
+    : null;
+  const probe: AnchorProbe = {
+    anchorId: 'a1',
+    versionStates: [],
+    notifyStates: [],
+    failureStates: [],
+    availability: {},
+  };
+  let session: DocumentSession | null = null;
+  const stateOf = (): string | null =>
+    session?.anchorIndex.entry(probe.anchorId)?.state ?? null;
+  session = new DocumentSession(document, {
+    packagePath: () => packagePath,
+    adoptPackagePath: () => undefined,
+    gateway: gateway ?? memory!.gateway,
+    isEditable: () => true,
+    commitEditor: async () => true,
+    bumpVersion: () => {
+      probe.versionStates.push(stateOf());
+    },
+    notify: () => {
+      probe.notifyStates.push(stateOf());
+    },
+    markContentCommitted: () => undefined,
+    noteStructuralChange: () => undefined,
+    recordFailure: () => {
+      probe.failureStates.push(stateOf());
+    },
+    saveError: () => null,
+    assetAvailability: () => probe.availability,
+  });
+  return { session, memory: memory as ReturnType<typeof createInMemoryDocumentGateway>, probe };
+}
+
+describe('DocumentSession anchor index', () => {
+  it('builds one index on load and reads it through the session', () => {
+    const document = anchoredDocument();
+    const { session } = anchorHarness(document);
+    expect(session.anchorIndex.identity).toEqual({
+      documentId: document.id,
+      revision: document.revision,
+    });
+    expect(session.anchorIndex.all()).toHaveLength(1);
+    expect(session.anchorIndex.entry('a1')?.state).toBe('resolved');
+    expect(session.anchorIndex.entry('missing')).toBeNull();
+    expect(session.blockContentKeys().get('a')).toBe(
+      JSON.stringify(document.blocks['a']?.content),
+    );
+  });
+
+  it('updates the index before bumpVersion on a structural change', () => {
+    const document = anchoredDocument();
+    const { session, probe } = anchorHarness(document);
+    const withoutBranch = structuredClone(document);
+    delete withoutBranch.branches['e1'];
+    withoutBranch.revision = document.revision + 1;
+
+    session.acceptStructural(withoutBranch, null);
+
+    expect(probe.versionStates.at(-1)).toBe('idle');
+    expect(session.anchorIndex.entry('a1')?.state).toBe('idle');
+    expect(session.anchorIndex.stats.blocksIndexed).toBe(0);
+  });
+
+  it('updates the index before bumpVersion and notify on a content commit', async () => {
+    const document = anchoredDocument();
+    const { session, probe } = anchorHarness(document);
+    const next = structuredClone(document);
+    next.blocks['a'] = {
+      id: 'a',
+      content: paragraph('The anchor text was deleted'),
+    };
+    next.revision = document.revision + 1;
+    session.acceptStructural(next, null);
+    probe.versionStates.length = 0;
+    probe.notifyStates.length = 0;
+
+    const committed = await session.commitContent([
+      { blockId: 'a', content: paragraph('The anchor text was deleted') },
+    ]);
+
+    expect(committed).toBe(true);
+    expect(probe.versionStates.at(-1)).toBe('broken');
+    expect(probe.notifyStates.at(-1)).toBe('broken');
+    expect(session.anchorIndex.stats.blocksIndexed).toBe(1);
+    expect(session.anchorIndex.stats.blocksReused).toBe(0);
+  });
+
+  it('reflects the accepted prefix before recordFailure', async () => {
+    const document = anchoredDocument();
+    const next = structuredClone(document);
+    next.blocks['a'] = { id: 'a', content: paragraph('No anchor here') };
+    next.revision = document.revision + 1;
+    const gateway = scriptedGateway([
+      { ok: true, document: next, revision: next.revision },
+      { ok: false, message: 'simulated failure', code: 'unknown' },
+    ]);
+    const { session, probe } = anchorHarness(document, gateway);
+
+    const committed = await session.commitContent([
+      { blockId: 'a', content: paragraph('No anchor here') },
+      { blockId: 'b', content: paragraph('Second change') },
+    ]);
+
+    expect(committed).toBe(false);
+    expect(probe.failureStates.at(-1)).toBe('broken');
+    expect(session.anchorIndex.entry('a1')?.state).toBe('broken');
+  });
+
+  it('reads image availability at update time without rebuilding a block', () => {
+    const document = imageAnchorDocument();
+    const { session, probe } = anchorHarness(document);
+    probe.anchorId = 'i1';
+    expect(session.anchorIndex.entry('i1')?.state).toBe('resolved');
+
+    probe.availability = { img: 'asset-changed' };
+    session.acceptStructural(document, null);
+
+    expect(probe.versionStates.at(-1)).toBe('broken');
+    expect(session.anchorIndex.stats.blocksIndexed).toBe(0);
+  });
+
+  it('advances the index revision on a save without rebuilding a block', () => {
+    const document = anchoredDocument();
+    const { session } = anchorHarness(document);
+
+    session.applyRevision(document.revision + 7);
+
+    expect(session.anchorIndex.identity.revision).toBe(document.revision + 7);
+    expect(session.anchorIndex.view().revision).toBe(document.revision + 7);
+    expect(session.anchorIndex.entry('a1')?.state).toBe('resolved');
+    expect(session.anchorIndex.stats.blocksIndexed).toBe(0);
+  });
+
+  it('rebuilds the index on reset and clears entries from the old snapshot', () => {
+    const document = anchoredDocument();
+    const { session } = anchorHarness(document);
+    const reloaded = structuredClone(document);
+    delete reloaded.branches['e1'];
+    delete reloaded.anchors['a1'];
+    reloaded.revision = document.revision + 3;
+
+    session.reset(reloaded);
+
+    expect(session.anchorIndex.identity.revision).toBe(reloaded.revision);
+    expect(session.anchorIndex.entry('a1')).toBeNull();
+    expect(session.anchorIndex.all()).toHaveLength(0);
+  });
+});

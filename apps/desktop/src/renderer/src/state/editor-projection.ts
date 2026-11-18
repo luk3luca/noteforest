@@ -16,7 +16,12 @@
  */
 
 import type { Editor } from '@tiptap/core';
-import type { AssetAvailabilityIndex, ContentNode, Document } from '@noteforest/core';
+import type {
+  AnchorIndex,
+  AssetAvailabilityIndex,
+  ContentNode,
+  Document,
+} from '@noteforest/core';
 import type { Node as ProseNode } from '@tiptap/pm/model';
 import { closeHistory, redoDepth, undoDepth } from '@tiptap/pm/history';
 import { EditorState, NodeSelection, TextSelection, type Transaction } from '@tiptap/pm/state';
@@ -35,6 +40,8 @@ export interface EditorProjectionHost {
   document(): Document;
   /** Session image-asset availability; absent means treat records as usable. */
   assetAvailability?(): AssetAvailabilityIndex;
+  /** The session's one anchor index, read by callouts and markers. */
+  anchorIndex?(): AnchorIndex;
   /** Collapsed block IDs; view-only state, never canonical. */
   collapsed(): ReadonlySet<string>;
   /** Block selection the runtime last observed, used when the editor has none. */
@@ -185,6 +192,7 @@ export function projectWithEditorBodies(
   belowChildIds: ReadonlySet<string>,
   editorDocument: ProseNode,
   assetAvailability?: AssetAvailabilityIndex,
+  anchorIndex?: AnchorIndex,
 ): PMNode {
   const extracted = extractBlockContents(editorDocument.toJSON() as PMNode);
   const blocks = { ...document.blocks };
@@ -193,7 +201,13 @@ export function projectWithEditorBodies(
     if (body === undefined) continue;
     blocks[id] = { ...block, content: withBody(block.content, body.content) };
   }
-  return buildEditorDocument({ ...document, blocks }, collapsed, belowChildIds, assetAvailability);
+  return buildEditorDocument(
+    { ...document, blocks },
+    collapsed,
+    belowChildIds,
+    assetAvailability,
+    anchorIndex,
+  );
 }
 
 /**
@@ -340,6 +354,7 @@ export class EditorProjection {
       this.host.collapsed(),
       this.belowStackChildIds,
       this.host.assetAvailability?.(),
+      this.host.anchorIndex?.(),
     );
   }
 
@@ -361,6 +376,7 @@ export class EditorProjection {
       this.belowStackChildIds,
       editorDocument,
       this.host.assetAvailability?.(),
+      this.host.anchorIndex?.(),
     );
   }
 

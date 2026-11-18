@@ -12,12 +12,13 @@ import {
   type BlockMeasurement,
   type BranchRecord,
   type ContentBlock,
+  type ContentNode,
   type MeasurementMode,
   type MeasurementPort,
   type NoteDocument,
   type WrapPolicy,
 } from '../src/index.js';
-import { FIXTURES, FIXTURE_PAGE_SETUP } from './helpers.js';
+import { anchorViewFor, FIXTURES, FIXTURE_PAGE_SETUP} from './helpers.js';
 
 interface StubSpec {
   max: number;
@@ -90,12 +91,19 @@ function makeDocument(
 ): { document: NoteDocument; port: MeasurementPort } {
   const blocks: Record<string, ContentBlock> = {};
   for (const blockId of Object.keys(specs)) {
+    // A synthetic anchor must resolve in core: each id is one unique, marked
+    // text run. The stub measurement supplies the geometry.
+    const children: ContentNode[] = [{ type: 'text', text: blockId }];
+    for (const anchor of anchors[blockId] ?? []) {
+      children.push({
+        type: 'text',
+        text: ` ${anchor.anchorId} `,
+        marks: [{ type: 'anchor', attrs: { anchorIds: [anchor.anchorId] } }],
+      });
+    }
     blocks[blockId] = {
       id: blockId,
-      content: {
-        type: 'doc',
-        children: [{ type: 'paragraph', children: [{ type: 'text', text: blockId }] }],
-      },
+      content: { type: 'doc', children: [{ type: 'paragraph', children }] },
     };
   }
   const branchRecords: Record<string, BranchRecord> = {};
@@ -112,7 +120,13 @@ function makeDocument(
   const anchorRecords: Record<string, AnchorRecord> = {};
   for (const [blockId, list] of Object.entries(anchors)) {
     for (const anchor of list) {
-      anchorRecords[anchor.anchorId] = { id: anchor.anchorId, blockId, kind: 'text' };
+      anchorRecords[anchor.anchorId] = {
+        id: anchor.anchorId,
+        blockId,
+        kind: 'text',
+        selector: { kind: 'text', quote: anchor.anchorId },
+        quote: anchor.anchorId,
+      };
     }
   }
   const root = Object.keys(specs)[0]!;
@@ -137,7 +151,7 @@ function layout(
   wrapPolicy: WrapPolicy,
   maxWrapIndent = DEFAULT_LAYOUT_OPTIONS.maxWrapIndent,
 ) {
-  return layoutDocument(document, port, { wrapPolicy, maxWrapIndent }, FIXTURE_PAGE_SETUP);
+  return layoutDocument(document, port, { wrapPolicy, maxWrapIndent }, FIXTURE_PAGE_SETUP, anchorViewFor(document));
 }
 
 describe('group-level left-origin wrap', () => {
@@ -303,8 +317,13 @@ describe('group-level left-origin wrap', () => {
     expect(calloutTwo.y).toBeLessThan(calloutOne.y);
     expect(child.x).toBe(26);
     expect(child.y).toBeGreaterThan(calloutOne.subtreeBottom);
-    expect(calloutOne.x).toBe(result.anchors.find((a) => a.anchorId === 'a1')!.rect!.x);
-    expect(calloutTwo.x).toBe(result.anchors.find((a) => a.anchorId === 'a2')!.rect!.x);
+    const laneX = root.x + DEFAULT_LAYOUT_OPTIONS.calloutCardIndent;
+    expect(calloutOne.x).toBe(
+      Math.max(result.anchors.find((a) => a.anchorId === 'a1')!.rect!.x, laneX),
+    );
+    expect(calloutTwo.x).toBe(
+      Math.max(result.anchors.find((a) => a.anchorId === 'a2')!.rect!.x, laneX),
+    );
     for (const block of [calloutTwo, calloutOne, child]) {
       expect(overlaps(blockRect(root), blockRect(block))).toBe(false);
     }
@@ -352,6 +371,7 @@ describe('group-level left-origin wrap', () => {
         wrapPolicy: 'right-first-per-child',
       },
       FIXTURE_PAGE_SETUP,
+        anchorViewFor(document),
     );
     const expected: Record<string, [number, number, number]> = {
       'f3-parent': [0, 0, 432],

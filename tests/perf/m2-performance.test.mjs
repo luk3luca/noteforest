@@ -131,4 +131,71 @@ describe('NoteForest M2 performance report', () => {
     await writeFile(resolve(reportDir, 'performance.json'), `${JSON.stringify(report, null, 2)}\n`);
     await h.quit();
   });
+
+  it('measures the anchored 300-block seed', async () => {
+    await launch(isolated('perf-anchors'));
+    const started = Date.now();
+    await page.evaluate(() => window.__noteforestTest.seed('performance-anchors'));
+    await page.waitForFunction(
+      () =>
+        document.querySelectorAll('.nf-editor[data-active="true"] [data-block-card]').length >=
+        300,
+      undefined,
+      { timeout: 30000 },
+    );
+    const interactiveMs = Date.now() - started;
+    const structure = await page.evaluate(() => window.__noteforestTest.structure());
+    const anchorCount = Object.keys(structure.anchors).length;
+    assert.ok(anchorCount >= 30, `anchored seed has ${anchorCount} anchors`);
+
+    const scope = h.activeEditor();
+    const paintSample = page.evaluate(
+      () =>
+        new Promise((resolvePaint) => {
+          const started = performance.now();
+          const onKeyDown = (event) => {
+            if (event.key !== 'x') return;
+            document.removeEventListener('keydown', onKeyDown, true);
+            // Two frames: the key event is processed, the editor transaction is
+            // applied, then the next paint flushes it.
+            requestAnimationFrame(() =>
+              requestAnimationFrame(() => resolvePaint(performance.now() - started)),
+            );
+          };
+          document.addEventListener('keydown', onKeyDown, true);
+        }),
+    );
+    await scope.locator('[data-block-card] p').first().click();
+    await page.keyboard.press('End');
+    await page.keyboard.type('x');
+    const keystrokeMs = await paintSample;
+    await page.waitForTimeout(1000);
+    for (let index = 0; index < 6; index += 1) {
+      await page.keyboard.press('Meta+.');
+      await page.waitForTimeout(250);
+    }
+    const perf = await page.evaluate(() => window.__noteforestTest.perf());
+    const fullRebuildSamples = await page.evaluate(() =>
+      window.__noteforestTest.benchmarkReflow(6),
+    );
+    assert.ok(perf.edge.p95 < 8, `edge routing p95 ${perf.edge.p95} ms`);
+    assert.ok(perf.measure.p95 < 8, `measurement p95 ${perf.measure.p95} ms`);
+    assert.ok(perf.reflow.p95 < 50, `structural reflow p95 ${perf.reflow.p95} ms`);
+
+    const report = {
+      measuredAt: new Date().toISOString(),
+      seed: 'performance-anchors',
+      anchorCount,
+      blockCount: Object.keys(structure.blocks).length,
+      interactiveMs,
+      keystrokeMs,
+      perf,
+      fullRebuildSamples,
+    };
+    await writeFile(
+      resolve(reportDir, 'performance-anchors.json'),
+      `${JSON.stringify(report, null, 2)}\n`,
+    );
+    await h.quit();
+  });
 });

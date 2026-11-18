@@ -14,6 +14,7 @@ import {
   type PageSetup,
 } from '../src/index.js';
 
+import { anchorViewFor } from './helpers.js';
 const SOURCE_TEXT = 'An eigenvalue is a scalar. A nonzero vector v satisfies Av = λv for some λ, and the spectrum is the set of all eigenvalues.';
 const QUOTE = 'eigenvalue';
 
@@ -120,6 +121,7 @@ function layoutPages(
     measurement,
     pageLayoutOptions(DEFAULT_PAGE_SETTINGS.theme),
     setup,
+      anchorViewFor(document),
   );
   const pages = paginate(layout, document, { manualBreakBeforeBlockIds });
   return { layout, pages };
@@ -166,6 +168,36 @@ function anchoredTextBlock(
  * the parent card), one indented grandchild under child 1, and two anchored
  * callouts below the parent.
  */
+function multiAnchoredTextBlock(
+  id: string,
+  label: string,
+  text: string,
+  anchors: Array<{ quote: string; anchorId: string }>,
+) {
+  const children: ContentNode[] = [];
+  let cursor = 0;
+  for (const anchor of anchors) {
+    const start = text.indexOf(anchor.quote, cursor);
+    if (start < 0) continue;
+    if (start > cursor) children.push({ type: 'text', text: text.slice(cursor, start) });
+    children.push({
+      type: 'text',
+      text: anchor.quote,
+      marks: [{ type: 'anchor', attrs: { anchorId: anchor.anchorId } }],
+    });
+    cursor = start + anchor.quote.length;
+  }
+  if (cursor < text.length) children.push({ type: 'text', text: text.slice(cursor) });
+  return {
+    id,
+    label,
+    content: {
+      type: 'doc' as const,
+      children: [{ type: 'paragraph' as const, children }],
+    },
+  };
+}
+
 function topologyDocument(): NoteDocument {
   const firstQuote = 'three direct children';
   const secondQuote = 'two anchored callouts';
@@ -174,7 +206,10 @@ function topologyDocument(): NoteDocument {
     id: 'page-edge-topology',
     title: 'Page edge topology',
     blocks: {
-      root: anchoredTextBlock('root', 'A small forest', TOPOLOGY_ROOT_TEXT, firstQuote, 'anchor-first'),
+      root: multiAnchoredTextBlock('root', 'A small forest', TOPOLOGY_ROOT_TEXT, [
+        { quote: firstQuote, anchorId: 'anchor-first' },
+        { quote: secondQuote, anchorId: 'anchor-second' },
+      ]),
       child1: textBlock(
         'child1',
         'Direct child 1',
@@ -575,6 +610,7 @@ describe('page edge topology (R2f + R2j)', () => {
         orientation: 'portrait',
         margins: { top: 12, right: 12, bottom: 12, left: 12 },
       },
+        anchorViewFor(document),
     );
     const pages = paginate(layout, document);
     expect(pages.pageCount).toBe(1);

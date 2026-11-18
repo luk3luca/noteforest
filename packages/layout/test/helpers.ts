@@ -1,6 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { resolveDocumentAnchors } from '@noteforest/core';
+import type { Document as CoreDocument } from '@noteforest/core';
 import type {
+  AnchorResolutionView,
   ContinuousLayout,
   LayoutOptions,
   NoteDocument,
@@ -37,6 +40,28 @@ export function loadFixture(name: string): NoteDocument {
   return JSON.parse(readFileSync(resolve(FIXTURES, name), 'utf8')) as NoteDocument;
 }
 
+/**
+ * Test-only view helper: resolve the fixture with the real core resolver and
+ * project it into the layout's structural mirror. Production never builds a
+ * view here — `DocumentSession` owns the one index.
+ */
+export function anchorViewFor(document: NoteDocument): AnchorResolutionView {
+  const resolutions = resolveDocumentAnchors(document as unknown as CoreDocument);
+  const byBlock: Record<string, Array<{ anchorId: string; state: string; range: unknown }>> = {};
+  for (const [blockId, list] of Object.entries(resolutions.byBlock)) {
+    byBlock[blockId] = list.map((resolution) => ({
+      anchorId: resolution.anchorId,
+      state: resolution.state,
+      range: resolution.resolved?.range ?? null,
+    }));
+  }
+  return {
+    documentId: document.id,
+    ...(document.revision === undefined ? {} : { revision: document.revision }),
+    byBlock: byBlock as AnchorResolutionView['byBlock'],
+  };
+}
+
 export function layoutFixture(
   name: string,
   options: FixtureLayoutOptions = {},
@@ -47,6 +72,7 @@ export function layoutFixture(
     createEstimatedMeasurement(document),
     options.layoutOptions ?? {},
     options.setup ?? DEFAULT_PAGE_SETTINGS.setup,
+    anchorViewFor(document),
   );
 }
 
@@ -64,6 +90,7 @@ export function paginateFixture(
     createEstimatedMeasurement(document),
     options.layoutOptions ?? {},
     options.setup ?? DEFAULT_PAGE_SETTINGS.setup,
+    anchorViewFor(document),
   );
   const pages = paginate(layout, document, {
     manualBreakBeforeBlockIds: [...(options.manualBreakBeforeBlockIds ?? [])],

@@ -8,6 +8,7 @@
  */
 
 import type {
+  AnchorIndex,
   AnchorState,
   Branch,
   BranchRole,
@@ -26,7 +27,6 @@ import {
   directChildBranches,
   directChildIds,
   primaryParentBranch,
-  resolveAnchor,
   sortedBranches,
   subtreeBlockIds,
 } from '@noteforest/core';
@@ -315,12 +315,12 @@ export function anchorQuote(document: Document, anchorId: string): string {
   return '';
 }
 
-export function anchorState(
-  document: Document,
-  anchorId: string,
-  options: Parameters<typeof resolveAnchor>[2] = {},
-): AnchorState {
-  return resolveAnchor(document, anchorId, options).state;
+/**
+ * One anchor's state from the session index. Missing records keep the resolver's
+ * `anchor-missing` reading (broken); no surface resolves on its own.
+ */
+export function anchorState(anchorIndex: AnchorIndex, anchorId: string): AnchorState {
+  return anchorIndex.entry(anchorId)?.state ?? 'broken';
 }
 
 export function anchorIsWarning(state: AnchorState): boolean {

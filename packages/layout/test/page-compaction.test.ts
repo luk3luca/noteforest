@@ -12,6 +12,7 @@ import {
   type BlockMeasurement,
   type BranchRecord,
   type ContentBlock,
+  type ContentNode,
   type LayoutOptions,
   type MeasurementMode,
   type MeasurementPort,
@@ -19,7 +20,7 @@ import {
   type PagePacking,
   type PageSetup,
 } from '../src/index.js';
-import { FIXTURES } from './helpers.js';
+import { anchorViewFor, FIXTURES } from './helpers.js';
 
 const PACKING_SETUP: PageSetup = {
   size: 'A4',
@@ -105,13 +106,19 @@ function makeDocument(
   options: { topLevel?: string[]; id?: string } = {},
 ): { document: NoteDocument; port: MeasurementPort } {
   const blocks: Record<string, ContentBlock> = {};
-  for (const blockId of Object.keys(specs)) {
+  for (const [blockId, spec] of Object.entries(specs)) {
+    // A synthetic anchor must resolve in core: one unique, marked text run.
+    const children: ContentNode[] = [{ type: 'text', text: blockId }];
+    if (spec.anchorId !== undefined) {
+      children.push({
+        type: 'text',
+        text: ` ${spec.anchorId} `,
+        marks: [{ type: 'anchor', attrs: { anchorIds: [spec.anchorId] } }],
+      });
+    }
     blocks[blockId] = {
       id: blockId,
-      content: {
-        type: 'doc',
-        children: [{ type: 'paragraph', children: [{ type: 'text', text: blockId }] }],
-      },
+      content: { type: 'doc', children: [{ type: 'paragraph', children }] },
     };
   }
   const branchRecords: Record<string, BranchRecord> = {};
@@ -128,10 +135,16 @@ function makeDocument(
       order: id,
     };
   });
-  const anchorRecords: Record<string, { id: string; blockId: string; kind: 'text' }> = {};
+  const anchorRecords: Record<string, { id: string; blockId: string; kind: 'text'; selector: { kind: 'text'; quote: string }; quote: string }> = {};
   for (const [blockId, spec] of Object.entries(specs)) {
     if (spec.anchorId !== undefined) {
-      anchorRecords[spec.anchorId] = { id: spec.anchorId, blockId, kind: 'text' };
+      anchorRecords[spec.anchorId] = {
+        id: spec.anchorId,
+        blockId,
+        kind: 'text',
+        selector: { kind: 'text', quote: spec.anchorId },
+        quote: spec.anchorId,
+      };
     }
   }
   const primaryTargets = new Set(
@@ -166,6 +179,7 @@ function layout(
     port,
     { ...DEFAULT_LAYOUT_OPTIONS, pagePacking, ...overrides },
     PACKING_SETUP,
+      anchorViewFor(document),
   );
 }
 
@@ -593,12 +607,14 @@ describe('page compaction: committed fixtures', () => {
       createEstimatedMeasurement(document),
       compactOptions,
       PACKING_SETUP,
+        anchorViewFor(document),
     );
     const second = layoutDocument(
       document,
       createEstimatedMeasurement(document),
       compactOptions,
       PACKING_SETUP,
+        anchorViewFor(document),
     );
     expect(signature(second)).toEqual(signature(first));
     assertNoOverlaps(first);
@@ -616,12 +632,14 @@ describe('page compaction: committed fixtures', () => {
       createEstimatedMeasurement(document),
       compactOptions,
       PACKING_SETUP,
+        anchorViewFor(document),
     );
     const beside = layoutDocument(
       document,
       createEstimatedMeasurement(document),
       { ...compactOptions, pagePacking: 'beside' },
       PACKING_SETUP,
+        anchorViewFor(document),
     );
     assertNoOverlaps(compaction);
     assertNoOverlaps(beside);

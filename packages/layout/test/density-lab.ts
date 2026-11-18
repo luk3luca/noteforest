@@ -24,6 +24,7 @@ import {
 } from '../src/index.js';
 import { loadLabDocument } from './layout-lab.js';
 
+import { anchorViewFor } from './helpers.js';
 /**
  * M4e2 Page density lab (M4d1 + the 60-120% range).
  *
@@ -162,6 +163,7 @@ export function computeDensityMetrics(
     densityMeasurement(document, layoutOptions, typeScale),
     layoutOptions,
     settings.setup,
+      anchorViewFor(document),
   );
   const pages = paginate(layout, document, {
     manualBreakBeforeBlockIds: [...settings.manualBreakBeforeBlockIds],

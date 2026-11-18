@@ -28,6 +28,7 @@ export const FILES = [
   'm3h3-live-health.test.mjs',
   'm3h5-leaf-delete.test.mjs',
   'document-health.test.mjs',
+  'm5a-anchor-resolution-review.test.mjs',
   'm3c3b1-image.test.mjs',
   'm3c3b2-image-anchors.test.mjs',
   'm3c3b3-image-integrity.test.mjs',
@@ -159,6 +160,7 @@ export const GROUPS = {
     'm3h3-live-health.test.mjs',
     'm3h5-leaf-delete.test.mjs',
     'document-health.test.mjs',
+    'm5a-anchor-resolution-review.test.mjs',
   ],
   images: [
     'm3c3b1-image.test.mjs',

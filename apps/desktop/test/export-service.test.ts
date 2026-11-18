@@ -127,6 +127,7 @@ describe('export service snapshot binding', () => {
         document: {},
         settings: {},
         settingsFingerprint: 'fingerprint-1',
+        anchorView: { documentId: 'doc-1', revision: 4, byBlock: {} },
         assetUrls: {},
         failedAssetIds: [],
       },

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { isPrintRunSummary, type PrintRunSummary } from '../src/shared/export';
+import {
+  isAnchorResolutionView,
+  isPrintRunSummary,
+  type PrintRunSummary,
+} from '../src/shared/export';
 
 /**
  * M4c3 S3-2: the hidden-window summary is validated at runtime. A malformed
@@ -74,5 +78,58 @@ describe('isPrintRunSummary', () => {
     expect(isPrintRunSummary({ ...valid(), pageSetup: { ...A4, margins: {} } })).toBe(false);
     expect(isPrintRunSummary({ ...valid(), rendered: 'yes' })).toBe(false);
     expect(isPrintRunSummary(null)).toBe(false);
+  });
+});
+
+describe('isAnchorResolutionView', () => {
+  const validView = {
+    documentId: 'doc-1',
+    revision: 4,
+    byBlock: {
+      block: [
+        {
+          anchorId: 'a1',
+          state: 'resolved',
+          range: { kind: 'text', nodePath: [0, 1] },
+        },
+        { anchorId: 'a2', state: 'ambiguous', range: null },
+        { anchorId: 'a3', state: 'block-missing', range: null },
+      ],
+    },
+  };
+
+  it('accepts the semantic projection', () => {
+    expect(isAnchorResolutionView(validView)).toBe(true);
+    expect(isAnchorResolutionView({ ...validView, revision: undefined })).toBe(true);
+  });
+
+  it('rejects a malformed view instead of rendering stale state', () => {
+    expect(isAnchorResolutionView(null)).toBe(false);
+    expect(isAnchorResolutionView({})).toBe(false);
+    expect(isAnchorResolutionView({ ...validView, documentId: undefined })).toBe(false);
+    expect(isAnchorResolutionView({ ...validView, revision: '4' })).toBe(false);
+    expect(isAnchorResolutionView({ ...validView, byBlock: [] })).toBe(false);
+    expect(
+      isAnchorResolutionView({
+        ...validView,
+        byBlock: { block: [{ anchorId: 'a1', state: 'unknown', range: null }] },
+      }),
+    ).toBe(false);
+    expect(
+      isAnchorResolutionView({
+        ...validView,
+        byBlock: { block: [{ anchorId: 'a1', state: 'resolved', range: { kind: 'other' } }] },
+      }),
+    ).toBe(false);
+    expect(
+      isAnchorResolutionView({
+        ...validView,
+        byBlock: {
+          block: [
+            { anchorId: 'a1', state: 'resolved', range: { kind: 'text', nodePath: ['0'] } },
+          ],
+        },
+      }),
+    ).toBe(false);
   });
 });

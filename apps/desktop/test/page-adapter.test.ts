@@ -123,7 +123,6 @@ describe('core -> layout page adapter', () => {
       kind: 'text',
       quote: 'forest',
       prefix: 'Hello ',
-      occurrenceHint: 1,
     });
     expect(note.assets['asset-1']).toEqual({
       id: 'asset-1',

@@ -147,6 +147,8 @@ interface PrimaryGroup {
   trunkGroup: 'callout' | 'child' | null;
   /** Below-trunk inset from the parent left. */
   trunkInset: number;
+  /** A group whose targets are all anchored callouts keeps the callout inset. */
+  isCallout: boolean;
   entries: PrimaryGroupEdge[];
 }
 
@@ -236,7 +238,10 @@ function resolveAnchorLocal(
   edge: EdgeLayout,
   page: DerivedPage,
   source: BlockPageLocation,
-): { x: number; y: number; width: number; height: number } | null {
+): {
+  rect: { x: number; y: number; width: number; height: number };
+  attachPoint: { x: number; y: number };
+} | null {
   if (!edge.anchorId) return null;
   const anchor = layout.anchors.find(
     (candidate) =>
@@ -251,10 +256,16 @@ function resolveAnchorLocal(
     return null;
   }
   return {
-    x: anchor.rect.x,
-    y: localY,
-    width: anchor.rect.width,
-    height: anchor.rect.height,
+    rect: {
+      x: anchor.rect.x,
+      y: localY,
+      width: anchor.rect.width,
+      height: anchor.rect.height,
+    },
+    attachPoint: {
+      x: anchor.attachPoint?.x ?? anchor.rect.x + anchor.rect.width,
+      y: (anchor.attachPoint?.y ?? anchor.rect.y + anchor.rect.height / 2) - page.yStart,
+    },
   };
 }
 
@@ -282,10 +293,7 @@ function referenceSamePageEdge(input: {
   const anchorLocal = resolveAnchorLocal(layout, edge, page, source);
   let fromPoint = fragmentCenter(source, 'right');
   if (anchorLocal !== null) {
-    fromPoint = {
-      x: anchorLocal.x + anchorLocal.width,
-      y: anchorLocal.y + anchorLocal.height / 2,
-    };
+    fromPoint = anchorLocal.attachPoint;
   }
   const to = fragmentCenter(target, 'left');
   const route = routePageEdge({
@@ -401,7 +409,14 @@ function buildPrimaryGroup(input: {
     // R2j mode B2 supplies its own inset per group: 12 for children and 24 for
     // callouts, which keeps the two trunks independent.
     const inset = sourceBox.x + group.trunkInset;
-    trunkX = Math.max(sourceBox.x, Math.min(inset, minTargetX - PAGE_EDGE_STYLE.stemMin));
+    // Callouts keep the callout trunk inset even when the card starts close to
+    // the parent left (a measured image/formula anchor, or the zero-rect
+    // fallback). The arm may pass behind the card, but the visible trunk starts
+    // at the inset instead of the block border. Other below groups keep the
+    // readable-stem clamp.
+    trunkX = group.isCallout
+      ? inset
+      : Math.max(sourceBox.x, Math.min(inset, minTargetX - PAGE_EDGE_STYLE.stemMin));
     trunkX = Math.max(0, Math.min(trunkX, Math.max(0, bounds.width - 0.5)));
     // A block can continue across pages: the below port is the true card
     // bottom, i.e. the last fragment, not the first fragment's page bottom.
@@ -571,6 +586,7 @@ export function buildPageEdgeModel(
           placement,
           trunkGroup,
           trunkInset: targetBlock?.trunkInset ?? PAGE_EDGE_STYLE.trunkInset,
+          isCallout: targetBlock?.role === 'callout',
           entries: [],
         };
         groups.set(key, group);
@@ -578,6 +594,7 @@ export function buildPageEdgeModel(
       const laneKey = `${toPage.pageNumber}:${edge.fromBlockId}:${edge.toBlockId}`;
       const laneIndex = laneCounts.get(laneKey) ?? 0;
       laneCounts.set(laneKey, laneIndex + 1);
+      group.isCallout = group.isCallout && targetBlock?.role === 'callout';
       group.entries.push({ edge, target: toLocation, laneIndex });
       continue;
     }

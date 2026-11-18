@@ -7,6 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { buildAnchorIndex } from '../src/anchor-index.js';
 import { resolveDocumentAnchors } from '../src/anchors.js';
 import type {
   Anchor,
@@ -214,6 +215,63 @@ describe('1,000-anchor document resolution', () => {
     expect(secondElapsed).toBeLessThan(100);
     if (process.env.NOTEFOREST_PERF_REPORT === '1') {
       console.info(`1,000-anchor resolution: second=${secondElapsed.toFixed(2)} ms`);
+    }
+  });
+});
+
+describe('1,000-anchor index build and warm update', () => {
+  it('builds the index within the 100 ms guard', () => {
+    const { document } = buildDocument();
+    const start = performance.now();
+    const index = buildAnchorIndex(document);
+    const elapsed = performance.now() - start;
+    expect(index.all()).toHaveLength(1000);
+    expect(index.stats.blocksIndexed).toBe(BLOCK_COUNT);
+    expect(elapsed).toBeLessThan(100);
+    if (process.env.NOTEFOREST_PERF_REPORT === '1') {
+      console.info(`1,000-anchor index build: ${elapsed.toFixed(2)} ms`);
+    }
+  });
+
+  it('indexes exactly one block on a warm update, under one frame p95', () => {
+    const { document } = buildDocument();
+    const index = buildAnchorIndex(document);
+    const blockIds = Object.keys(document.blocks);
+    const samples: number[] = [];
+    let current = index;
+    let currentDocument = document;
+    for (let run = 0; run < 20; run += 1) {
+      const blockId = blockIds[run % blockIds.length] as string;
+      const next = structuredClone(currentDocument);
+      const block = next.blocks[blockId];
+      if (block === undefined) throw new Error('missing block');
+      const children = block.content.children ?? [];
+      block.content = {
+        ...block.content,
+        children: [
+          ...children.slice(0, -1),
+          {
+            type: 'paragraph',
+            children: [{ type: 'text', text: `warm update ${run}` }],
+          },
+        ],
+      };
+      const keys = new Map<string, string>();
+      for (const [id, candidate] of Object.entries(next.blocks)) {
+        keys.set(id, JSON.stringify(candidate.content));
+      }
+      const start = performance.now();
+      current = current.update(next, { blockKeys: keys, editedBlockIds: [blockId] });
+      currentDocument = next;
+      samples.push(performance.now() - start);
+      expect(current.stats.blocksIndexed).toBe(1);
+      expect(current.stats.blocksReused).toBe(BLOCK_COUNT - 1);
+    }
+    samples.sort((left, right) => left - right);
+    const p95 = samples[Math.min(samples.length - 1, Math.floor(samples.length * 0.95))] as number;
+    expect(p95).toBeLessThan(16);
+    if (process.env.NOTEFOREST_PERF_REPORT === '1') {
+      console.info(`1,000-anchor warm update p95: ${p95.toFixed(2)} ms`);
     }
   });
 });

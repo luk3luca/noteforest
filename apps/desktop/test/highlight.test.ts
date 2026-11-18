@@ -35,6 +35,7 @@ import {
   type SegmentOptions,
 } from '../src/renderer/src/page/segments';
 
+import { anchorViewForDocument } from './layout-view.js';
 const read = (path: string): string => readFileSync(new URL(path, import.meta.url), 'utf8');
 
 const stylesSource = read('../src/renderer/src/styles.css');
@@ -320,6 +321,7 @@ describe('the print model carries the highlight', () => {
       measurement,
       pageLayoutOptions(settings.theme),
       settings.setup,
+        anchorViewForDocument(document),
     );
     const pages = paginate(layout, document);
     const print = buildPrintModel(document, layout, pages, {

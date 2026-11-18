@@ -3087,21 +3087,18 @@ export interface DocumentAnchorResolutions extends JsonObject {
 }
 
 /**
- * Resolve every anchor in the document. Each block index is built once, so
- * document load stays linear in content size plus anchors.
+ * Resolve every anchor against already-built block indexes.
+ *
+ * The caller owns the block indexes (the session's `AnchorIndex` keeps them
+ * across revisions). This function owns the resolution contract itself —
+ * `block-missing` → `idle` → binding/fallback precedence, repair flags,
+ * grouping and ordering — so no index implementation can restate it.
  */
-export function resolveDocumentAnchors(
+export function resolveDocumentAnchorsWithIndexes(
   document: Document,
+  indexes: ReadonlyMap<string, BlockAnchorIndex>,
   options: AnchorResolutionOptions = {},
 ): DocumentAnchorResolutions {
-  const indexes = new Map<string, BlockAnchorIndex>();
-  const anchorBlockIds = new Set(
-    Object.values(document.anchors).map((anchor) => anchor.blockId),
-  );
-  for (const [blockId, block] of Object.entries(document.blocks)) {
-    if (!anchorBlockIds.has(blockId)) continue;
-    indexes.set(blockId, buildBlockAnchorIndex(blockId, block.content));
-  }
   const byId: Record<string, AnchorResolution> = {};
   const byBlock: Record<string, AnchorResolution[]> = {};
   const counts: Record<AnchorState, number> = {
@@ -3139,6 +3136,25 @@ export function resolveDocumentAnchors(
   }
   for (const list of Object.values(byBlock)) list.sort(compareAnchorResolutions);
   return { byId, byBlock, anchorIds, counts };
+}
+
+/**
+ * Resolve every anchor in the document. Each block index is built once, so
+ * document load stays linear in content size plus anchors.
+ */
+export function resolveDocumentAnchors(
+  document: Document,
+  options: AnchorResolutionOptions = {},
+): DocumentAnchorResolutions {
+  const indexes = new Map<string, BlockAnchorIndex>();
+  const anchorBlockIds = new Set(
+    Object.values(document.anchors).map((anchor) => anchor.blockId),
+  );
+  for (const [blockId, block] of Object.entries(document.blocks)) {
+    if (!anchorBlockIds.has(blockId)) continue;
+    indexes.set(blockId, buildBlockAnchorIndex(blockId, block.content));
+  }
+  return resolveDocumentAnchorsWithIndexes(document, indexes, options);
 }
 
 /** Content block helper used by callers that already hold the block. */

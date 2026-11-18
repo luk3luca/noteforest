@@ -27,6 +27,7 @@ import {
 import { DocumentRuntime } from '../src/renderer/src/state/runtime';
 import { createInMemoryDocumentGateway } from '../src/renderer/src/state/memory-document-gateway';
 
+import { anchorViewForDocument } from './layout-view.js';
 /**
  * MB1 manual breaks (`docs/design/manual-breaks.md`).
  *
@@ -127,6 +128,7 @@ function measure(document: Document): ContinuousLayout {
     createEstimatedMeasurement(document),
     {},
     PAGE_SETUP,
+      anchorViewForDocument(document),
   );
 }
 
@@ -229,6 +231,7 @@ describe('manual break row leaders', () => {
         orientation: 'landscape',
         margins: { top: 10, right: 10, bottom: 10, left: 10 },
       },
+        anchorViewForDocument(document),
     );
     const callout = layout.blockById['b']!;
     const parent = layout.blockById['a']!;

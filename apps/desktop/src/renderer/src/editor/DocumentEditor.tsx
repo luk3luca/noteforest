@@ -300,6 +300,7 @@ function EditorSurface({
         runtime.collapsed,
         new Set(),
         runtime.assetAvailability,
+        runtime.anchorIndex,
       ),
       editable: runtime.status === 'editable' && visible && interactionMode === 'edit',
       editorProps: {

@@ -54,7 +54,10 @@ export function FindController(): null {
       return undefined;
     }
     const timer = window.setTimeout(() => {
-      const report = findInDocument(findSearchDocument(runtime), query, { wholeWord });
+      const report = findInDocument(findSearchDocument(runtime), query, {
+        wholeWord,
+        anchorIndex: runtime.anchorIndex,
+      });
       useShell.getState().setFindResults(report.results, report.total, report.truncated);
     }, FIND_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);

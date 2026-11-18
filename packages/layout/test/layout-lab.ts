@@ -15,7 +15,7 @@ import {
   overlaps,
   paginate,
 } from '../src/index.js';
-import { FIXTURES, FIXTURE_PAGE_SETUP } from './helpers.js';
+import { anchorViewFor, FIXTURES, FIXTURE_PAGE_SETUP } from './helpers.js';
 import { resolve } from 'node:path';
 
 export const SHOWCASE_PATH = '~/Documents/NoteForest/note-forest-showcase/document.json';
@@ -139,6 +139,7 @@ export function computeLabMetrics(
     createEstimatedMeasurement(document),
     layoutOptions,
     FIXTURE_PAGE_SETUP,
+      anchorViewFor(document),
   );
   const pages = paginate(layout, document);
   const wrapped = wrappedChildrenByParent(layout, layoutOptions);

@@ -28,6 +28,7 @@ import {
   type PrintModel,
 } from '../src/printModel.js';
 
+import { anchorViewForDocument } from './layout-view.js';
 /**
  * M4c1 print-model tests.
  *
@@ -132,6 +133,11 @@ interface AnchorSpec {
   blockId: string;
   kind?: AnchorRecord['kind'];
   quote?: string;
+  /**
+   * Content binding used by the real core resolver: a marked run resolves, two
+   * unmarked occurrences are ambiguous, no occurrence is broken.
+   */
+  binding?: 'mark' | 'ambiguous' | 'none';
 }
 
 function makeDocument(input: {
@@ -174,12 +180,26 @@ function makeDocument(input: {
   }
   const anchors: Record<string, AnchorRecord> = {};
   for (const anchor of input.anchors ?? []) {
+    const ambiguous = anchor.binding === 'ambiguous';
+    const quote = anchor.quote ?? (ambiguous ? 'ambiguousterm' : anchor.id);
     anchors[anchor.id] = {
       id: anchor.id,
       blockId: anchor.blockId,
       kind: anchor.kind ?? 'text',
-      quote: anchor.quote ?? anchor.id,
+      selector: { kind: anchor.kind ?? 'text', quote },
+      quote,
     };
+    if (anchor.kind !== undefined && anchor.kind !== 'text') continue;
+    const block = blocks[anchor.blockId];
+    const paragraph = block?.content.children?.[0];
+    if (paragraph === undefined) continue;
+    const children = [...(paragraph.children ?? [])];
+    if (anchor.binding === 'mark') {
+      children.push({ type: 'text', text: ` ${quote} `, marks: [{ type: 'anchor', attrs: { anchorIds: [anchor.id] } }] });
+    } else if (ambiguous) {
+      children.push({ type: 'text', text: ` ${quote} and ${quote} ` });
+    }
+    paragraph.children = children;
   }
   return {
     schemaVersion: 2,
@@ -211,6 +231,7 @@ function layoutFor(
     stubMeasurement(specs),
     pageLayoutOptions(settings.theme),
     settings.setup,
+      anchorViewForDocument(document),
   );
   const paginated = paginate(layout, document, {
     manualBreakBeforeBlockIds: [...settings.manualBreakBeforeBlockIds],
@@ -362,9 +383,9 @@ describe('print model from the real Page pipeline', () => {
         { from: 'root', to: 'child' },
       ],
       anchors: [
-        { id: 'a-resolved', blockId: 'root' },
-        { id: 'a-broken', blockId: 'root' },
-        { id: 'a-ambiguous', blockId: 'root' },
+        { id: 'a-resolved', blockId: 'root', binding: 'mark' },
+        { id: 'a-broken', blockId: 'root', binding: 'none' },
+        { id: 'a-ambiguous', blockId: 'root', binding: 'ambiguous' },
       ],
       chapters: [
         {
@@ -727,6 +748,7 @@ describe('print model identity (M4c2 R1/R4/R5)', () => {
       stubMeasurement(specs),
       pageLayoutOptions(settings.theme),
       settings.setup,
+        anchorViewForDocument(document),
     );
     const validated = paginate(layout, document, {
       manualBreakBeforeBlockIds: [...settings.manualBreakBeforeBlockIds],

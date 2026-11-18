@@ -17,6 +17,7 @@ import {
   type PageSetup,
 } from '../src/index.js';
 
+import { anchorViewFor } from './helpers.js';
 const PACKING_SETUP: PageSetup = {
   size: 'A4',
   orientation: 'landscape',
@@ -99,12 +100,19 @@ function makeDocument(
 ): { document: NoteDocument; port: MeasurementPort } {
   const blocks: Record<string, ContentBlock> = {};
   for (const blockId of Object.keys(specs)) {
+    // A synthetic anchor must resolve in core: each id is one unique, marked
+    // text run. The stub measurement supplies the geometry.
+    const children = [{ type: 'text', text: blockId } as const];
+    for (const anchor of anchors[blockId] ?? []) {
+      children.push({
+        type: 'text',
+        text: ` ${anchor.anchorId} `,
+        marks: [{ type: 'anchor', attrs: { anchorIds: [anchor.anchorId] } }],
+      } as unknown as (typeof children)[number]);
+    }
     blocks[blockId] = {
       id: blockId,
-      content: {
-        type: 'doc',
-        children: [{ type: 'paragraph', children: [{ type: 'text', text: blockId }] }],
-      },
+      content: { type: 'doc', children: [{ type: 'paragraph', children }] },
     };
   }
   const branchRecords: Record<string, BranchRecord> = {};
@@ -121,7 +129,13 @@ function makeDocument(
   const anchorRecords: Record<string, AnchorRecord> = {};
   for (const [blockId, list] of Object.entries(anchors)) {
     for (const anchor of list) {
-      anchorRecords[anchor.anchorId] = { id: anchor.anchorId, blockId, kind: 'text' };
+      anchorRecords[anchor.anchorId] = {
+        id: anchor.anchorId,
+        blockId,
+        kind: 'text',
+        selector: { kind: 'text', quote: anchor.anchorId },
+        quote: anchor.anchorId,
+      };
     }
   }
   const root = Object.keys(specs)[0]!;
@@ -151,6 +165,7 @@ function layout(
     port,
     { ...DEFAULT_LAYOUT_OPTIONS, pagePacking, ...overrides },
     PACKING_SETUP,
+      anchorViewFor(document),
   );
 }
 
@@ -455,7 +470,7 @@ describe('page packing: beside', () => {
       { root: [{ anchorId: 'a1', x: 40 }] },
     );
     const implicit = layout(document, port, 'stacked');
-    const explicit = layoutDocument(document, port, {}, PACKING_SETUP);
+    const explicit = layoutDocument(document, port, {}, PACKING_SETUP, anchorViewFor(document));
     expect(signature(explicit)).toEqual(signature(implicit));
     const child = implicit.blockById['child']!;
     const callout = implicit.blockById['callout']!;

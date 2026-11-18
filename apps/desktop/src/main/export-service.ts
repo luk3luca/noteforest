@@ -14,6 +14,7 @@
 
 import { ipcMain, type BrowserWindow } from 'electron';
 import { inspectPdf } from '@noteforest/pdf/node';
+import { isAnchorResolutionView } from '../shared/export.js';
 import type {
   ExportJobView,
   ExportPdfStartResult,
@@ -57,6 +58,7 @@ function isExportSnapshot(value: unknown): value is ExportSnapshot {
     typeof value['settingsFingerprint'] === 'string' &&
     isRecord(value['document']) &&
     isRecord(value['settings']) &&
+    isAnchorResolutionView(value['anchorView']) &&
     isRecord(value['assetUrls']) &&
     Array.isArray(value['failedAssetIds'])
   );

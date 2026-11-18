@@ -7,13 +7,11 @@ import {
   pageHasBlockingDefect,
   paginate,
 } from '../src/index.js';
-import {
-  assertSegmentsAtomic,
+import { anchorViewFor, assertSegmentsAtomic,
   blockFragments,
   FIXTURE_PAGE_SETUP,
   loadFixture,
-  paginateFixture,
-} from './helpers.js';
+  paginateFixture,} from './helpers.js';
 
 function tableRowFragments(pages: ReturnType<typeof paginateFixture>['pages'], layout: ReturnType<typeof paginateFixture>['layout']) {
   const failures: string[] = [];
@@ -125,12 +123,18 @@ describe('paginator', () => {
     expect(longFragment.endSegment).toBe(longBlock.measurement.segments.length);
   });
 
-  it('keeps broken and ambiguous anchor branches exported once', () => {
+  it('keeps broken anchor branches exported once', () => {
     const { layout, pages } = paginateFixture('broken-anchor.json', { setup: FIXTURE_PAGE_SETUP });
     expect(pages.pageCount).toBe(1);
     expect(layout.blocks.filter((block) => block.blockId === 'f9-b2')).toHaveLength(1);
     expect(layout.blocks.filter((block) => block.blockId === 'f9-b3')).toHaveLength(1);
-    expect(layout.defects.map((defect) => defect.code).sort()).toEqual(['ambiguous-anchor', 'broken-anchor']);
+    // Both records are broken in core: f9-a1 misses its quote, f9-a2 is bound
+    // twice (duplicate binding). The old rect-count derivation called the
+    // second one ambiguous; the index follows the core state.
+    expect(layout.defects.map((defect) => defect.code).sort()).toEqual([
+      'broken-anchor',
+      'broken-anchor',
+    ]);
     expect(pageHasBlockingDefect(pages)).toBe(false);
     expect(pages.pages[0]!.fragments.map((fragment) => fragment.blockId)).toContain('f9-b2');
     expect(pages.pages[0]!.fragments.map((fragment) => fragment.blockId)).toContain('f9-b3');
@@ -158,7 +162,7 @@ describe('paginator', () => {
       orientation: 'landscape' as const,
       margins: { top: 20, right: 20, bottom: 20, left: 20 },
     };
-    const layout = layoutDocument(document, createEstimatedMeasurement(document), {}, setup);
+    const layout = layoutDocument(document, createEstimatedMeasurement(document), {}, setup, anchorViewFor(document));
     const pages = paginate(layout, document);
     const geometry = pageGeometry(setup);
     expect(geometry.pageWidthMm).toBe(297);
@@ -256,6 +260,7 @@ function manualBreakRun(hints: string[] = []): {
     createEstimatedMeasurement(document),
     {},
     FIXTURE_PAGE_SETUP,
+      anchorViewFor(document),
   );
   return {
     layout,

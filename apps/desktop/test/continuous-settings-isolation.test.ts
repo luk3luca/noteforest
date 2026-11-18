@@ -18,6 +18,7 @@ import {
 } from '@noteforest/layout';
 import { buildPrintModel, type PrintModel } from '@noteforest/pdf';
 
+import { anchorViewForDocument } from './layout-view.js';
 /**
  * R6 Page/PDF isolation.
  *
@@ -127,6 +128,7 @@ function runPage(): PageRun {
     measurement,
     pageLayoutOptions(settings.theme),
     settings.setup,
+      anchorViewForDocument(document),
   );
   const pages = paginate(layout, document);
   const edges = buildPageEdgeModel(layout, pages.pages);

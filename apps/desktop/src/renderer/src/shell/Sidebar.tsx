@@ -771,9 +771,7 @@ function groupAnchoredChildren(
     if (child.anchorId === null) continue;
     let group = groups.find((candidate) => candidate.anchorId === child.anchorId);
     if (group === undefined) {
-      const state = anchorState(runtime.document, child.anchorId, {
-        assetAvailability: runtime.assetAvailability,
-      });
+      const state = anchorState(runtime.anchorIndex, child.anchorId);
       group = {
         anchorId: child.anchorId,
         quote: anchorQuote(runtime.document, child.anchorId),

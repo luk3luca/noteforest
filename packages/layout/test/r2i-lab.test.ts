@@ -10,6 +10,7 @@ import {
   type NoteDocument,
 } from '../src/index.js';
 
+import { anchorViewFor } from './helpers.js';
 const ROOT = resolve(import.meta.dirname, '../../..');
 const OUT = process.env.R2I_OUT ?? resolve(ROOT, 'artifacts/r2i/lab.json');
 
@@ -136,6 +137,7 @@ function metrics(name: string, document: NoteDocument) {
     createEstimatedMeasurement(document),
     pageLayoutOptions(DEFAULT_PAGE_SETTINGS.theme),
     DEFAULT_PAGE_SETTINGS.setup,
+      anchorViewFor(document),
   );
   const pages = paginate(layout, document);
   const directChildren = new Map<string, typeof layout.blocks>();

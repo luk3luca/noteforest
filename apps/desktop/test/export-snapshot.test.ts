@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Document } from '@noteforest/core';
+import { buildAnchorIndex, type Document } from '@noteforest/core';
 import { normalizePageSettings, pageSettingsFingerprint } from '@noteforest/layout';
 import { createExportSnapshot } from '../src/renderer/src/export-snapshot';
 import { assetUrlsForRuntime, failedAssetIdsForRuntime } from '../src/renderer/src/page/asset-urls';
@@ -58,6 +58,7 @@ describe('createExportSnapshot', () => {
         packagePath: '/library/draft',
         document: document(9),
         assetAvailability: { 'asset-missing': 'asset-missing' },
+        anchorIndex: buildAnchorIndex(document(9)),
       },
       SETTINGS,
     );
@@ -74,6 +75,11 @@ describe('createExportSnapshot', () => {
       'asset-ok': 'noteforest-asset://asset/asset-ok',
     });
     expect(snapshot.failedAssetIds).toEqual(['asset-missing']);
+    expect(snapshot.anchorView).toEqual({
+      documentId: 'doc-unsaved',
+      revision: 9,
+      byBlock: {},
+    });
   });
 
   it('never exposes a URL for a failed asset', () => {

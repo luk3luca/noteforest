@@ -12,6 +12,7 @@
  */
 
 import type {
+  AnchorResolutionView,
   CodeFontId,
   NoteDocument,
   PageSettings,
@@ -149,6 +150,13 @@ export interface ExportSnapshot {
   settings: PageSettings;
   settingsFingerprint: string;
   codeFont: CodeFontId;
+  /**
+   * The session index's anchor projection for exactly this document revision.
+   * The hidden print window must render the same semantic states as Page Read;
+   * the layout identity guard refuses a mismatched view instead of rendering a
+   * stale one.
+   */
+  anchorView: AnchorResolutionView;
   /** Renderer-safe display URLs for available assets. */
   assetUrls: Record<string, string>;
   /** Assets already known missing/changed in the open session. */
@@ -370,6 +378,52 @@ function isPageSetup(value: unknown): value is PageSetup {
   const margins = value['margins'];
   if (!isRecord(margins)) return false;
   return ['top', 'right', 'bottom', 'left'].every((key) => isFiniteNumber(margins[key]));
+}
+
+const ANCHOR_VIEW_STATES = new Set([
+  'resolved',
+  'ambiguous',
+  'broken',
+  'idle',
+  'block-missing',
+]);
+
+const ANCHOR_VIEW_KINDS = new Set(['text', 'formula', 'code', 'image']);
+
+/**
+ * Runtime guard for the anchor projection carried by the export snapshot. It
+ * accepts the semantic data only: identity, per-block entries and the optional
+ * resolved range. A malformed view is refused before the print window measures.
+ */
+export function isAnchorResolutionView(value: unknown): value is AnchorResolutionView {
+  if (!isRecord(value)) return false;
+  if (typeof value['documentId'] !== 'string') return false;
+  if (value['revision'] !== undefined && !isFiniteNumber(value['revision'])) return false;
+  const byBlock = value['byBlock'];
+  if (!isRecord(byBlock)) return false;
+  for (const list of Object.values(byBlock)) {
+    if (!Array.isArray(list)) return false;
+    for (const entry of list) {
+      if (!isRecord(entry) || typeof entry['anchorId'] !== 'string') return false;
+      if (typeof entry['state'] !== 'string' || !ANCHOR_VIEW_STATES.has(entry['state'])) {
+        return false;
+      }
+      const range = entry['range'];
+      if (range === null) continue;
+      if (!isRecord(range)) return false;
+      if (typeof range['kind'] !== 'string' || !ANCHOR_VIEW_KINDS.has(range['kind'])) {
+        return false;
+      }
+      const nodePath = range['nodePath'];
+      if (
+        nodePath !== undefined &&
+        (!Array.isArray(nodePath) || !nodePath.every((part) => Number.isInteger(part)))
+      ) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 function isPrintRunDefect(value: unknown): value is PrintRunDefect {

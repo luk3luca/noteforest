@@ -27,6 +27,7 @@ import {
 } from '../src/renderer/src/page/projection';
 import { buildSegments } from '../src/renderer/src/page/segments';
 
+import { anchorViewForDocument } from './layout-view.js';
 /**
  * M4c1 F1/F3 seam parity.
  *
@@ -196,6 +197,7 @@ function pipelineWithSettings(
     stubMeasurement(specs),
     pageLayoutOptions(settings.theme),
     settings.setup,
+      anchorViewForDocument(document),
   );
   const paginated = paginate(layout, document, {
     manualBreakBeforeBlockIds: [...settings.manualBreakBeforeBlockIds],

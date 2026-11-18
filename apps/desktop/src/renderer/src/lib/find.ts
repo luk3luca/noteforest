@@ -42,7 +42,7 @@
  * `seen` set so a shared child is reported once.
  */
 
-import type { Anchor, Branch, ContentBlock, Document } from '@noteforest/core';
+import type { Anchor, AnchorIndex, Branch, ContentBlock, Document } from '@noteforest/core';
 import {
   buildBlockAnchorIndex,
   compareAnchorResolutions,
@@ -528,7 +528,10 @@ function inspectionFor(
  * stays linear: calling `directChildIds` per block would rebuild the branch
  * list every time. `findReadingOrder` proves this equals the canonical helper.
  */
-function primaryChildrenIndex(document: Document): Map<string, string[]> {
+function primaryChildrenIndex(
+  document: Document,
+  anchorIndex?: AnchorIndex,
+): Map<string, string[]> {
   const byParent = new Map<string, Branch[]>();
   for (const branch of Object.values(document.branches)) {
     if (branch.role !== 'primary') continue;
@@ -540,7 +543,7 @@ function primaryChildrenIndex(document: Document): Map<string, string[]> {
   const resolutionOf = (anchorId: string): ReturnType<typeof resolveAnchor> => {
     const cached = resolutions.get(anchorId);
     if (cached !== undefined) return cached;
-    const resolution = resolveAnchor(document, anchorId);
+    const resolution = anchorIndex?.entry(anchorId) ?? resolveAnchor(document, anchorId);
     resolutions.set(anchorId, resolution);
     return resolution;
   };
@@ -665,8 +668,10 @@ function scanBlock(
   chapterId: string | null,
   anchors: readonly Anchor[],
   labels: readonly Branch[],
+  anchorIndex?: AnchorIndex,
 ): void {
-  const index = buildBlockAnchorIndex(block.id, block.content);
+  const index =
+    anchorIndex?.blockIndex(block.id) ?? buildBlockAnchorIndex(block.id, block.content);
   const ranges: AnchorRange[] = [];
   for (const anchor of anchors) {
     const inspection = inspectionFor(index, anchor.id);
@@ -764,6 +769,8 @@ export interface FindOptions {
   wholeWord?: boolean;
   /** The occurrence cap; the engine still reports the true total. */
   limit?: number;
+  /** Session anchor index: one read for order and block projections. */
+  anchorIndex?: AnchorIndex;
 }
 
 /**
@@ -786,7 +793,7 @@ export function findInDocument(
     results: [],
     total: 0,
   };
-  const children = primaryChildrenIndex(document);
+  const children = primaryChildrenIndex(document, options.anchorIndex);
   const labels = branchesBySource(document);
   const anchors = anchorsByBlock(document);
   const seen = new Set<string>();
@@ -796,7 +803,14 @@ export function findInDocument(
     const block = document.blocks[blockId];
     if (block === undefined) return;
     seen.add(blockId);
-    scanBlock(state, block, chapterId, anchors.get(blockId) ?? [], labels.get(blockId) ?? []);
+    scanBlock(
+      state,
+      block,
+      chapterId,
+      anchors.get(blockId) ?? [],
+      labels.get(blockId) ?? [],
+      options.anchorIndex,
+    );
     for (const childId of children.get(blockId) ?? []) visit(childId, chapterId);
   };
 
@@ -831,8 +845,8 @@ export function findInDocument(
  * Canonical reading order used by the engine (chapter roots, then DFS with
  * anchored children first). Exported for the order regression test.
  */
-export function findReadingOrder(document: Document): string[] {
-  const children = primaryChildrenIndex(document);
+export function findReadingOrder(document: Document, anchorIndex?: AnchorIndex): string[] {
+  const children = primaryChildrenIndex(document, anchorIndex);
   const order: string[] = [];
   const seen = new Set<string>();
   const visit = (blockId: string): void => {

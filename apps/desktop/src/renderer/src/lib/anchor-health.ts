@@ -9,6 +9,7 @@
 import type {
   AnchorBinding,
   AnchorCandidate,
+  AnchorIndex,
   AnchorKind,
   AnchorResolution,
   AnchorResolutionReason,
@@ -229,14 +230,21 @@ const healthBlockTitle = anchorHealthBlockTitle;
 export function buildAnchorHealthRows(
   document: Document,
   assetAvailability?: AssetAvailabilityIndex,
+  anchorIndex?: AnchorIndex,
 ): AnchorHealthRow[] {
-  const resolutions = resolveDocumentAnchors(
-    document,
-    assetAvailability === undefined ? {} : { assetAvailability },
-  );
+  const byId: Record<string, AnchorResolution> = {};
+  if (anchorIndex !== undefined) {
+    for (const resolution of anchorIndex.all()) byId[resolution.anchorId] = resolution;
+  } else {
+    const resolved = resolveDocumentAnchors(
+      document,
+      assetAvailability === undefined ? {} : { assetAvailability },
+    );
+    Object.assign(byId, resolved.byId);
+  }
   const rows: AnchorHealthRow[] = [];
-  for (const anchorId of resolutions.anchorIds) {
-    const resolution = resolutions.byId[anchorId];
+  for (const anchorId of Object.keys(byId).sort()) {
+    const resolution = byId[anchorId];
     const anchor = document.anchors[anchorId];
     if (resolution === undefined || anchor === undefined) continue;
     if (

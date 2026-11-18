@@ -17,6 +17,7 @@ import {
   type PageEdgeModel,
 } from '../src/index.js';
 
+import { anchorViewFor } from './helpers.js';
 /**
  * Commit 0 isolation guard.
  *
@@ -125,6 +126,7 @@ function pageModel(): PageEdgeModel {
     measurement,
     pageLayoutOptions(DEFAULT_PAGE_SETTINGS.theme),
     DEFAULT_PAGE_SETTINGS.setup,
+      anchorViewFor(document),
   );
   const pages = paginate(layout, document);
   return buildPageEdgeModel(layout, pages.pages);

@@ -2069,11 +2069,7 @@ export function openBlockMenu(
     const group = anchorGroups.get(anchorId) ?? {
       count: 0,
       quote: anchorQuote(runtime.document, anchorId) || 'anchor',
-      warning: anchorIsWarning(
-        anchorState(runtime.document, anchorId, {
-          assetAvailability: runtime.assetAvailability,
-        }),
-      ),
+      warning: anchorIsWarning(anchorState(runtime.anchorIndex, anchorId)),
     };
     group.count += 1;
     anchorGroups.set(anchorId, group);
