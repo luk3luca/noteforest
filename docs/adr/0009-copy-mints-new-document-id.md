@@ -3,7 +3,7 @@
 - **Status:** Accepted by the product owner (14 November 2026)
 - **Decision owner:** Product owner
 - **Related:** ADR-0005 (anchor binding and identity), `docs/design/library-and-documents.md`,
-  `docs/reviews/post-settings-library-special-text-review.md` (F3), `docs/reviews/sentinel-fixes-recheck.md` (R1)
+  the UI Sentinel round and its re-check (2026-11-13)
 - **Code:** `apps/desktop/src/main/library.ts` (`saveDocumentCopy`), `packages/core/src/node/copy.ts`
 
 ## Context

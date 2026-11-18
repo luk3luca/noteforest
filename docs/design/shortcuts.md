@@ -183,7 +183,7 @@ and no new behaviour (the renderer already owns the accelerators).
 chapter (now `⇧⌘N`), `⌘⌥B` manual break, `⌘⌥L` freeze, `⌘⌥R` reflow, `⌘⌥P` Page Setup, `⌘P` quick export,
 `⌘⌥I` inspector, `⌘[`/`⌘]` history, `⌘⇧/` shortcut sheet, `⌘↵` New child (now `⌃⏎`/`⌥⏎`), `⌘⌥↵` top-level,
 `⌘⇧↑/↓` move block, `⌘⌥[`/`]` collapse all, `⇧↑/↓` extend selection, `⌘A` select all blocks. Several of those
-keys now do something else (`⌘⇧[`/`⌘⇧]` cycle tabs). `docs/ux-shell.md` still says plain Backspace merges a
+keys now do something else (`⌘⇧[`/`⌘⇧]` cycle tabs). the old shell doc still says plain Backspace merges a
 block with the previous one (false since `6727388`) and offers `⌘[`/`⌘]` as an outdent alternative (not
 implemented).
 

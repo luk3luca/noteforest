@@ -2,7 +2,7 @@
 
 **Status:** design proposal, 14 November 2026. Indent/outdent v1 is ready to build; drag is phase 2.
 **Related:** `docs/spec.md` §4.5–4.6, `docs/adr/0005-anchor-binding-and-identity.md`,
-`docs/design/library-and-documents.md`, `docs/reviews/sentinel-fixes-recheck.md`.
+`docs/design/library-and-documents.md`.
 
 ## 1. Why
 

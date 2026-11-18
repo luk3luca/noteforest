@@ -11,8 +11,7 @@ import type { ExportFailureCode } from '../src/shared/export';
 const root = resolve(import.meta.dirname, '..');
 
 /**
- * Copy-bearing modules (docs/tasks/dialog-copy-a-b.md item 9, extended by
- * docs/tasks/copy-c-d.md item 7). Every string/template literal and plain JSX
+ * Copy-bearing modules (the A/B and C/D copy sweep). Every string/template literal and plain JSX
  * text node in these files is user copy, so the scan needs no exceptions; the
  * banned-word allowlist stays empty.
  */

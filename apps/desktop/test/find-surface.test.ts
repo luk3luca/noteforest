@@ -12,7 +12,7 @@ import {
 import type { FindResult } from '../src/renderer/src/lib/find';
 
 /**
- * Shared find surface (docs/design/find-bar.md, docs/tasks/find-surface-v2.md).
+ * Shared find surface (docs/design/find-bar.md).
  *
  * One state feeds two presentations: the toolbar cluster (`findOpen`) and the
  * sidebar Search section. These tests pin the store contract both read — query,

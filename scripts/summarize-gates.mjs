@@ -9,7 +9,7 @@ import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const source = resolve(root, 'artifacts/spike-01/gates.json');
-const target = resolve(root, 'docs/spikes/artifacts/spike-01-gates.json');
+const target = resolve(root, 'artifacts/spike-01/gates-summary.json');
 
 const full = JSON.parse(await readFile(source, 'utf8'));
 
@@ -60,6 +60,6 @@ const summary = {
   ),
 };
 
-await mkdir(resolve(root, 'docs/spikes/artifacts'), { recursive: true });
+await mkdir(resolve(root, 'artifacts/spike-01'), { recursive: true });
 await writeFile(target, `${JSON.stringify(summary, null, 2)}\n`);
 console.log(`Wrote ${target}`);

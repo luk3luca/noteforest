@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 3 November 2026
 - **Decision owner:** Orchestrator (UI details delegated by the product owner)
-- **Depends on:** ADR-0001 (Electron), `research/ui-components.md`, `docs/ux-shell.md`
+- **Depends on:** ADR-0001 (Electron), `research/ui-components.md`
 - **Changes:** ADR-0001 listed React Flow for graph interaction; M2 uses a custom SVG edge overlay instead
 
 > **Body note (M2f phase 5b):** the original Decision body below is kept as the 3 November record.

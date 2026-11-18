@@ -1,6 +1,5 @@
 # Agent roles and contracts
 
-**Status:** Proposed (5 November 2026)  
 **Owner:** Orchestrator  
 **Applies to:** every delegated task in this repository
 
@@ -27,7 +26,7 @@ tasks or keep the second role as a reviewer.
 **Job:** own the plan, decisions, task briefs, integration, and the final report.
 
 - Inputs: product-owner decisions, milestone plan, review reports, Builder reports.
-- Outputs: `docs/plan.md`, task briefs under `docs/tasks/`, merge commits, status reports.
+- Outputs: `docs/plan.md`, `docs/batch/brief.md`, merge commits, status reports.
 - May: split work, choose the next task, run one full `npm run verify` at integration, ask the
   product owner, stop or re-scope a task, delegate one design package to the Planner.
 - Must not: implement product code, rewrite the spec/UX, or review its own implementation as
@@ -74,8 +73,8 @@ milestone.
 **Job:** specify one flow, state model, or interaction surface.
 
 - Inputs: product-owner intent, spec, existing `docs/ux*.md`.
-- Outputs: `docs/ux.md` / `docs/ux-shell.md` updates: flows, keyboard model, states, empty/error
-  states, acceptance notes.
+- Outputs: `docs/ux.md` updates: flows, keyboard model, states, empty/error states, acceptance
+  notes.
 - May: propose copy, focus order, and interaction details.
 - Must not: write application code or silently change scope.
 - Done when: a Builder can implement the flow without guessing, and the states are enumerated.
@@ -85,7 +84,8 @@ milestone.
 **Job:** implement exactly one task brief in a worktree, with tests.
 
 - Inputs: one task brief, the linked spec/UX/ADR, the current code.
-- Outputs: code, tests, a report in `docs/reports/`, a worktree path, a branch, one commit (default).
+- Outputs: code, tests, a report in `docs/batch/report.md`, a worktree path, a branch, one commit
+  (default).
 - May: make local implementation decisions inside the brief; ask before adding a dependency.
 - Commit policy: one commit per worktree/slice. Never split files or hunks or rewrite history for neatness unless the product owner explicitly asks for separate commits.
 - Must not: change the spec, UX, ADR, plan, or product decisions; merge; start M3/page/PDF work
@@ -101,7 +101,7 @@ milestone.
 **Job:** independently judge one task against its brief and the review checklist.
 
 - Inputs: the task brief, the Builder report, the diff, the current docs.
-- Outputs: one review report in `docs/reviews/<task>.md`: verdict (accept / accept with minor /
+- Outputs: one review report in `docs/batch/review.md`: verdict (accept / accept with minor /
   request changes), per-finding status with file:line evidence, tests run with real timings, new
   findings ranked S1–S3, residual risks, and what was not verified. It may also update
   `docs/review-checklist.md` and `docs/definition-of-done.md` as part of the review.

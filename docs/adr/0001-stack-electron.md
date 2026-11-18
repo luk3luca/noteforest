@@ -86,7 +86,7 @@ Negative:
 
 ## Gates and revisit triggers
 
-- **Spike 1 gate:** the adaptive layout + paginator + `printToPDF` must pass the 50+ page A4 gate in `docs/spike-01-layout-paginator-pdf.md` before PDF commitment.
+- **Spike 1 gate:** the adaptive layout + paginator + `printToPDF` must pass the 50+ page A4 print gate before PDF commitment.
 - **Performance gate:** 300 blocks under 50 ms warm layout; 60 fps at 300 visible blocks; 1,000 blocks usable with virtualization/collapse/LOD. If Electron DOM fails at 1,000 blocks, optimize first (LOD/virtualization); a native canvas is a later option, not a full stack rewrite.
 - **Revisit the stack only if:** iPad + Pencil becomes co-primary (SwiftUI), the team gains a Rust/Qt team and native is a hard requirement, or a benchmark proves Electron cannot meet the scale gate. A stack change requires a new ADR with a spike, not a preference.
 - **Do not** reopen the stack for bundle size alone.

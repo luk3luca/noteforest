@@ -579,7 +579,7 @@ describe('NoteForest M3c3b2 image region and point anchors', () => {
     );
     assert.equal(refused.ok, false);
     // The short line is the message; the core sentence (which names what
-    // references the asset) lives in Details (copy-plan C-14.40).
+    // references the asset) lives in Details.
     assert.match(refused.message, /This image is still in use\./);
     assert.match(refused.details ?? '', /image node/);
     assert.match(refused.details ?? '', /image anchor/);

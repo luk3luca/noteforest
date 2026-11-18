@@ -52,5 +52,5 @@ document, and future Settings work targets the owning namespace above.
 
 ## Future resize tokens
 
-Planned in `docs/tasks/future-manual-resize.md`; not scheduled and not part of the current token
+Planned (not scheduled) and not part of the current token
 set. They are described in [`design-tokens-continuous.md`](design-tokens-continuous.md#future-resize-tokens-post-m4).

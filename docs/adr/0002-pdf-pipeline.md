@@ -4,7 +4,7 @@
 - **Date:** 3 November 2026
 - **Decision owner:** Orchestrator, ratified by the product owner
 - **Depends on:** ADR-0001 (Electron stack)
-- **Related:** spec §7.5 (paginator), §11 (PDF export), §15.13 (AC-60), `docs/spike-01-layout-paginator-pdf.md`
+- **Related:** spec §7.5 (paginator), §11 (PDF export), §15.13 (AC-60), the Spike 1 print gate
 
 ## Context
 

@@ -1,19 +1,10 @@
 # Review checklist
 
-**Status:** v11 — delta Sentinel additions (Read-mode node-view chrome, lossy load projection); spec v0.5, UX v1.5.
+# Review checklist
+
 **Owner:** Reviewer / Sentinel.
 **Language:** English.
 **Companion:** `docs/definition-of-done.md` (budgets, fixtures, test strategy).
-
-**Current gate:** the historical paragraph below pre-dates M4; the current gate is recorded in
-`docs/plan.md` and `docs/reviews/post-settings-library-special-text-review.md`.
-
-**Historical gate (M3h):** M2f is accepted; the M3 Sentinel re-review is **accept with minor**
-(`docs/reviews/m3h-review.md`). All four M3 request-changes S2 findings are closed for their
-specified paths; S3-8 leaf-delete disclosure and S3-3 token single-source are closed by M3h4/M3h5.
-AC-21/image AC-57 are deferred to M3c3b; S3-5/S3-6/S3-7 are tracked follow-ups. The product-owner
-VoiceOver/visual gate remains. M4/PDF remain blocked until M3 is accepted. Spec
-v0.4.5 is the source of truth.
 
 ---
 

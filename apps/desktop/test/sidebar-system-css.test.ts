@@ -9,7 +9,7 @@ import {
 } from '../src/renderer/src/lib/sidebar-rows';
 
 /**
- * S1 sidebar system guard (`docs/design/sidebar.md`, `docs/tasks/sidebar-system.md`).
+ * S1 sidebar system guard (`docs/design/sidebar.md`).
  *
  * The four sections used to share nothing but the panel inset. This file keeps
  * the single source from drifting again, without the app running:

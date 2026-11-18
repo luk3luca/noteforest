@@ -1,7 +1,7 @@
 # Dialogs — the frame, the inventory, and Details
 
 **Status:** design package for the app-wide copy + dialog sweep. No code in this doc. A+B is
-merged at `552335c` and C+D at `7f265f9` (`docs/reports/copy-ab.md`, `docs/reports/copy-cd.md`);
+merged at `552335c` and C+D at `7f265f9`;
 the sweep is complete, with the `core` reason mapping as the only recorded follow-up.
 **Date:** 16 November 2026.
 **Owner:** Planner. The Orchestrator writes the Builder brief from this.

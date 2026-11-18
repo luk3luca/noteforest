@@ -5,7 +5,7 @@
 **Date:** 7 November 2026  
 **Working title:** NoteForest (distribution and signing are provisional — local unsigned build, Developer ID, or Mac App Store; see `docs/plan.md`)  
 **Stack:** Electron + React + TypeScript (ADR-0001). This document defines UX behavior and avoids Electron-specific behavior where platform neutrality is cheap, but Electron APIs are allowed where they are the decided implementation (for example PDF export).  
-**Related:** `AGENTS.md`, `research/landscape.md`, `docs/spec.md` v0.5, `docs/plan.md`, `docs/ux-shell.md`, `docs/adr/0005-anchor-binding-and-identity.md`, `docs/adr/0007-editor-layouts-and-modes.md`
+**Related:** `AGENTS.md`, `research/landscape.md`, `docs/spec.md` v0.5, `docs/plan.md`, `docs/adr/0005-anchor-binding-and-identity.md`, `docs/adr/0007-editor-layouts-and-modes.md`
 
 This document defines how NoteForest behaves for a person at a Mac: interaction flows, the keyboard model, states, feedback, edge cases, and accessibility. The stack is decided (Electron, ADR-0001); this document does not make stack, content-model, or file-format decisions; those live in `AGENTS.md`, the spec, and the ADRs.
 
@@ -1755,63 +1755,6 @@ Rules:
 
 ---
 
-## 14. Future iPad and touch
-
-- No hover-only interactions; handles and anchors need touch-visible states.
-- No modifier-only actions; `⇧`/`⌥` drops become explicit choices on long-press/drag.
-- 44 × 44 pt targets; large invisible hit areas for anchors/handles.
-- Long-press = context menu.
-- Continuous: continuous scroll/swipe; Page: page swipe/pinch; page navigation by swipe. Read modes are the default for touch study; Edit mode is available with the on-screen keyboard.
-- Text editing works with the on-screen keyboard.
-- Pencil is for ink annotations in a later phase; the document model must not assume ink in a block.
-- The page PDF is the iPad bridge for v1; external annotation apps handle ink.
-
----
-
-## 15. Open UX questions
-
-| # | Question | Why it matters | Current proposal / next step |
-|---|---|---|---|
-| Q1 | **Resolved by ADR-0007:** which spatial layout is primary? | Reader preserved flow; Page showed fit. | **Continuous + Edit is the default authoring surface. Continuous Read is read-only. Page Read is the exact read-only PDF proof. Page Edit is available, opt-in, and the layout switch preserves the mode.** |
-| Q2 | Is "chapter" or "document" the right user-facing noun? | The product owner says chapter; the file is a document | Use document in v1; revisit naming |
-| Q3 | How should adaptive widths be chosen? | Content-driven widths can make rows unbalanced; a large subtree may dominate | Measure content, cap extreme widths, balance rows; test with real notes |
-| Q4 | When should a child wrap below the parent instead of going right? | The wrap rule defines the visual rhythm and page count | Wrap when the child + margin does not fit; keep a slight indent; test |
-| Q5 | Where should the paginator break to avoid orphan headings? | A chapter/top-level heading alone at the bottom is bad | Keep heading with first child; avoid single-line orphans; test |
-| Q6 | What exactly does a continuation marker and ghost parent say? | They must be clear without being noisy | Bottom: “continues on page N”; top: ghost parent + “continued from page N”; test |
-| Q7 | How stable should manual breaks be? | Users may want the PDF page count stable; content edits move automatic breaks | Manual hints persist; show when invalid; no auto-stabilization |
-| Q8 | **Resolved policy:** What if a long block or an atomic element is too tall/wide? | Long text should flow; lines, images, code and formulas must stay readable. | **Long text continues at safe boundaries; an unbreakable element overflows with a fix path (resize/shorten/landscape).** Boundary rules to validate with real notes. |
-| Q9 | Does `Tab` moving the block (instead of indenting a list item) feel right? | Lists are common; the wrong behavior is hit constantly | Rule + hint; measure |
-| Q10 | Should Continuous/Page support collapse/fold? | Hiding content would change pagination and exports | **Continuous/outline:** collapse hides primary descendants and anchored callouts with a hidden count (spec §7.6). **Page/PDF:** always full document; collapse in Page is a later product decision with explicit export semantics. |
-| Q11 | Should cross-page reference links be lines or chips? | Lines across pages may be noisy; chips hide context | Chips + **See also** list; M3 shows chapter/label, M4 adds the derived page (OD-9); test |
-| Q12 | Is formula-term anchoring by LaTeX source acceptable? | Users think in rendered formulas | Source + best-effort marker; test |
-| Q13 | **Resolved:** Is page orientation document-level or per page? | Mixed orientation would complicate the paginator and the PDF. | **One document-wide orientation at a time; changing it reflows all pages. No per-page orientation.** |
-| Q14 | Should a chapter always start on a new page? | It aids structure but can waste space | Default on; toggle per chapter; test |
-| Q15 | Should page numbers be stable identifiers? | They change with content; users may cite them | Treat as derived; manual breaks stabilize; use block links |
-| Q16 | Should dark mode produce a dark PDF? | Some study at night; annotation apps assume white | Light only v1; evaluate |
-| Q17 | Is the sample the right onboarding, or templates? | Sample teaches the differentiator | Sample first; templates later |
-| Q18 | Should Continuous allow free text/shape annotations? | Top scope-creep request; different product | No; annotations happen in the external PDF app |
-| Q19 | Do we need page thumbnails? | Many pages need quick navigation; Continuous markers may be enough | Page indicator v1; thumbnails if asked |
-| Q20 | Should Continuous show page gaps? | A continuous layout with derived markers vs a slight gap at page breaks | Markers only in v1; test readability; markers are hints, not exact print geometry |
-| Q21 | Do we need a split view (Outline + Continuous, or Continuous + Page)? | The surface model is already a lot; split view doubles space and focus | No split in v1; revisit after real use |
-| Q22 | Should Page Edit ship, and how should it handle a block that crosses a page boundary? | Page Edit is optional in ADR-0007; long blocks already continue at safe boundaries | **Planned/optional:** one active block editor overlay, same geometry as Page Read, no second paginator. Defer until continuous markers and PDF are stable; do not make Page Edit primary. |
-
----
-
-## 16. Markdown file view
-
-V1 has **no in-app agent chat, sidebar, conversation, proposals, autonomous agent, local API, or
-forest builder**. A `.md` file can be opened as a **flat guest file**:
-
-- Continuous only, Edit/Read; no chapters, blocks, branches, anchors, Page, PDF, or export;
-- rendered from the declared GFM subset + math/code/tables/local images;
-- edits save back to the same file with an atomic write and an external-change conflict check;
-- copy/paste from the Markdown tab into a NoteForest note is the intended bridge.
-
-No token, endpoint, scope, status indicator, or API settings page. No automatic Markdown→forest
-import. The design is `docs/design/markdown-file-view.md`.
-
----
-
 ## Appendix A — UI copy conventions
 
 - **Branch** is a relationship; **block** is a thing. Never "node", "edge", "card" in user-facing copy.
@@ -1825,21 +1768,3 @@ import. The design is `docs/design/markdown-file-view.md`.
 - Avoid "Oops", "Something went wrong", "Are you sure?" without a consequence.
 - The title bar says "Untitled" until renamed; the export filename falls back to "Untitled".
 - Page numbers are 1-based: "Page 1 of 3".
-
-## Appendix B — Usability test script (first round)
-
-Five tasks, 30 minutes, think-aloud, one moderator. Measure completion, time, and mouse reach.
-
-| # | Task | What we are testing |
-|---|---|---|
-| 1 | "Capture this topic and give it five branches in a chapter." | Return/Tab, chapter start, first-run hints |
-| 2 | "Branch from the λ in this definition and explain it." | Anchor discoverability, `⌘⇧Return`, selection toolbar |
-| 3 | "Move this branch under that one, then undo it." | Reparent grammar, drag vs keys, undo |
-| 4 | "Find the page break; make it stable; explain what continues on the next page." | Continuous markers, manual break, continuation comprehension |
-| 5 | "Export a PDF you would annotate on your iPad." | Paginator/Page Read match, all pages, A4/margins, text layer |
-
-Observe: do participants try to drag blocks to arbitrary positions? Do they expect pages to be containers? Do they understand a continuation marker? Do they press `Tab` in a list and get surprised? Do they expect a separate reader PDF? Do they look for Page Edit and understand that it is not available yet?
-
----
-
-*End of v1.5. This document follows the Document → Chapters → top-level blocks model, the adaptive layout, derived pagination, and the Continuous/Page layouts with Edit/Read modes in `AGENTS.md` and ADR-0007.*

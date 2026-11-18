@@ -9,7 +9,7 @@
  * is no population to migrate, and flattening the cell would silently destroy
  * content and orphan any anchor inside it.
  *
- * Decision (17 November 2026, `docs/tasks/table-cell-guard.md`): **refuse
+ * Decision (17 November 2026, table-cell guard): **refuse
  * loudly**. The detection is pure and read-only. Two callers share this one
  * judgement:
  *

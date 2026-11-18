@@ -150,7 +150,7 @@ describe('library recovery statuses', () => {
       status: 'unreadable',
       packagePath: brokenPath,
       // A core sentence never reaches the row: the short line is the copy, the
-      // raw parse reason opens under Details (copy-plan §E).
+      // raw parse reason opens under Details (dialogs.md §3).
       reason: 'The file isn’t valid NoteForest data.',
       reasonDetails: expect.stringMatching(/not valid JSON/),
     });

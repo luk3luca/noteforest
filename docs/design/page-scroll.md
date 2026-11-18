@@ -1,6 +1,6 @@
 # Page as a scroll of pages
 
-**Status:** merged at `5a8dfac` (17 November 2026); the lab is the record, the numbers are in `docs/reports/page-scroll.md`.
+**Status:** merged at `5a8dfac` (17 November 2026); the lab is the record.
 **Inputs:** ADR-0007 (layouts Continuous + Page, each with Edit/Read), `docs/design/sidebar.md` (the
 surrounding rhythm), the manual-breaks batch (`f096933`), the Settings preview, which already stacks
 pages from one page model (`PageSettingsPreview.tsx`).

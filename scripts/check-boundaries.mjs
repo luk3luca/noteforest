@@ -3,7 +3,7 @@
  * M3i4b - architecture boundary check.
  *
  * Enforces the dependency direction documented in
- * docs/architecture/core-stabilization.md. The rule matrix is:
+ * AGENTS.md (package boundaries). The rule matrix is:
  *
  *   packages/core    may not import apps/desktop, Electron, React, renderer code,
  *                    or node:fs; node:fs is allowed only under packages/core/src/node.

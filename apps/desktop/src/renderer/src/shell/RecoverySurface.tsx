@@ -200,7 +200,7 @@ export function RecoverySurface({
           <dd data-recovery-reason="true">
             {recovery.reason}
             {/* The core sentence is technical: the row keeps the short line and
-                Details carries the raw text (copy-plan §E, dialogs.md §3). */}
+                Details carries the raw text (dialogs.md §3). */}
             {recovery.reasonDetails === undefined ? null : (
               <Details value={recovery.reasonDetails} />
             )}

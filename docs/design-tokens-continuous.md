@@ -287,7 +287,7 @@ stroke width are a separate skin; see
 
 ## Future resize tokens (post-M4, not scheduled)
 
-Planned in `docs/tasks/future-manual-resize.md`; do not add these to `DESIGN_TOKENS` until the slice
+Planned (not scheduled); do not add these to `DESIGN_TOKENS` until the slice
 is scheduled.
 
 - **Image `displayWidth`**: `0.25 | 0.5 | 0.75 | 1` of the block content width, height auto,

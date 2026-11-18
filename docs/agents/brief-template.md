@@ -46,7 +46,7 @@ Read:
 Expected to touch:
 - `path/to/file.ts`
 - `path/to/test.ts`
-- `docs/reports/<task>.md`
+- `docs/batch/report.md`
 
 ## Acceptance criteria
 

@@ -1,8 +1,8 @@
 # Manual breaks — the cut, the control, the list
 
 **Status:** design draft, 16 November 2026. No code until the product owner signs §11.
-**Inputs:** ADR-0008 (page settings outside `document.json`), `docs/reviews/r2-page-pdf-seam-review.md`
-F11, `docs/reviews/settings-inventory.md` MB-1/MB-3/MG-9/MS-4, `docs/design/sidebar.md` (the row and
+**Inputs:** ADR-0008 (page settings outside `document.json`), F11, the settings inventory
+MB-1/MB-3/MG-9/MS-4, `docs/design/sidebar.md` (the row and
 header rules the list reuses), `packages/layout/src/paginator.ts`.
 
 ## 1. What a break already is

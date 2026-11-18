@@ -13,4 +13,4 @@
 - One decision per record; status is `Proposed`, `Accepted`, `Superseded`, or `Rejected`.
 - An accepted ADR is binding until a new ADR supersedes it.
 - Code and product docs must not contradict an accepted ADR. If they do, the ADR wins until amended.
-- Spike results are recorded in `docs/spikes/` and may tighten an ADR's gates, not silently change its decision.
+- Spike results may tighten an ADR's gates, never silently change its decision.

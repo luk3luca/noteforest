@@ -8,7 +8,7 @@ import { pageDocument, textBlock, writePagePackage } from '../support/page-fixtu
 
 /**
  * Copy batch A+B: the dialog frame and Details (docs/design/dialogs.md §1–3,
- * docs/design/copy-plan.md rows A and B).
+ * the copy sweep rows A and B).
  *
  * One suite proves the frame contract on the real dialogs: one labelled title,
  * the header X (aria-label Close, title Close (Esc)), a one-line description,

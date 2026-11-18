@@ -12,7 +12,7 @@ import { pageDocument, paragraph, writePagePackage } from '../support/page-fixtu
  * `packages/core` speaks in log sentences (`document.json is not valid JSON`,
  * `a document must keep at least one chapter`). No surface may show one: the
  * library row and the recovery surface keep a short line, and the raw sentence
- * opens under `Details` (copy-plan §E, dialogs.md §3).
+ * opens under `Details` (dialogs.md §3).
  *
  * The boundary itself is unit-tested (`core-reasons.test.ts`,
  * `recovery-library.test.ts`); this suite is the visible proof and the

@@ -1,39 +1,10 @@
 # Definition of Done
 
-**Status:** v8 — M3 design delta; spec v0.5, UX v1.5.
+# Definition of Done
+
 **Owner:** Reviewer / Sentinel.
 **Language:** English.
 **Companion:** `docs/review-checklist.md` (review procedure, severity, report template).
-
----
-
-## Phase note
-
-The v1 stack and PDF pipeline are decided (ADR-0001, ADR-0002). The External Agent API (ADR-0003) is
-withdrawn; agent authoring is file-based Markdown import. The spec v0.4.5 is approved and the M3 design delta is merged (UX v1.4,
-ADR-0005). **Current gate:** the M3h Sentinel re-review is **accept with minor**
-(`docs/reviews/m3h-review.md`); M3h4/M3h5 are merged (S3-3/S3-8 closed) and the product-owner
-VoiceOver/visual gate remains before M3 acceptance. `npm run verify` (typecheck, unit, critical e2e, recovery, UI) is the task gate. M2f is
-accepted; its closure evidence is in `docs/reviews/m2f-phase5c-review.md`.
-Measured on 6 November 2026 during the M3h re-review, with the components run separately (the
-Orchestrator owns the combined run): typecheck pass, unit 519/2.0 s, critical e2e 21/45.6 s suite,
-recovery 14, UI 36 across 13 files. The M2f cold-cache e2e note
-(62.8 s vs the 60 s budget, warm 52.2–53.4 s) remains historical. M4/PDF remain blocked until M3 is
-accepted. Until a milestone is approved, this document governs **documents and the approved
-implementation**, not general application code. A docs task is done when:
-
-- factual claims are sourced or labelled opinion;
-- decisions are recorded with alternatives and consequences;
-- acceptance criteria are testable;
-- terminology matches `AGENTS.md`;
-- nothing contradicts the locked layout model (no freeform canvas, pins, fixed columns, stored page
-  containers, or separate reader PDF);
-- stack, PDF, and API behavior match the ADRs; a deviation is an ADR, not a doc edit;
-- the in-app chat/agent panel and local API are v1 non-goals; the agent path is Markdown import;
-- the Reviewer has approved the document.
-
-Code-related sections activate when implementation starts. A change to the chosen stack, PDF
-pipeline, or layout/pagination model without an ADR is not done, even if it works.
 
 ---
 
