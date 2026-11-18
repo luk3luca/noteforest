@@ -100,7 +100,10 @@ Rules:
 - `docs/design/` — current UI specs; `docs/design-tokens*.md` — tokens.
 - `docs/status.md` — what shipped; `docs/plan.md` — next work and known issues.
 - `docs/agents/roles.md` — role contracts and the brief template.
+- `docs/agents/skills.md` — installed skills and their provenance; `.agents/skills/` holds them.
 - `docs/definition-of-done.md`, `docs/review-checklist.md` — the gates.
+
+Skills are method, not invariants: when a skill and this file disagree, this file wins.
 
 Briefs, reports and reviews from before 2026-11-18 were removed in the docs reset and live in git
 history. History is evidence, not a source of truth: the documents above are.

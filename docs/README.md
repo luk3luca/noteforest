@@ -34,6 +34,7 @@ git log --diff-filter=D --oneline -- docs/tasks docs/reports docs/reviews
 | `review-checklist.md` | How to review, severity, verdicts, report template |
 | `agents/roles.md` | Role contracts, pipeline and handoff rules |
 | `agents/roles/` | Per-role prompts: orchestrator, planner, builder, sentinel, scout |
+| `agents/skills.md` | Installed skills, role mapping, provenance, update policy |
 | `agents/brief-template.md` | The brief format used for every delegated task |
 | `batch/` | The current batch only: `brief.md`, `plan.md`, `report.md`, `review.md` |
 
