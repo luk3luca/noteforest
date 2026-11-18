@@ -35,9 +35,9 @@
     "afterPack": "apps/desktop/resources/adhoc-sign.cjs"
   },
   "scripts": {
-    "dev": "env -u ELECTRON_RUN_AS_NODE electron-vite dev",
+    "dev": "env -u ELECTRON_RUN_AS_NODE NOTEFOREST_APP_SUPPORT=\"$HOME/Library/Application Support/NoteForest Dev\" NOTEFOREST_LIBRARY=\"$HOME/Documents/NoteForest Dev\" electron-vite dev",
     "build": "electron-vite build",
-    "start": "env -u ELECTRON_RUN_AS_NODE electron-vite preview",
+    "start": "env -u ELECTRON_RUN_AS_NODE NOTEFOREST_APP_SUPPORT=\"$HOME/Library/Application Support/NoteForest Dev\" NOTEFOREST_LIBRARY=\"$HOME/Documents/NoteForest Dev\" electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
   },
   "dependencies": {

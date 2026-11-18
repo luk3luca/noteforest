@@ -95,7 +95,11 @@ npm run test:perf      # 300 / 1,000-block performance report (on demand)
 npm run test:visual    # screenshots for product-owner review (on demand)
 ```
 
-`npm run dev` and `npm start` launch the Electron shell. Test artifacts default to `artifacts/`; set
+`npm run dev` and `npm start` launch the Electron shell against a **separate development data set**:
+`~/Library/Application Support/NoteForest Dev` and `~/Documents/NoteForest Dev`. The installed app keeps
+`~/Library/Application Support/NoteForest` and `~/Documents/NoteForest`, so a dev experiment can never rename,
+migrate or restyle your real notes. To run dev against the real library on purpose, override the two variables
+yourself (`NOTEFOREST_APP_SUPPORT`, `NOTEFOREST_LIBRARY`). Test artifacts default to `artifacts/`; set
 `NOTEFOREST_ARTIFACTS` to redirect them.
 
 ## Undo and redo
