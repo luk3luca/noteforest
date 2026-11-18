@@ -799,6 +799,18 @@ does not have to rediscover it.
 6. **`⇧Esc` inside the Page Edit overlay is inert (VF, 17 November 2026).** With the S3-2 fix, an Escape that
    originates inside the overlay never reaches the find; the shifted Escape matches no chord. `Esc` and `⌘⏎`
    commit, `Esc` from the page closes the find. Recorded so nobody "restores" a second chord.
+7. **Page text selection is unreadable in the dark theme (found 18 November 2026).** The global
+   `::selection` sets `background: var(--accent-soft); color: var(--text-1)` — `--text-1` is near-white in
+   dark, while Page is a **fixed light paper** in both themes, so the selection reads white-on-grey. The
+   `.nf-prosemirror ::selection` rule only sets the background and inherits the light ink; the Page Edit
+   prose has its own background but no ink either. Fix: scope selection inside `.nf-page-view` /
+   `.nf-page-scope` and the Page Edit prose to the **paper** ink (`--nf-page-ink`) and a paper accent tint,
+   in both themes; a CSS guard test asserts no light-ink selection rule can reach the page. Page is a paper
+   surface: only the chrome around it follows the app theme.
+8. **No refresh button in the Library header (found 18 November 2026).** `refreshLibrary()` exists and the
+   library menu carries `Refresh`, but the Library section header has no visible refresh control, unlike the
+   Health section (icon button next to the search). Add the same 28 px icon button beside the library filter
+   and a test that it calls the refresh path.
 
 ### Order decided 17 November 2026
 
