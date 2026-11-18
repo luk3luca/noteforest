@@ -209,7 +209,7 @@ async function cardsWithChrome(cards) {
 }
 
 /**
- * S2.2 chrome-row differential (`docs/design/card-chrome.md`).
+ * S2.2 chrome-row differential.
  *
  * The reference chips are no longer an absolute overlay: they are one in-flow
  * row inside the card, so a card that gains a row grows by exactly that row.

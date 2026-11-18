@@ -1,7 +1,7 @@
 # Document health — sidebar report and repair modal
 
 **Status:** S2 merged at `f84a7fd`; S2.1 polish merged at `5c4eb2c`; S1 moved the sidebar report onto the sidebar system (`docs/design/sidebar.md`, 16 November 2026: shared header, `--sb-*` type scale, the shared result card, group-owned dividers). Product-owner visual pass pending.
-**Supersedes:** the modal sheet surface in `docs/design/anchor-health.md`; the audit and commands
+**Supersedes:** the earlier modal sheet surface; the audit and commands
 there still hold.
 **Lab:** `docs/design/document-health-ui-lab/` — section 3 is the approved simplified modal.
 

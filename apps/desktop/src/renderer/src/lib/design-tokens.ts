@@ -84,7 +84,7 @@ export const DESIGN_TOKENS = Object.freeze({
   /** Wide finite canvas; placement uses its full logical content width. */
   canvasMaxWidth: DEFAULT_CONTINUOUS_SETTINGS.widths.canvasMax,
   /**
-   * Continuous canvas inset (S2.2, `docs/design/card-chrome.md` §3). The card
+   * Continuous canvas inset (S2.2). The card
    * inset must cover the 16 px gutter that holds the drag handle to its left,
    * so the handle is fully visible and clickable at every width: 24 px wide,
    * 20 px medium, 16 px compact. The canvas keeps a small top inset for the

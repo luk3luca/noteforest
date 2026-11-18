@@ -1214,7 +1214,7 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
   const referenceChipCount =
     referenceChips.seeAlso.length + referenceChips.referencedBy.length;
 
-  // Card chrome (S2.2, `docs/design/card-chrome.md`): one bottom row inside the
+  // Card chrome (S2.2): one bottom row inside the
   // card, present only when there is something to show. Order is the block's
   // own anchor state first, then the reference chips; the row wraps. The
   // previous chips were absolute overlays that floated over the card edge and

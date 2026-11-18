@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { DESIGN_TOKENS } from '../src/renderer/src/lib/design-tokens';
 
 /**
- * Card chrome guards (S2.2, `docs/design/card-chrome.md`).
+ * Card chrome guards (S2.2).
  *
  * 1. Text chips are rounded rectangles. `border-radius: 999px` (a capsule) is
  *    forbidden outside `.nf-branch-port`, which stays a circular icon port.

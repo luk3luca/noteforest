@@ -2988,7 +2988,7 @@ button:disabled {
   visibility: hidden;
 }
 
-/* Card chrome (S2.2, `docs/design/card-chrome.md` §1): one bottom row inside
+/* Card chrome (S2.2): one bottom row inside
    the card. It is in flow, so a card with a state or a reference grows by one
    row and nothing is absolutely positioned over the card edge or the next
    card. Order is state first, then references; the row wraps. */
