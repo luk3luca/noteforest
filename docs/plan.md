@@ -60,6 +60,13 @@ No batch is committed. The product owner picks the next one from the lists below
 8. **No refresh button in the Library header.** `refreshLibrary()` exists and the library menu
    carries Refresh, but the section header has no control. Add the same 28 px icon button used by
    Health, plus a test.
+9. **The unified Read reason is clipped in the palette row** (command surface, 18 November 2026).
+   The full string is in `data-palette-reason` and in the key/menu toast; the row needs a wrap or a
+   tooltip.
+10. **A read-only or locked note gets the Read-mode sentence** (D3, command surface). The refusal is
+    right, the sentence is wrong; fixing it needs a new reason and approved copy.
+11. **Fit page is enabled and inert outside Page** (D6, command surface). Keep or hide it in
+    Continuous is a UX call.
 
 ## Open decisions
 

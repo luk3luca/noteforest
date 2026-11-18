@@ -2,7 +2,13 @@
 
 **Status:** audit, 17 November 2026; **implemented in B1** (`d1de7ac`, merged `e48e862`). This file stays as
 the record of the audit and the product rules; the shipped list has 34 rows in four groups and is rendered
-from `lib/shortcuts.ts`.
+from `shared/shortcuts.ts`.
+
+**Command-surface update (18 November 2026):** the four listings below became one manifest and four
+adapters (`shared/commands.ts`); the chord catalogue moved to `shared/shortcuts.ts`; every
+application chord is renderer-owned, the native menu displays the catalogue accelerator with
+`registerAccelerator: false`, and the 120 ms menu throttle is gone. The audit below is kept as the
+record of the state it fixed; the shipped list is unchanged (34 rows, four groups).
 
 **P2 update (17 November 2026):** the three open items in §6 are closed. `Export PDF…` is `⌘P` (`⇧⌘E` is
 gone, not aliased), the native `Edit` menu carries `Find…` / `Find Next` / `Find Previous`
@@ -22,7 +28,7 @@ nothing in the repository proves that list still matches a key that works.
 3. **Prefer the existing convention.** Where a design convention exists, use it even when another key would
    be prettier. Where none exists (the block tree), invent as little as possible and keep it mnemonic.
 
-## 1. Four copies, no shared truth
+## 1. Four copies, no shared truth (before the command surface)
 
 | Where | What it declares | Used by |
 |---|---|---|
@@ -35,6 +41,10 @@ Promises live in three more places: `shell/SettingsDialog.tsx` `SHORTCUTS` (the 
 (palette rows and context-menu hints), and the `title=` strings on buttons
 (`CanvasHeader`, `ViewControls`, `PagePosition`, `Sidebar`, `TabBar`, `FindBar`, `SelectionToolbar`).
 Seven places describe keys; one place per surface actually handles them.
+
+**Resolved (18 November 2026):** `shared/commands.ts` is the one declaration per application
+command and the four adapters (menu, palette, key router, runner map) derive from it; the chord
+catalogue is `shared/shortcuts.ts`. The table records the state the audit found.
 
 What exists today in tests: `tests/ui/ui-editor-shortcuts.test.mjs` pins **26 rows**, three group names and
 four labels. Rename any binding in `App.tsx` and the suite stays green — the list is checked against itself.
@@ -150,7 +160,7 @@ surface and wrong as written, because neither states its scope.
 `Reset zoom to 100%`. In Page, 100 % **is** fit width (`docs/design/page-scroll.md`), so “actual size” is
 false exactly where users press it after a jump. One label is needed.
 
-### S2-4 — the list and the bindings cannot drift loudly, only silently
+### S2-4 — the list and the bindings cannot drift loudly, only silently (resolved)
 
 No test connects a row to a handler. The UI suite asserts 26 rows, so a `SHORTCUTS` edit that adds a row
 passes trivially and a binding rename passes silently. This is the same class as the settings inventory
@@ -159,10 +169,10 @@ before M4e1: the values exist, the source of truth does not.
 ### S3-1 — duplicated keys
 
 `⇧1`/`⇧2` are implemented in `App.tsx` and in `PageView.tsx` with different guards — the source of S2-1.
-Menu-owned keys (`⌘N`, `⌘S`, `⌘W`, `⌘O`, `⌘⇧E`, `⌘,`, `⌘\`, zoom, fit width, focus branch) are deliberately
-double: the menu shows and dispatches, the renderer also matches so the UI suites can press the key without
-the native menu. Undo/redo/palette are `registerAccelerator: false` and documented as renderer-owned. Only
-`⇧1`/`⇧2` is accidental duplication.
+**Resolved (18 November 2026):** the accidental duplication is gone. Every application chord is owned by
+the renderer key router; the native menu displays the catalogue accelerator with
+`registerAccelerator: false` and never registers it, and the 120 ms dedupe is deleted. One keypress, one
+delivery path; a unit test asserts that no labelled menu item registers an accelerator.
 
 ### S3-2 — the list omits 18 real bindings
 
@@ -173,9 +183,9 @@ undiscoverable.
 
 ### S3-3 — the native menu has no Find, no layout, no mode
 
-`Edit` has no Find submenu; `View` has neither Continuous/Page nor Edit/Read. All three exist as keys, as
-toolbar segments and in the palette — but not where macOS users look first. Adding them costs three items
-and no new behaviour (the renderer already owns the accelerators).
+**Partially resolved (18 November 2026):** `Edit` now carries Find… / Find Next / Find Previous from the
+manifest. `View` still has neither Continuous/Page nor Edit/Read: they remain keys, toolbar segments and
+palette rows, not native menu items. Adding them would be a product/UX call, not a wiring change.
 
 ### S3-4 — two design docs describe a different app
 
@@ -200,8 +210,9 @@ rebuilt from it. No document, layout, pagination or print code.
 
 ### 4.1 The module
 
-`renderer/src/lib/shortcuts.ts` (importable by `App`, `PageView`, `FindBar`; the main-process menu keeps its
-Electron strings but a unit test asserts each `menu` entry equals the catalogue’s accelerator):
+`shared/shortcuts.ts` (importable by the renderer and the main process; the native menu derives each
+accelerator with `menuAccelerator(id)`, and `registerAccelerator: false` makes the renderer the single
+owner of every application chord):
 
 ```ts
 type Scope = 'global' | 'editor' | 'page' | 'find';
@@ -212,7 +223,7 @@ interface Shortcut {
   group: 'Shell' | 'View' | 'Editor' | 'Page' | 'Find';
   scope: Scope;
   chords: Chord[];         // normally one
-  menu?: string;           // 'CmdOrCtrl+Shift+E' when the native menu owns it
+  menu?: string;           // Electron accelerator for the menu display; the renderer owns the chord
   list?: boolean;          // false for input-local behaviour we do not advertise
 }
 ```

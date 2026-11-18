@@ -12,7 +12,13 @@
 recovery 14, UI 69/69 at concurrency 4. The packaged smoke opened a fixture, rendered Page Read,
 and exported a 2-page PDF with real text and no missing glyphs.
 
-**Open gate:** the product owner's visual, VoiceOver and PDF pass on the installed app.
+**Post-release (18 November 2026):** the command-surface refactor is merged (`fba93d4`): one command
+manifest, four adapters, one owner per chord, the 120 ms throttle gone. Full verify green — 174 unit
+files / 1,795 tests, e2e 16, UI **70/70** at concurrency 4. The workspace versions and the lockfile were
+synced (`11591b1`); a clean `npm ci` from a fresh archive now installs and typechecks.
+
+**Open gate:** the product owner's visual, VoiceOver and PDF pass on the installed app, plus the manual
+chord pass for the command surface (menu open, after refocusing).
 
 **Dev isolation:** `npm run dev` uses the "NoteForest Dev" app-support folder and library, so dev
 work never touches the installed app's data.
