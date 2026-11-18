@@ -16,7 +16,7 @@ import {
 } from '../state/settings';
 import { useRuntime } from '../state/registry';
 import { openLibrary, removeRecentLibrary, revealLibraryPath } from '../actions';
-import { shortcutsForList, type ShortcutListGroup } from '../lib/shortcuts';
+import { shortcutsForList, type ShortcutListGroup } from '../../../shared/shortcuts';
 import { Details } from './Details';
 import { SETTINGS_SCHEMA_VERSION } from '../../../shared/settings-file';
 import { usePageSettingsController } from '../settings/usePageSettingsController';

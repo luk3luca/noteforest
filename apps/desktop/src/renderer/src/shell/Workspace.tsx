@@ -12,7 +12,7 @@ import {
 } from '../state/shell';
 import { getRuntime, useRegistry, useRuntime } from '../state/registry';
 import { createNewDocument } from '../actions';
-import { shortcutHint } from '../lib/shortcuts';
+import { shortcutHint } from '../../../shared/shortcuts';
 import { DocumentEditor } from '../editor/DocumentEditor';
 import { MarkdownFileEditor } from '../markdown/MarkdownFileEditor';
 import { isMarkdownPath } from '../../../shared/markdown';

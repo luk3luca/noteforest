@@ -4,9 +4,11 @@
  * One module owns every application chord: the handlers ask `matches(event, id)`
  * instead of comparing `event.key` by hand, the TipTap keymap asks
  * `tiptapKeys(id)`, the palette, the context menus and the control tooltips ask
- * `shortcutHint(id)`, the native menu accelerators are asserted against `menu`,
- * and the Settings list is `shortcutsForList()`.
+ * `shortcutHint(id)`, the native menu displays `menuAccelerator(id)`, and the
+ * Settings list is `shortcutsForList()`.
  *
+ * It lives in `shared/` because both processes read it: the renderer matches the
+ * keys and the main process displays the same accelerators in the native menu.
  * Pure: no React, no DOM, no Electron. A renamed binding therefore fails the
  * unit tests that compare this module with the menu template, the keymap and
  * the rendered list, instead of drifting silently.
@@ -69,7 +71,7 @@ export interface Shortcut {
   scope: Scope;
   /** Normally one; a verb with two accepted keys declares both. */
   chords: Chord[];
-  /** The Electron accelerator when the native menu owns (or mirrors) the key. */
+  /** The Electron accelerator the native menu displays for this key. */
   menu?: string;
   /** `false` for a real binding we do not advertise in the Settings list. */
   list?: boolean;
@@ -721,10 +723,26 @@ for (const shortcut of SHORTCUTS) {
   BY_ID.set(shortcut.id, shortcut);
 }
 
-function shortcutFor(id: string): Shortcut {
+/** One catalogue entry. Throws on an unknown id, so a link typo fails loudly. */
+export function shortcutFor(id: string): Shortcut {
   const shortcut = BY_ID.get(id);
   if (shortcut === undefined) throw new Error(`Unknown shortcut id: ${id}`);
   return shortcut;
+}
+
+/** True when the catalogue declares at least one chord for `id`. */
+export function hasChord(id: string): boolean {
+  return shortcutFor(id).chords.length > 0;
+}
+
+/** The scope one id belongs to (`global`, `editor`, `page`, `find`). */
+export function shortcutScope(id: string): Scope {
+  return shortcutFor(id).scope;
+}
+
+/** The Electron accelerator the native menu displays, when the id has one. */
+export function menuAccelerator(id: string): string | undefined {
+  return shortcutFor(id).menu;
 }
 
 /** True when `event` is one of the chords of `id`. */

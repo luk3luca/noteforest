@@ -63,7 +63,7 @@ import { commitPageEdit, type PageEditCommitReason } from './page-edit-state';
 import { corePageGeometry } from './adapter';
 import { clampPageNumber } from './model';
 import { PageEdges } from './PageEdges';
-import { matches } from '../lib/shortcuts';
+import { matches } from '../../../shared/shortcuts';
 import { clearPageFindHighlights, paintPageFind } from './find-highlight';
 import { clearPageStatus, publishPageStatus } from './page-status';
 import { usePageSettings } from '../state/settings';

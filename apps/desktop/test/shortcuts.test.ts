@@ -13,10 +13,11 @@ import {
   tiptapKeys,
   type Chord,
   type KeyEventLike,
-} from '../src/renderer/src/lib/shortcuts';
+} from '../src/shared/shortcuts';
 
 const root = resolve(import.meta.dirname, '..');
 const RENDERER_SRC = resolve(root, 'src/renderer/src');
+const SHARED_SRC = resolve(root, 'src/shared');
 
 /** A keyboard event that fires exactly one chord, as the handler would see it. */
 function eventFor(chord: Chord): KeyEventLike {
@@ -191,7 +192,7 @@ describe('shortcut catalogue', () => {
     expect(ids.indexOf('menu-find')).toBeGreaterThan(ids.indexOf('menu-redo'));
     const cutAt = edit.findIndex((entry) => (entry as { role?: string }).role === 'cut');
     expect(ids.indexOf('menu-find-previous')).toBeLessThan(cutAt);
-    // Export keeps one accelerator, now ⌘P.
+    // Export keeps one accelerator, now ⌘P, and the renderer owns it too.
     const file = (template.find((entry) => entry.label === 'File')?.submenu ?? []) as Array<{
       id?: string;
       accelerator?: string;
@@ -199,7 +200,7 @@ describe('shortcut catalogue', () => {
     }>;
     const exportItem = file.find((entry) => entry.id === 'menu-export-pdf');
     expect(exportItem?.accelerator).toBe('CmdOrCtrl+P');
-    expect(exportItem?.registerAccelerator).toBeUndefined();
+    expect(exportItem?.registerAccelerator).toBe(false);
   });
 
   it('never repeats a chord inside a scope', () => {
@@ -423,13 +424,18 @@ async function rendererSources(directory: string): Promise<string[]> {
 }
 
 describe('keyboard source guard', () => {
-  it('keeps the Apple glyph order in every renderer file', async () => {
-    const files = await rendererSources(RENDERER_SRC);
+  it('keeps the Apple glyph order in every renderer and shared file', async () => {
+    const files = [
+      ...(await rendererSources(RENDERER_SRC)),
+      ...(await rendererSources(SHARED_SRC)),
+    ];
     expect(files.length).toBeGreaterThan(50);
     const violations: string[] = [];
     for (const file of files) {
       const source = await readFile(file, 'utf8');
-      if (source.includes('⌘⇧')) violations.push(file.slice(RENDERER_SRC.length + 1));
+      if (source.includes('⌘⇧')) {
+        violations.push(file.slice(root.length + 1));
+      }
     }
     expect(violations).toEqual([]);
   });

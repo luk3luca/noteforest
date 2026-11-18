@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getEditorBindings } from './bindings';
 import { highlightAttrs } from './highlight-mark';
 import { HIGHLIGHT_TONE_LABELS, lastHighlightTone, rememberHighlightTone } from '../lib/highlight';
-import { shortcutHint } from '../lib/shortcuts';
+import { shortcutHint } from '../../../shared/shortcuts';
 import { useShell } from '../state/shell';
 import { overlayOwnsCommands, useOverlayOwnsCommands } from '../shell/overlay-owner';
 

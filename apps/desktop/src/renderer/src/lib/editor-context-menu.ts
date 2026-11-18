@@ -25,7 +25,7 @@ import {
   type TableAlign,
 } from '../editor/table-commands';
 import { writeClipboardText } from './clipboard';
-import { shortcutHint } from './shortcuts';
+import { shortcutHint } from '../../../shared/shortcuts';
 
 export type EditorContextSurface =
   | 'prose'

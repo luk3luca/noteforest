@@ -6,7 +6,7 @@ import {
   ariaKeyshortcuts,
   matches,
   type KeyEventLike,
-} from '../src/renderer/src/lib/shortcuts';
+} from '../src/shared/shortcuts';
 import {
   PAGE_COMMIT_SHORTCUT_IDS,
   pageCommitReason,
@@ -15,7 +15,7 @@ import {
 /**
  * VF S3-1 — the Page Edit overlay's commit keys come from the catalogue.
  *
- * B1 made `lib/shortcuts.ts` the only writer of application chords; the Page
+ * B1 made `shared/shortcuts.ts` the only writer of application chords; the Page
  * Edit overlay kept comparing `event.key` by hand, so a rebound catalogue key
  * would change the Settings row and every other surface but not the overlay.
  * `pageCommitReason` is now the overlay's only key decision: it asks the two

@@ -17,7 +17,7 @@
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type { FindResult } from '../lib/find';
-import { matches, shortcutHint } from '../lib/shortcuts';
+import { matches, shortcutHint } from '../../../shared/shortcuts';
 import { useShell } from '../state/shell';
 import { closeFind, findNext, findPrevious } from '../actions';
 

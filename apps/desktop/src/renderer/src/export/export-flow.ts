@@ -31,6 +31,7 @@ import {
 } from '../../../shared/export';
 import { getRuntime } from '../state/registry';
 import { useShell, type DocumentLayout } from '../state/shell';
+import { COMMAND_REASONS } from '../../../shared/commands';
 import { useSettingsStore } from '../state/settings';
 import { commitPageEdit } from '../page/page-edit-state';
 import { printPageModelSnapshot } from '../page/print-model-registry';
@@ -219,7 +220,7 @@ async function openExportSheet(trigger: HTMLElement | null): Promise<void> {
   const shell = useShell.getState();
   const runtime = getRuntime(shell.activeTab);
   if (runtime === null) {
-    toast.error('Open a note before exporting a PDF.');
+    toast.error(COMMAND_REASONS.EXPORT_NO_NOTE);
     return;
   }
   opening = true;

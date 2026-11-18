@@ -26,6 +26,8 @@ declare global {
       closePath?: (packagePath: string) => Promise<void>;
       /** Test-only: dispatch a MenuCommand through the native-menu path. */
       dispatchMenuCommand?: (command: MenuCommand) => void;
+      /** Test-only: the manifest decision for one command in the current context. */
+      commandState?: (id: string) => unknown;
       /** Test-only: the curated shortcut rows the Settings list renders. */
       shortcuts?: () => unknown;
       /** Test-only: which surface owns the global command channel right now. */

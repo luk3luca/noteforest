@@ -20,7 +20,6 @@ const APPLIED_COPY: Record<string, readonly string[]> = {
   'src/renderer/src/lib/editability.ts': [
     'Read mode — switch to Edit to make changes',
     ' — Read mode',
-    'Read mode — switch to Edit to make changes.',
   ],
   'src/renderer/src/lib/save-failure.ts': [
     'This note is open read-only.',
@@ -118,7 +117,6 @@ const APPLIED_COPY: Record<string, readonly string[]> = {
     'This file is no longer on disk. Copy anything you still need.',
   ],
   'src/renderer/src/export/export-flow.ts': [
-    'Open a note before exporting a PDF.',
     'Page Edit wasn’t saved before the export.',
     'Couldn’t reveal the PDF.',
     'Couldn’t open the PDF.',
@@ -287,7 +285,7 @@ const APPLIED_COPY: Record<string, readonly string[]> = {
     'The backup couldn’t be read.',
   ],
   'src/main/markdown-backup.ts': ['The backup couldn’t be written.'],
-  'src/main/menu-template.ts': [
+  'src/shared/commands.ts': [
     'New note',
     'Open note…',
     'New chapter',
@@ -304,6 +302,11 @@ const APPLIED_COPY: Record<string, readonly string[]> = {
     'Open Markdown…',
     'Close Window',
     'Keyboard shortcuts',
+    'Open a document first',
+    'Read mode — switch to Continuous Edit to run this command',
+    'Markdown files have no Page or PDF export.',
+    'Select a block first.',
+    'Open a note before exporting a PDF.',
   ],
   'src/renderer/src/shell/SearchSection.tsx': ['No results', 'Refine the search'],
   'src/renderer/src/shell/Sidebar.tsx': [

@@ -7,7 +7,7 @@ import { toggleLastHighlight } from './highlight-mark';
 import { backspaceAction } from '../lib/backspace';
 import { arrowBoundaryAction, type ArrowBoundaryKey } from '../lib/arrow-boundary';
 import { indentTarget, outdentTarget } from '../lib/indent';
-import { tiptapKeys } from '../lib/shortcuts';
+import { tiptapKeys } from '../../../shared/shortcuts';
 
 /**
  * The TipTap spellings come from the shortcut catalogue, never from a literal:

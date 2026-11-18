@@ -5,7 +5,6 @@ import { errorToast } from './lib/toast-details';
 import type {
   LibraryActionSuccess,
   MarkdownFileView,
-  MenuCommand,
   OpenDocumentResult,
   RecoveryDocumentView,
   TrashPreflight,
@@ -33,7 +32,6 @@ import {
 import { isPathInside } from './lib/paths';
 import {
   useShell,
-  findSurfaceActive,
   type DocumentLayout,
   type InteractionMode,
   type MenuEntry,
@@ -100,7 +98,7 @@ import { exportActiveDocument } from './export/export-flow';
 import { isDraftKey } from '../../shared/drafts';
 import { indentTarget, outdentTarget } from './lib/indent';
 import { reorderTarget } from './lib/reorder';
-import { shortcutHint } from './lib/shortcuts';
+import { shortcutHint } from '../../shared/shortcuts';
 import { documentHealthReport } from './shell/useDocumentHealth';
 import {
   documentHealthSection,
@@ -137,7 +135,7 @@ export function activeEditingEnabled(): boolean {
 }
 
 /** Report a read-mode block once; returns true when the caller must stop. */
-function blockedByReadMode(runtime: DocumentRuntime): boolean {
+export function blockedByReadMode(runtime: DocumentRuntime): boolean {
   if (editingEnabledFor(runtime, shell().viewByDoc[runtime.packagePath])) return false;
   toast.info(READ_MODE_TOAST);
   return true;
@@ -2569,333 +2567,6 @@ export function openLibraryMenu(
           },
         ]),
   ]);
-}
-
-/* --------------------------------------------------------------- palette */
-
-function applyBlockType(level: 1 | 2 | 3 | null): void {
-  const runtime = activeRuntime();
-  if (runtime === null) return;
-  if (blockedByReadMode(runtime)) return;
-  const blockId = runtime.selectedBlockId;
-  if (blockId === null) return;
-  runtime.setBlockType(blockId, level);
-}
-
-export function paletteCommands(): MenuEntry[] {
-  if (activeTabIsMarkdown()) {
-    const mode = activeInteractionMode();
-    return [
-      {
-        id: 'open-markdown',
-        label: 'Open Markdown…',
-        shortcut: shortcutHint('open-markdown'),
-        onSelect: () => void openMarkdownDialog(),
-      },
-      {
-        id: 'toggle-interaction-mode',
-        label: mode === 'edit' ? 'Switch to Read mode' : 'Switch to Edit mode',
-        shortcut: shortcutHint('toggle-mode'),
-        onSelect: toggleActiveInteractionMode,
-      },
-      { id: 'reveal', label: 'Reveal Markdown file in Finder', onSelect: revealActive },
-      { id: 'close-tab', label: 'Close tab', shortcut: shortcutHint('close-tab'), onSelect: () => void closeActiveTab() },
-      { id: 'toggle-sidebar', label: 'Toggle sidebar', shortcut: shortcutHint('toggle-sidebar'), onSelect: toggleSidebar },
-      {
-        id: 'settings',
-        label: 'Settings…',
-        shortcut: shortcutHint('settings'),
-        onSelect: () => shell().openDialog({ kind: 'settings' }),
-      },
-    ];
-  }
-  const runtime = activeRuntime();
-  const selected = runtime?.selectedBlockId ?? null;
-  const editingEnabled = activeEditingEnabled();
-  // Read mode disables the entry instead of silently ignoring the click; the
-  // visible suffix is the reason and stays searchable.
-  const gate = (entry: MenuEntry): MenuEntry => {
-    if (runtime === null) {
-      return {
-        ...entry,
-        disabled: true,
-        reason: 'Open a document first',
-        onSelect: undefined,
-      };
-    }
-    if (editingEnabled) return entry;
-    return {
-      ...entry,
-      disabled: true,
-      reason: 'Read mode — switch to Continuous Edit to run this command',
-      onSelect: undefined,
-    };
-  };
-  const withDocument = (entry: MenuEntry): MenuEntry =>
-    runtime === null
-      ? {
-          ...entry,
-          disabled: true,
-          reason: 'Open a document first',
-          onSelect: undefined,
-        }
-      : entry;
-  const indentCheck =
-    runtime === null || selected === null
-      ? { ok: false as const, reason: 'Select a block first.' }
-      : indentTarget(runtime.document, selected);
-  const outdentCheck =
-    runtime === null || selected === null
-      ? { ok: false as const, reason: 'Select a block first.' }
-      : outdentTarget(runtime.document, selected);
-  return [
-    { id: 'new-document', label: 'New note', shortcut: shortcutHint('new-note'), onSelect: () => void createNewDocument() },
-    {
-      id: 'open-markdown',
-      label: 'Open Markdown…',
-      shortcut: shortcutHint('open-markdown'),
-      onSelect: () => void openMarkdownDialog(),
-    },
-    gate({ id: 'new-chapter', label: 'New chapter', shortcut: shortcutHint('new-chapter'), onSelect: () => void createChapter() }),
-    withDocument({ id: 'save', label: 'Save', shortcut: shortcutHint('save'), onSelect: () => void saveActive() }),
-    withDocument({
-      id: 'export-pdf',
-      label: 'Export PDF…',
-      shortcut: shortcutHint('export-pdf'),
-      onSelect: exportActiveDocument,
-    }),
-    { id: 'close-tab', label: 'Close tab', shortcut: shortcutHint('close-tab'), onSelect: () => void closeActiveTab() },
-    { id: 'toggle-sidebar', label: 'Toggle sidebar', shortcut: shortcutHint('toggle-sidebar'), onSelect: toggleSidebar },
-    withDocument({ id: 'zoom-in', label: 'Zoom in', shortcut: shortcutHint('zoom-in'), onSelect: () => adjustActiveLayoutZoom(0.1) }),
-    withDocument({ id: 'zoom-out', label: 'Zoom out', shortcut: shortcutHint('zoom-out'), onSelect: () => adjustActiveLayoutZoom(-0.1) }),
-    withDocument({ id: 'zoom-reset', label: 'Reset zoom', shortcut: shortcutHint('reset-zoom'), onSelect: resetActiveLayoutZoom }),
-    withDocument({ id: 'fit-width', label: 'Fit width', shortcut: shortcutHint('fit-width'), onSelect: () => fitActiveLayout('fit-width') }),
-    withDocument({ id: 'fit-page', label: 'Fit page', shortcut: shortcutHint('fit-page'), onSelect: () => fitActiveLayout('fit-page') }),
-    withDocument({ id: 'continuous-layout', label: 'Switch to Continuous', shortcut: shortcutHint('continuous-layout'), onSelect: () => goToContinuous() }),
-    withDocument({ id: 'page-layout', label: 'Switch to Page', shortcut: shortcutHint('page-layout'), onSelect: () => setActiveDocumentLayout('page') }),
-    withDocument({
-      id: 'toggle-interaction-mode',
-      label: activeInteractionMode() === 'edit' ? 'Switch to Read mode' : 'Switch to Edit mode',
-      shortcut: shortcutHint('toggle-mode'),
-      onSelect: toggleActiveInteractionMode,
-    }),
-    withDocument({ id: 'focus-branch', label: 'Focus branch', shortcut: shortcutHint('focus-branch'), onSelect: toggleFocusBranch }),
-    withDocument({
-      id: 'rename-document',
-      label: 'Rename document…',
-      onSelect: () => shell().openDialog({ kind: 'rename-document' }),
-    }),
-    withDocument({
-      id: 'reveal',
-      label: 'Reveal document in Finder',
-      onSelect: revealActive,
-    }),
-    gate({
-      id: 'add-block',
-      label: 'Add top-level block',
-      onSelect: () => {
-        if (runtime === null) return;
-        addTopLevelContextual(runtime);
-      },
-    }),
-    gate({
-      id: 'add-child',
-      label: 'Add child block',
-      shortcut: shortcutHint('add-child'),
-      onSelect: () => {
-        if (runtime === null || selected === null) return;
-        report(runtime.addChild(selected));
-      },
-    }),
-    gate({
-      id: 'add-sibling',
-      label: 'Add sibling block',
-      shortcut: shortcutHint('add-sibling'),
-      onSelect: () => {
-        if (runtime === null || selected === null) return;
-        report(runtime.addSibling(selected));
-      },
-    }),
-    gate({
-      id: 'link-reference',
-      label: 'Link as reference…',
-      shortcut: shortcutHint('link-reference'),
-      onSelect: () => {
-        if (selected === null) return;
-        shell().openDialog({ kind: 'link-reference', blockId: selected });
-      },
-    }),
-    gate({
-      id: 'indent-block',
-      label: 'Indent block',
-      shortcut: shortcutHint('indent'),
-      disabled: indentCheck.ok !== true,
-      ...(indentCheck.ok ? {} : { reason: indentCheck.reason }),
-      ...(indentCheck.ok && selected !== null
-        ? { onSelect: () => report(runtime?.indent(selected)) }
-        : {}),
-    }),
-    gate({
-      id: 'outdent-block',
-      label: 'Outdent block',
-      shortcut: shortcutHint('outdent'),
-      disabled: outdentCheck.ok !== true,
-      ...(outdentCheck.ok ? {} : { reason: outdentCheck.reason }),
-      ...(outdentCheck.ok && selected !== null
-        ? { onSelect: () => report(runtime?.outdent(selected)) }
-        : {}),
-    }),
-    {
-      id: 'anchor-health',
-      label: 'Document health',
-      onSelect: () => openDocumentHealth(),
-    },
-    gate({ id: 'block-text', label: 'Block type: Text', onSelect: () => applyBlockType(null) }),
-    gate({ id: 'block-h1', label: 'Block type: Heading 1', onSelect: () => applyBlockType(1) }),
-    gate({ id: 'block-h2', label: 'Block type: Heading 2', onSelect: () => applyBlockType(2) }),
-    gate({ id: 'block-h3', label: 'Block type: Heading 3', onSelect: () => applyBlockType(3) }),
-    gate({
-      id: 'undo',
-      label: 'Undo',
-      shortcut: shortcutHint('undo'),
-      onSelect: undoActive,
-    }),
-    gate({
-      id: 'redo',
-      label: 'Redo',
-      shortcut: shortcutHint('redo'),
-      onSelect: redoActive,
-    }),
-    {
-      id: 'settings',
-      label: 'Settings…',
-      shortcut: shortcutHint('settings'),
-      onSelect: () => shell().openDialog({ kind: 'settings' }),
-    },
-    gate({
-      id: 'insert-table',
-      label: 'Insert table',
-      onSelect: () => shell().openDialog({ kind: 'table-size' }),
-    }),
-    gate({
-      id: 'insert-image',
-      label: 'Insert image…',
-      onSelect: () => {
-        if (runtime === null) return;
-        if (selected === null) {
-          toast.error('Select a block before inserting an image.');
-          return;
-        }
-        void insertImageFromDialog(runtime, selected);
-      },
-    }),
-    gate({
-      id: 'insert-math',
-      label: 'Insert math…',
-      onSelect: () => shell().openDialog({ kind: 'math', mathKind: 'inline', latex: '', pos: null }),
-    }),
-    gate({
-      id: 'insert-code',
-      label: 'Toggle code block',
-      onSelect: () => runtime?.editor?.chain().focus().toggleCodeBlock().run(),
-    }),
-  ];
-}
-
-export function runMenuCommand(command: MenuCommand): void {
-  switch (command) {
-    case 'new-document':
-      void createNewDocument();
-      break;
-    case 'open-document':
-      shell().setPaletteOpen(true, { documentsOnly: true });
-      break;
-    case 'open-markdown':
-      void openMarkdownDialog();
-      break;
-    case 'save':
-      void saveActive();
-      break;
-    case 'export-pdf':
-      if (activeTabIsMarkdown()) {
-        toast.info('Markdown files have no Page or PDF export.');
-        break;
-      }
-      exportActiveDocument();
-      break;
-    case 'close-tab':
-      void closeActiveTab();
-      break;
-    case 'reopen-tab':
-      void reopenClosedTab();
-      break;
-    case 'toggle-sidebar':
-      toggleSidebar();
-      break;
-    case 'command-palette':
-      shell().setPaletteOpen(!shell().paletteOpen);
-      break;
-    case 'settings':
-      shell().openDialog({ kind: 'settings' });
-      break;
-    case 'settings-shortcuts':
-      shell().openDialog({ kind: 'settings', page: 'editor' });
-      break;
-    case 'new-chapter':
-      void createChapter();
-      break;
-    case 'add-block': {
-      const runtime = activeRuntime();
-      if (runtime !== null) addTopLevelContextual(runtime);
-      break;
-    }
-    case 'undo':
-      undoActive();
-      break;
-    case 'redo':
-      redoActive();
-      break;
-    case 'zoom-in':
-      adjustActiveLayoutZoom(0.1);
-      break;
-    case 'zoom-out':
-      adjustActiveLayoutZoom(-0.1);
-      break;
-    case 'zoom-reset':
-      resetActiveLayoutZoom();
-      break;
-    case 'fit-width':
-      fitActiveLayout('fit-width');
-      break;
-    case 'fit-page':
-      fitActiveLayout('fit-page');
-      break;
-    case 'focus-branch':
-      toggleFocusBranch();
-      break;
-    case 'find-open':
-      // The renderer owns the find (Edit → Find… is `registerAccelerator:
-      // false`). With no note open or a Markdown guest file this is a no-op,
-      // exactly like `⌘F`.
-      openFind();
-      break;
-    case 'find-next':
-      // Both find presentations own the current hit; with neither showing
-      // there is no search to move through, exactly like `⌘G`.
-      if (findSurfaceActive(shell())) findNext();
-      break;
-    case 'find-previous':
-      if (findSurfaceActive(shell())) findPrevious();
-      break;
-    case 'flush':
-      for (const runtime of allRuntimes()) void runtime.flush();
-      break;
-    case 'close-window':
-      window.close();
-      break;
-    default:
-      break;
-  }
 }
 
 export function currentWordCount(): { words: number; blocks: number } {

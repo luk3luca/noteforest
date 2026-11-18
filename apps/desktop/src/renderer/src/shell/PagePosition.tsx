@@ -25,7 +25,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useShell } from '../state/shell';
 import { usePageStatus } from '../page/use-page-status';
 import { clampPageNumber } from '../page/model';
-import { shortcutHint } from '../lib/shortcuts';
+import { shortcutHint } from '../../../shared/shortcuts';
 import { goToActivePage } from '../actions';
 
 export function PagePosition(): JSX.Element | null {

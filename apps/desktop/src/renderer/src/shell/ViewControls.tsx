@@ -9,7 +9,7 @@ import {
   setActiveInteractionMode,
 } from '../actions';
 import { resolveActiveZoom, zoomCommandsForLayout } from '../lib/view-zoom';
-import { shortcutHint } from '../lib/shortcuts';
+import { shortcutHint } from '../../../shared/shortcuts';
 import { usePageStatus } from '../page/use-page-status';
 
 /**

@@ -32,7 +32,7 @@ import {
 import { blockContentFromEditorJson, editorJsonIsEmpty } from '../lib/page-edit';
 import { blockTitle } from '../lib/tree';
 import { openTextOnlyContextMenu } from '../lib/editor-context-menu';
-import { ariaKeyshortcuts, shortcutHint } from '../lib/shortcuts';
+import { ariaKeyshortcuts, shortcutHint } from '../../../shared/shortcuts';
 import type { DocumentRuntime } from '../state/runtime';
 import {
   pageCommitReason,

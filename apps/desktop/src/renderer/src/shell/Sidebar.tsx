@@ -39,7 +39,7 @@ import {
   type BlockNode,
 } from '../lib/tree';
 import { recoveryStatusLabel } from '../lib/recovery';
-import { shortcutHint } from '../lib/shortcuts';
+import { shortcutHint } from '../../../shared/shortcuts';
 import { markdownTitleSuffix } from '../lib/library-rows';
 import { editingEnabledFor, READ_MODE_TITLE } from '../lib/editability';
 import { documentHealthBadgeLabel } from '../lib/document-health-sections';

@@ -1,6 +1,6 @@
 import { Command } from 'lucide-react';
 import { useShell } from '../state/shell';
-import { shortcutHint } from '../lib/shortcuts';
+import { shortcutHint } from '../../../shared/shortcuts';
 import { TabStrip } from './TabBar';
 
 /**

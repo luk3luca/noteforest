@@ -8,7 +8,7 @@
  * created. It holds no document content and never writes canonical data itself.
  */
 
-import { matches, type KeyEventLike } from '../lib/shortcuts';
+import { matches, type KeyEventLike } from '../../../shared/shortcuts';
 
 /** Why a Page Edit overlay was asked to commit. */
 export type PageEditCommitReason =
@@ -23,7 +23,7 @@ export type PageEditCommitReason =
 
 /**
  * The catalogue entries the overlay commits on, each with the reason it means.
- * The chords live in `lib/shortcuts.ts` (one writer for every chord in the
+ * The chords live in `shared/shortcuts.ts` (one writer for every chord in the
  * app); only the *reason* is a Page Edit fact, so a rebound key reaches the
  * overlay without a second key comparison here (VF S3-1).
  */

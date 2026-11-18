@@ -9,6 +9,7 @@ import {
   type EditabilityRuntime,
   type EditabilityView,
 } from '../src/renderer/src/lib/editability';
+import { COMMAND_REASONS } from '../src/shared/commands';
 
 const editable: EditabilityRuntime = { editable: true };
 const readOnly: EditabilityRuntime = { editable: false };
@@ -64,6 +65,7 @@ describe('read-mode editability helper', () => {
   it('exposes one shared Read-mode reason for every surface', () => {
     expect(READ_MODE_TITLE).toBe('Read mode — switch to Edit to make changes');
     expect(READ_MODE_SUFFIX).toBe(' — Read mode');
-    expect(READ_MODE_TOAST).toBe('Read mode — switch to Edit to make changes.');
+    // D2: the palette's precise sentence is the one reason every surface reads.
+    expect(READ_MODE_TOAST).toBe(COMMAND_REASONS.READ_MODE);
   });
 });

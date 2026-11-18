@@ -13,7 +13,8 @@ import {
 import { useEffect, useMemo } from 'react';
 import { useShell } from '../state/shell';
 import { useRuntime } from '../state/registry';
-import { paletteCommands, openPath } from '../actions';
+import { paletteCommands } from '../commands/palette';
+import { openPath } from '../actions';
 import { blockTitle, chapterIdOf, flattenBlocks } from '../lib/tree';
 
 interface PaletteItem {

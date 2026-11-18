@@ -7,7 +7,7 @@ import { useShell, type TabInfo } from '../state/shell';
 import { useRuntime } from '../state/registry';
 import { useMarkdownEntry } from '../state/markdown';
 import { closeTab, createNewDocument, openPath, openTabMenu } from '../actions';
-import { shortcutHint } from '../lib/shortcuts';
+import { shortcutHint } from '../../../shared/shortcuts';
 import { tabElementId, tabPanelElementId } from '../lib/tab-ids';
 import { TAB_GAP, TAB_MAX_WIDTH, visibleTabWindow } from '../lib/tab-policy';
 

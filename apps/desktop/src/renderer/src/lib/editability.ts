@@ -10,6 +10,7 @@
  */
 
 import type { DocumentLayout, InteractionMode } from '../../../shared/view-state';
+import { COMMAND_REASONS } from '../../../shared/commands';
 
 /** The view-state fields that decide editability. */
 export interface EditabilityView {
@@ -26,8 +27,11 @@ export interface EditabilityRuntime {
 export const READ_MODE_TITLE = 'Read mode — switch to Edit to make changes';
 /** Visible suffix on palette and context-menu entries disabled by Read mode. */
 export const READ_MODE_SUFFIX = ' — Read mode';
-/** Short status/toast reason for a native-menu command blocked by Read mode. */
-export const READ_MODE_TOAST = 'Read mode — switch to Edit to make changes.';
+/**
+ * The one Read-mode refusal sentence (D2). The palette row, the key and the
+ * menu toast all read it from the command manifest.
+ */
+export const READ_MODE_TOAST = COMMAND_REASONS.READ_MODE;
 
 /**
  * True only for an active editable runtime in Continuous + Edit. A missing

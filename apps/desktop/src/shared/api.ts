@@ -866,33 +866,43 @@ export interface FlushResult {
   pendingMarkdown?: MarkdownPendingFile[];
 }
 
-export type MenuCommand =
-  | 'new-document'
-  | 'open-document'
-  | 'open-markdown'
-  | 'save'
-  | 'close-tab'
-  | 'close-window'
-  | 'reopen-tab'
-  | 'toggle-sidebar'
-  | 'command-palette'
-  | 'settings'
-  | 'settings-shortcuts'
-  | 'new-chapter'
-  | 'add-block'
-  | 'flush'
-  | 'export-pdf'
-  | 'undo'
-  | 'redo'
-  | 'zoom-in'
-  | 'zoom-out'
-  | 'zoom-reset'
-  | 'fit-width'
-  | 'fit-page'
-  | 'focus-branch'
-  | 'find-open'
-  | 'find-next'
-  | 'find-previous';
+/**
+ * The renderer commands a native menu item may send (the closed IPC contract).
+ *
+ * Runtime list plus derived type: the same 26 ids in the same order as shipped.
+ * Adding or removing an id here is an IPC contract change; a command that needs
+ * no menu item is not added (the command manifest has its own, larger set).
+ */
+export const MENU_COMMANDS = [
+  'new-document',
+  'open-document',
+  'open-markdown',
+  'save',
+  'close-tab',
+  'close-window',
+  'reopen-tab',
+  'toggle-sidebar',
+  'command-palette',
+  'settings',
+  'settings-shortcuts',
+  'new-chapter',
+  'add-block',
+  'flush',
+  'export-pdf',
+  'undo',
+  'redo',
+  'zoom-in',
+  'zoom-out',
+  'zoom-reset',
+  'fit-width',
+  'fit-page',
+  'focus-branch',
+  'find-open',
+  'find-next',
+  'find-previous',
+] as const;
+
+export type MenuCommand = (typeof MENU_COMMANDS)[number];
 
 export interface SeedResult {
   snapshot: OpenDocumentSnapshot;

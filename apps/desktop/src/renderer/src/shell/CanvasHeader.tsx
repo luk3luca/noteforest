@@ -2,7 +2,7 @@ import { FileDown, Redo2, Undo2 } from 'lucide-react';
 import { useShell } from '../state/shell';
 import { useRuntime } from '../state/registry';
 import { editingEnabledFor, READ_MODE_TITLE } from '../lib/editability';
-import { shortcutHint } from '../lib/shortcuts';
+import { shortcutHint } from '../../../shared/shortcuts';
 import { redoActive, undoActive } from '../actions';
 import { exportActiveDocument } from '../export/export-flow';
 import { FindBar } from './FindBar';
