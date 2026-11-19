@@ -25,6 +25,10 @@ No batch is committed. The product owner picks the next one from the lists below
   ignores it. Because it moves the edge corridor and Page/PDF parity, an ADR must settle density
   behavior and the corridor rule before the UI.
 - Image crop editor and region re-pick.
+- **Formula selection toggle.** With text selected, `$` wraps it in an inline formula; with the
+  formula selected, `$` unwraps it back to its LaTeX source, mirroring the backtick code toggle.
+  Empty-caret `$…$` typing stays as today; trim the selected source, keep invalid LaTeX visible with
+  its inline error, one undo step, and tests for wrap/unwrap plus prose containing `$`.
 - Math symbol/template palette.
 - Markdown export.
 - Drag a block onto another to indent/outdent (today drag only reorders).
