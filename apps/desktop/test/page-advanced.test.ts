@@ -152,13 +152,61 @@ describe('advanced Page theme cross-field rules', () => {
     ).toBe(true);
   });
 
-  it('keeps the edge corridor out of the editable advanced fields', () => {
-    // siblingGap / childIndent / calloutGap are engine constants now. A stored
-    // legacy value is not in the draft and cannot be edited.
-    for (const key of ['siblingGap', 'childIndent', 'calloutGap'] as const) {
+  it('keeps only the fixed horizontal corridor and callout lane out of the editable fields', () => {
+    // The three vertical gaps are Page settings (ADR-0010); the horizontal
+    // right-group corridor, child indent and callout lane/trunk fields stay
+    // hidden engine constants. A stored legacy value is not in the draft.
+    for (const key of [
+      'childIndent',
+      'childTrunkInset',
+      'calloutTrunkInset',
+      'calloutCardIndent',
+      'calloutRightGap',
+    ] as const) {
       expect(EDITABLE_THEME_KEYS).not.toContain(key);
       expect(Object.keys(pageThemeDraftFrom(COMPACT))).not.toContain(key);
     }
+    for (const key of ['siblingGap', 'chapterGap', 'calloutGap'] as const) {
+      expect(EDITABLE_THEME_KEYS).toContain(key);
+      expect(Object.keys(pageThemeDraftFrom(COMPACT))).toContain(key);
+    }
+  });
+
+  it('exposes the three vertical gaps as px fields from 0 to 96 with a 1 px step', () => {
+    expect(PAGE_THEME_FIELD_SPECS.siblingGap).toEqual({
+      label: 'Child gap',
+      unit: 'px',
+      min: 0,
+      max: 96,
+      step: 1,
+    });
+    expect(PAGE_THEME_FIELD_SPECS.chapterGap).toEqual({
+      label: 'Top-level gap',
+      unit: 'px',
+      min: 0,
+      max: 96,
+      step: 1,
+    });
+    expect(PAGE_THEME_FIELD_SPECS.calloutGap).toEqual({
+      label: 'Callout gap',
+      unit: 'px',
+      min: 0,
+      max: 96,
+      step: 1,
+    });
+    // The order is the owner's: Child, Top-level, Callout.
+    const order = ADVANCED_LAYOUT_KEYS.filter((key) =>
+      ['siblingGap', 'chapterGap', 'calloutGap'].includes(key),
+    );
+    expect(order).toEqual(['siblingGap', 'chapterGap', 'calloutGap']);
+    // An out-of-range draft is reported, never clamped.
+    const out = validate(draftFrom(COMPACT, { chapterGap: '97' }));
+    expect(out.valid).toBe(false);
+    expect(out.errors.chapterGap).toContain('0 to 96 px');
+    expect(out.values).toBeNull();
+    const valid = validate(draftFrom(COMPACT, { siblingGap: '0', chapterGap: '96', calloutGap: '24' }));
+    expect(valid.valid).toBe(true);
+    expect(valid.values).toMatchObject({ siblingGap: 0, chapterGap: 96, calloutGap: 24 });
   });
 
   it('requires the max card width to be at least the minimum content width', () => {
@@ -248,6 +296,32 @@ describe('advanced Page theme overrides', () => {
     expect(resolved.theme.bodyPt).toBe(11);
     expect(resolved.theme.heading1Pt).toBe(COMFORTABLE.heading1Pt);
     expect(resolved.theme.cardPadding).toBe(14);
+  });
+
+  it('freezes a non-default chapterGap with the other two vertical gaps', () => {
+    const global = mergePageSettings(DEFAULT_PAGE_SETTINGS, undefined).theme;
+    const full: PageTheme = {
+      ...COMPACT,
+      siblingGap: 40,
+      chapterGap: 64,
+      calloutGap: 24,
+      preset: 'custom',
+    };
+    const override = customThemeOverride(undefined, full, global);
+    // chapterGap must sit in the renderer's numeric key list, or a preset switch
+    // would silently drop a frozen Custom value.
+    expect(override?.theme?.siblingGap).toBe(40);
+    expect(override?.theme?.chapterGap).toBe(64);
+    expect(override?.theme?.calloutGap).toBe(24);
+    const resolved = mergePageSettings(DEFAULT_PAGE_SETTINGS, override);
+    expect(resolved.theme.siblingGap).toBe(40);
+    expect(resolved.theme.chapterGap).toBe(64);
+    expect(resolved.theme.calloutGap).toBe(24);
+    // The default gaps stay equal-to-global and are not pinned.
+    const unchanged = customThemeOverride(undefined, { ...COMPACT, preset: 'custom' }, global);
+    expect(unchanged?.theme?.siblingGap).toBeUndefined();
+    expect(unchanged?.theme?.chapterGap).toBeUndefined();
+    expect(unchanged?.theme?.calloutGap).toBeUndefined();
   });
 
   it('keeps an existing unrelated override when freezing a custom theme', () => {
@@ -347,6 +421,9 @@ describe('advanced field catalog', () => {
       'cardPadding',
       'cardBorder',
       'segmentGap',
+      'siblingGap',
+      'chapterGap',
+      'calloutGap',
       'wrapIndent',
       'maxWrapIndent',
     ]);
@@ -361,9 +438,7 @@ describe('advanced field catalog', () => {
       'calloutCardIndent',
       'calloutRightGap',
       'calloutModeMinWidth',
-      'siblingGap',
       'childIndent',
-      'calloutGap',
     ] as const) {
       expect(EDITABLE_THEME_KEYS).not.toContain(hidden);
     }

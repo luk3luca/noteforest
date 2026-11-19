@@ -673,6 +673,7 @@ describe('Batch C advanced typography/layout parity', () => {
     cardBorder: 2,
     segmentGap: 6,
     siblingGap: 20,
+    chapterGap: 40,
     calloutGap: 22,
     wrapIndent: 22,
     maxWrapIndent: 64,
@@ -708,15 +709,19 @@ describe('Batch C advanced typography/layout parity', () => {
       cardPadding: 14,
       cardBorder: 2,
       segmentGap: 6,
-      // The stored legacy corridor is kept on the theme but the engine uses
-      // the fixed Page corridor.
-      siblingGap: 18,
-      calloutGap: 16,
+      siblingGap: 20,
+      chapterGap: 40,
+      calloutGap: 22,
       wrapIndent: 22,
       maxWrapIndent: 64,
+      // The horizontal corridor is the fixed Page engine constant, not a theme
+      // lever, and the stored child indent stays compatibility-only.
+      rightGroupGap: 18,
       childIndent: 26,
     });
     expect(result.settings.theme.siblingGap).toBe(20);
+    expect(result.settings.theme.chapterGap).toBe(40);
+    expect(result.settings.theme.calloutGap).toBe(22);
     expect(result.settings.theme.childIndent).toBe(34);
   });
 
@@ -736,12 +741,41 @@ describe('Batch C advanced typography/layout parity', () => {
       maxContentWidth: 288,
       cardPadding: 11.2,
       segmentGap: 4.8,
-      siblingGap: 18,
-      calloutGap: 16,
+      // density never scales a vertical gap or the corridor.
+      siblingGap: 20,
+      chapterGap: 40,
+      calloutGap: 22,
+      rightGroupGap: 18,
       wrapIndent: 22,
       maxWrapIndent: 64,
       childIndent: 26,
     });
+  });
+
+  it('moves the top-level rhythm with the stored top-level gap and keeps Page/print parity', () => {
+    const topLevel = makeDocument({
+      id: 'batch-c-top-level',
+      blocks: ['b1', 'b2'],
+      chapters: [{ id: 'chapter-1', title: 'Top-level', topLevelBlockIds: ['b1', 'b2'] }],
+    });
+    const topSpecs: Record<string, StubSpec> = {
+      b1: { max: 300, min: 120, height: 60, segmentCount: 1 },
+      b2: { max: 300, min: 120, height: 60, segmentCount: 1 },
+    };
+    const base = pipeline(topLevel, topSpecs, A4_LANDSCAPE, { theme: { chapterGap: 32 } });
+    const wide = pipeline(topLevel, topSpecs, A4_LANDSCAPE, { theme: { chapterGap: 64 } });
+    expectSeamParity(base);
+    expectSeamParity(wide);
+    const b1 = base.layout.blockById['b1']!;
+    const b2 = base.layout.blockById['b2']!;
+    const wideB2 = wide.layout.blockById['b2']!;
+    expect(base.layout.layoutOptions?.chapterGap).toBe(32);
+    expect(b2.y - b1.subtreeBottom).toBeCloseTo(32, 6);
+    expect(wide.layout.layoutOptions?.chapterGap).toBe(64);
+    expect(wideB2.y - b1.subtreeBottom).toBeCloseTo(64, 6);
+    // Only the vertical rhythm moved: x and the horizontal corridor are fixed.
+    expect(wideB2.x).toBeCloseTo(b2.x, 6);
+    expect(wide.layout.layoutOptions?.rightGroupGap).toBe(18);
   });
 
   it('keeps the density card band for preset-range caps and custom scaling outside it', () => {

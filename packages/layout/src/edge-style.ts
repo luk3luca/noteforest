@@ -82,8 +82,8 @@ export interface PageEdgeStyle extends SharedEdgeStyle {
  *
  * These are engine constants, not density-scaled settings: the corridor must
  * stay identical at 60/70/100/120% so a density change never moves an arrow.
- * `PageTheme` keeps the matching stored fields for settings compatibility, but
- * `effectivePageTheme`/`pageLayoutOptions` always resolve these values.
+ * The vertical child/top-level/callout gaps are separate Page settings
+ * (`PageTheme`/`LayoutOptions`); only the corridor fields below stay fixed.
  */
 export interface PageEdgeGeometry {
   /** Horizontal lead from the parent port to the corridor trunk. */
@@ -92,14 +92,18 @@ export interface PageEdgeGeometry {
   stem: number;
   /** lead + stem: parent card right edge to child card left edge. */
   corridor: number;
-  /** Vertical gap between a sibling card bottom and the next card. */
+  /**
+   * Horizontal parent card right edge → right-group left edge corridor (18 px).
+   *
+   * The name is historical: this value is horizontal only and reaches the pure
+   * layout as `LayoutOptions.rightGroupGap`. The vertical child gap is the
+   * `PageTheme.siblingGap` setting and never reads this constant.
+   */
   siblingGap: number;
   /** Wrapped child origin: child trunk inset + stem. */
   childIndent: number;
   /** Callout card origin in mode B2: callout trunk inset + stem. */
   calloutCardIndent: number;
-  /** Vertical gap between stacked callout cards. */
-  calloutGap: number;
   /** Parent right edge to the mode A callout lane. */
   calloutRightGap: number;
   /** Below-trunk inset for the direct-child group. */
@@ -115,7 +119,6 @@ export const PAGE_EDGE_GEOMETRY: PageEdgeGeometry = Object.freeze({
   siblingGap: 18,
   childIndent: 26,
   calloutCardIndent: 38,
-  calloutGap: 16,
   calloutRightGap: 24,
   childTrunkInset: 12,
   calloutTrunkInset: 24,

@@ -516,7 +516,9 @@ describe('page packing: beside', () => {
       { root: [{ anchorId: 'a1', x: 40 }] },
     );
     const result = layout(document, port, 'beside', {
-      siblingGap: 16,
+      // The in-row corridor is horizontal and the callout gap is vertical; both
+      // axes keep their old 16/12 px geometry.
+      rightGroupGap: 16,
       calloutGap: 12,
     });
     const root = result.blockById['root']!;

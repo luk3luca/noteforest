@@ -213,7 +213,7 @@ export function AdvancedLayoutFields({
       title="Advanced layout"
       fields={ADVANCED_LAYOUT_KEYS}
       dataAttribute="layout"
-      help="Values in pixels, per level. Editing a value makes this layer Custom."
+      help="Values in pixels. Editing a value makes this layer Custom."
       useGlobalLabel="Use global layout"
       onUseGlobal={() => controller.useGlobalAdvancedLayout()}
       hasOverrides={controller.hasAdvancedLayoutOverrides}

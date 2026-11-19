@@ -144,6 +144,19 @@ async function firstFragmentHeight() {
   );
 }
 
+async function fragmentBox(blockId) {
+  return activePageView()
+    .locator(`.nf-page-fragment[data-fragment-block="${blockId}"]`)
+    .first()
+    .evaluate((element) => ({
+      left: Number.parseFloat(element.style.left),
+      top: Number.parseFloat(element.style.top),
+      width: Number.parseFloat(element.style.width),
+      height: Number.parseFloat(element.style.height),
+      page: Number(element.getAttribute('data-fragment-page')),
+    }));
+}
+
 async function settings() {
   return page.evaluate(() => window.__noteforestTest.settings());
 }
@@ -393,6 +406,164 @@ describe('M4d1 Page density control', () => {
       await readFile(join(env.NOTEFOREST_APP_SUPPORT, 'settings.json'), 'utf8'),
     );
     assert.equal(persisted.page.theme.density, 0.6, 'the global density persists');
+  });
+
+  it('does not scale the three Page gaps or the horizontal corridor with density', async () => {
+    const env = ui.isolated('m4d1-gaps');
+    await launch('m4d1-gaps');
+
+    // One parent, one anchored callout, two direct children and a second
+    // top-level block. `stacked` makes all three vertical rhythms visible.
+    const quote = 'anchored callout';
+    const parentText = `Parent with an ${quote} and two children.`;
+    const start = parentText.indexOf(quote);
+    const gapDocument = pageDocument({
+      id: 'density-gap-document',
+      title: 'Density gaps',
+      chapterTitle: 'Density gaps',
+      blocks: [
+        {
+          id: 'gap-parent',
+          label: 'Parent',
+          content: {
+            type: 'doc',
+            children: [
+              {
+                type: 'paragraph',
+                children: [
+                  ...(start > 0 ? [{ type: 'text', text: parentText.slice(0, start) }] : []),
+                  {
+                    type: 'text',
+                    text: quote,
+                    marks: [{ type: 'anchor', attrs: { anchorId: 'anchor-density-gap' } }],
+                  },
+                  ...(start + quote.length < parentText.length
+                    ? [{ type: 'text', text: parentText.slice(start + quote.length) }]
+                    : []),
+                ],
+              },
+            ],
+          },
+        },
+        textBlock('gap-child1', 'Child one', 'First child block.'),
+        textBlock('gap-child2', 'Child two', 'Second child block.'),
+        textBlock('gap-callout', 'Callout', 'An anchored callout below its parent.'),
+        textBlock('gap-second', 'Second top-level', 'A second top-level block.'),
+      ],
+      anchors: [
+        {
+          id: 'anchor-density-gap',
+          blockId: 'gap-parent',
+          kind: 'text',
+          selector: { kind: 'text', quote },
+          quote,
+        },
+      ],
+      branches: [
+        {
+          id: 'branch-gap-callout',
+          sourceBlockId: 'gap-parent',
+          sourceAnchorId: 'anchor-density-gap',
+          targetBlockId: 'gap-callout',
+          role: 'primary',
+        },
+        {
+          id: 'branch-gap-child1',
+          sourceBlockId: 'gap-parent',
+          targetBlockId: 'gap-child1',
+          role: 'primary',
+        },
+        {
+          id: 'branch-gap-child2',
+          sourceBlockId: 'gap-parent',
+          targetBlockId: 'gap-child2',
+          role: 'primary',
+        },
+      ],
+    });
+    const packagePath = await openPackage(env, 'Density gaps', gapDocument);
+    await showPageRead();
+    const gapStart = await modelRuns();
+    await page.evaluate(
+      ({ path, value }) => window.__noteforestTest.setPageSettingsOverride(path, value),
+      {
+        path: packagePath,
+        value: {
+          theme: { siblingGap: 40, chapterGap: 64, calloutGap: 24, pagePacking: 'stacked' },
+        },
+      },
+    );
+    await waitPageReady({ minRuns: gapStart + 1, density: 100 });
+
+    for (const density of [0.6, 1, 1.2]) {
+      await setGlobalDensity(density);
+      const parent = await fragmentBox('gap-parent');
+      const callout = await fragmentBox('gap-callout');
+      const child1 = await fragmentBox('gap-child1');
+      const child2 = await fragmentBox('gap-child2');
+      const second = await fragmentBox('gap-second');
+      const padding = await activePageView().evaluate((element) =>
+        getComputedStyle(element).getPropertyValue('--nf-page-card-padding').trim(),
+      );
+      assert.ok(
+        Math.abs(callout.top - (parent.top + parent.height) - 24) < 0.05,
+        `callout gap stays 24 at ${Math.round(density * 100)}%`,
+      );
+      assert.ok(
+        Math.abs(child2.top - (child1.top + child1.height) - 40) < 0.05,
+        `child gap stays 40 at ${Math.round(density * 100)}%`,
+      );
+      assert.ok(
+        Math.abs(second.top - (child2.top + child2.height) - 64) < 0.05,
+        `top-level gap stays 64 at ${Math.round(density * 100)}%`,
+      );
+      // Density still scales the card box, which is why page counts may move.
+      assert.ok(Number.parseFloat(padding) > 0, `card padding exists at ${Math.round(density * 100)}%`);
+      const expectedPadding = density < 1 ? '4.8px' : density > 1 ? '9.6px' : '8px';
+      assert.equal(padding, expectedPadding, 'card padding still follows density');
+      if (density === 0.6 || density === 1) {
+        const screenshotDir = artifactsPath('m4d1-page-density');
+        await mkdir(screenshotDir, { recursive: true });
+        await page.screenshot({
+          path: join(screenshotDir, `page-read-gaps-${Math.round(density * 100)}.png`),
+        });
+      }
+    }
+
+    // The horizontal parent → right-group corridor stays 18 px at a non-default
+    // child gap and at every density.
+    const sideDocument = pageDocument({
+      id: 'density-corridor',
+      title: 'Density corridor',
+      chapterTitle: 'Corridor',
+      blocks: [
+        textBlock('corridor-parent', 'Parent', 'A short parent block.'),
+        textBlock('corridor-child', 'Child', 'A short direct child.'),
+      ],
+      branches: [
+        {
+          id: 'branch-corridor',
+          sourceBlockId: 'corridor-parent',
+          targetBlockId: 'corridor-child',
+        },
+      ],
+    });
+    const sidePath = await openPackage(env, 'Density corridor', sideDocument);
+    await showPageRead();
+    await page.evaluate(
+      ({ path, value }) => window.__noteforestTest.setPageSettingsOverride(path, value),
+      { path: sidePath, value: { theme: { siblingGap: 40 } } },
+    );
+    for (const density of [0.6, 1, 1.2]) {
+      await setGlobalDensity(density);
+      const parent = await fragmentBox('corridor-parent');
+      const child = await fragmentBox('corridor-child');
+      const corridor = child.left - (parent.left + parent.width);
+      assert.ok(
+        Math.abs(corridor - 18) < 0.05,
+        `horizontal corridor stays 18 at ${Math.round(density * 100)}% (${corridor})`,
+      );
+    }
   });
 
   it('instant-saves the Settings slider globally and as a per-document override', async () => {

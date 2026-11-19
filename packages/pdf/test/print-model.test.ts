@@ -590,6 +590,46 @@ describe('print model identity (M4c2 R1/R4/R5)', () => {
     ).toThrow(/PageTheme/);
   });
 
+  it('carries the three per-document vertical gaps and fails a gap-only mismatch', () => {
+    const { document, specs } = modeADocument();
+    const measured = layoutFor(document, specs, A4_LANDSCAPE, {
+      theme: { siblingGap: 40, chapterGap: 64, calloutGap: 24 },
+    });
+    const model = buildModel(document, measured);
+    // The resolved per-document gaps reach the print model through one settings
+    // object, and the layout used each on its own vertical axis.
+    expect(model.settings.theme.siblingGap).toBe(40);
+    expect(model.settings.theme.chapterGap).toBe(64);
+    expect(model.settings.theme.calloutGap).toBe(24);
+    expect(measured.layout.layoutOptions).toMatchObject({
+      siblingGap: 40,
+      chapterGap: 64,
+      calloutGap: 24,
+      rightGroupGap: 18,
+    });
+
+    // A settings object that differs only in one vertical gap can never be
+    // paired with this measured run: the identity fails instead of printing
+    // silently re-paginated content.
+    const gapOnly = normalizePageSettings({
+      setup: A4_LANDSCAPE,
+      theme: { siblingGap: 40, chapterGap: 32, calloutGap: 24 },
+    });
+    expect(gapOnly.theme.bodyPt).toBe(measured.settings.theme.bodyPt);
+    expect(() =>
+      buildPrintModel(document, measured.layout, measured.paginated, {
+        settings: gapOnly,
+        pageModelFingerprint: pageSettingsFingerprint(gapOnly),
+      }),
+    ).toThrow(PrintModelSettingsMismatchError);
+    expect(() =>
+      buildPrintModel(document, measured.layout, measured.paginated, {
+        settings: gapOnly,
+        pageModelFingerprint: pageSettingsFingerprint(gapOnly),
+      }),
+    ).toThrow(/PageTheme/);
+  });
+
   it('treats a chrome change as part of the measured/print identity', () => {
     const { document, specs } = modeADocument();
     const measured = layoutFor(document, specs);

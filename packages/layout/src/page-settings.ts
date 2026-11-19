@@ -86,13 +86,18 @@ export interface PageTheme {
   cardBorder: number;
   segmentGap: number;
   /**
-   * Legacy stored page geometry. The Page edge corridor is fixed by
-   * `PAGE_EDGE_GEOMETRY` (siblingGap 18, childIndent 26, calloutCardIndent 38,
-   * calloutGap 16, calloutRightGap 24, trunk insets 12/24): these fields are
-   * kept for settings compatibility and are never density-scaled or read by
-   * the engine.
+   * Page child gap, px (0–96, default 18). Sets the parent → below-child gap,
+   * the child → child stack gap, the next sibling after a previous subtree and
+   * the callout-stack → child transition. Vertical only: the horizontal
+   * parent → right-group corridor is `PAGE_EDGE_GEOMETRY.siblingGap`. Fixed
+   * under density.
    */
   siblingGap: number;
+  /**
+   * Page top-level gap, px (0–96, default 32). Sets the vertical gap between
+   * top-level blocks in a chapter. Fixed under density.
+   */
+  chapterGap: number;
   wrapIndent: number;
   /**
    * Per-level cap on the wrap indent added from a parent left edge. The cap is
@@ -100,7 +105,12 @@ export interface PageTheme {
    * fixed origin token (not density-scaled) and never cuts below `childIndent`.
    */
   maxWrapIndent: number;
-  /** Fixed Page corridor value (12 px trunk + 14 px stem). */
+  /**
+   * Legacy stored corridor geometry. The Page edge corridor is fixed by
+   * `PAGE_EDGE_GEOMETRY` (childIndent 26, calloutCardIndent 38,
+   * calloutRightGap 24, trunk insets 12/24): these fields are kept for settings
+   * compatibility and are never density-scaled or read by the engine.
+   */
   childIndent: number;
   /** Below-trunk inset for the direct-child group (fixed 12 px). */
   childTrunkInset: number;
@@ -112,7 +122,12 @@ export interface PageTheme {
   calloutRightGap: number;
   /** Minimum free right space that selects callout mode A. */
   calloutModeMinWidth: number;
-  /** Vertical gap between stacked callouts (fixed 16 px). */
+  /**
+   * Page callout gap, px (0–96, default 16). Sets the parent →
+   * anchored-callout gap for below placements and the callout → callout stack.
+   * In callout mode A the first callout sits in the right lane at the parent's
+   * y, so only the callout → callout gap applies there. Fixed under density.
+   */
   calloutGap: number;
   maxCardWidth: number;
   minContentWidth: number;
@@ -189,6 +204,29 @@ export interface PageSettingsOverride {
   manualBreakBeforeBlockIds?: readonly string[];
 }
 
+/**
+ * Page vertical gap settings (ADR-0010).
+ *
+ * Three independent rhythms: the **child gap** (parent → below-child gap, the
+ * child → child stack, the next sibling after a previous subtree and the
+ * callout-stack → child transition), the **top-level gap** (between top-level
+ * blocks in a chapter) and the **callout gap** (parent → anchored callout for
+ * below placements, callout → callout). Each is a personal Page setting (a
+ * global default plus a per-document override), fixed under density and
+ * consumed by Page Read/Edit, measurement and PDF.
+ *
+ * The horizontal parent → right-group corridor is not a setting: it stays
+ * `PAGE_EDGE_GEOMETRY.siblingGap` (18) and reaches the pure layout as
+ * `LayoutOptions.rightGroupGap`. The three vertical defaults are separate
+ * constants, never aliases of the corridor even where the numbers coincide.
+ */
+export const PAGE_CHILD_GAP_DEFAULT = 18;
+export const PAGE_TOP_LEVEL_GAP_DEFAULT = 32;
+export const PAGE_CALLOUT_GAP_DEFAULT = 16;
+/** Shared stored range for the three vertical Page gaps. */
+export const PAGE_GAP_MIN = 0;
+export const PAGE_GAP_MAX = 96;
+
 /** Compact is the dense reading preset and the product default. */
 const COMPACT_THEME: PageTheme = Object.freeze({
   preset: 'compact',
@@ -210,7 +248,8 @@ const COMPACT_THEME: PageTheme = Object.freeze({
   cardPadding: 8,
   cardBorder: 1,
   segmentGap: 4,
-  siblingGap: PAGE_EDGE_GEOMETRY.siblingGap,
+  siblingGap: PAGE_CHILD_GAP_DEFAULT,
+  chapterGap: PAGE_TOP_LEVEL_GAP_DEFAULT,
   wrapIndent: 12,
   maxWrapIndent: 36,
   childIndent: PAGE_EDGE_GEOMETRY.childIndent,
@@ -219,7 +258,7 @@ const COMPACT_THEME: PageTheme = Object.freeze({
   calloutCardIndent: PAGE_EDGE_GEOMETRY.calloutCardIndent,
   calloutRightGap: PAGE_EDGE_GEOMETRY.calloutRightGap,
   calloutModeMinWidth: 240,
-  calloutGap: PAGE_EDGE_GEOMETRY.calloutGap,
+  calloutGap: PAGE_CALLOUT_GAP_DEFAULT,
   maxCardWidth: 420,
   minContentWidth: 160,
   // Product-owner tree model (8 November 2026): direct children share one
@@ -252,7 +291,8 @@ const COMFORTABLE_THEME: PageTheme = Object.freeze({
   cardPadding: 12,
   cardBorder: 1,
   segmentGap: 8,
-  siblingGap: PAGE_EDGE_GEOMETRY.siblingGap,
+  siblingGap: PAGE_CHILD_GAP_DEFAULT,
+  chapterGap: PAGE_TOP_LEVEL_GAP_DEFAULT,
   wrapIndent: 18,
   maxWrapIndent: 54,
   childIndent: PAGE_EDGE_GEOMETRY.childIndent,
@@ -261,7 +301,7 @@ const COMFORTABLE_THEME: PageTheme = Object.freeze({
   calloutCardIndent: PAGE_EDGE_GEOMETRY.calloutCardIndent,
   calloutRightGap: PAGE_EDGE_GEOMETRY.calloutRightGap,
   calloutModeMinWidth: 240,
-  calloutGap: PAGE_EDGE_GEOMETRY.calloutGap,
+  calloutGap: PAGE_CALLOUT_GAP_DEFAULT,
   maxCardWidth: 420,
   minContentWidth: 160,
   // Comfortable is a density/typography preset, not a topology preset.
@@ -471,13 +511,15 @@ function scaledCardWidth(original: number, scaled: number): number {
  * (`minContentWidth` 140, `maxCardWidth` 240–560). Page setup and margins are
  * not part of the theme.
  *
- * The edge corridor is an engine invariant (`PAGE_EDGE_GEOMETRY`): sibling gap,
- * child/callout indents, callout gap/right gap, and the trunk insets are always
- * resolved to the fixed corridor, so 60/70/100/120% draw the same arrows.
- * `PageTheme` keeps the stored fields for settings compatibility; they are
- * ignored by the engine. Density still scales typography, card padding,
- * segment gap, and content/card widths; wrap indents and the corridor stay
- * fixed.
+ * The horizontal edge corridor is an engine invariant (`PAGE_EDGE_GEOMETRY`):
+ * the child/callout indents, callout right gap and the trunk insets are always
+ * resolved to the fixed corridor, so 60/70/100/120% draw the same arrows. The
+ * three vertical gaps (child, top-level, callout) are Page settings: they are
+ * clamped to 0–96 with their defaults and never multiplied by density.
+ * `PageTheme` keeps the remaining corridor fields for settings compatibility;
+ * they are ignored by the engine. Density still scales typography, card
+ * padding, segment gap, and content/card widths; wrap indents, the vertical
+ * gaps and the corridor stay fixed.
  *
  * The returned theme carries `density: 1`, so applying the lens twice is
  * idempotent.
@@ -485,15 +527,31 @@ function scaledCardWidth(original: number, scaled: number): number {
 export function effectivePageTheme(theme: PageTheme): PageTheme {
   const density = normalizePageDensity(theme.density);
   const corridor = {
-    siblingGap: PAGE_EDGE_GEOMETRY.siblingGap,
     childIndent: PAGE_EDGE_GEOMETRY.childIndent,
     childTrunkInset: PAGE_EDGE_GEOMETRY.childTrunkInset,
     calloutTrunkInset: PAGE_EDGE_GEOMETRY.calloutTrunkInset,
     calloutCardIndent: PAGE_EDGE_GEOMETRY.calloutCardIndent,
     calloutRightGap: PAGE_EDGE_GEOMETRY.calloutRightGap,
-    calloutGap: PAGE_EDGE_GEOMETRY.calloutGap,
   } satisfies Partial<PageTheme>;
-  if (density === 1) return { ...theme, ...corridor };
+  // The three vertical gaps are settings, not corridor constants, and density
+  // never scales them: a non-finite stored value falls back to its default and
+  // an out-of-range one is clamped to 0–96.
+  const verticalGaps = {
+    siblingGap: finiteNumber(theme.siblingGap, PAGE_CHILD_GAP_DEFAULT, PAGE_GAP_MIN, PAGE_GAP_MAX),
+    chapterGap: finiteNumber(
+      theme.chapterGap,
+      PAGE_TOP_LEVEL_GAP_DEFAULT,
+      PAGE_GAP_MIN,
+      PAGE_GAP_MAX,
+    ),
+    calloutGap: finiteNumber(
+      theme.calloutGap,
+      PAGE_CALLOUT_GAP_DEFAULT,
+      PAGE_GAP_MIN,
+      PAGE_GAP_MAX,
+    ),
+  } satisfies Partial<PageTheme>;
+  if (density === 1) return { ...theme, ...corridor, ...verticalGaps };
 
   const scale = (value: number): number => roundTo(value * density);
   // Position inside the low-density band: 0 at 60%, 1 at 100%.
@@ -548,20 +606,28 @@ export function effectivePageTheme(theme: PageTheme): PageTheme {
     wrapIndent,
     maxWrapIndent,
     ...corridor,
+    ...verticalGaps,
     minContentWidth,
     maxCardWidth,
   };
 }
 
-/** Map a page theme onto the pure layout tuning options. */
+/**
+ * Map a page theme onto the pure layout tuning options.
+ *
+ * The three vertical gaps are the resolved Page settings; the horizontal
+ * parent → right-group corridor is the fixed `PAGE_EDGE_GEOMETRY.siblingGap`
+ * (18) mapped to its own option, so no vertical setting can move an arrow.
+ */
 export function pageLayoutOptions(theme: PageTheme): LayoutOptions {
   const effective = effectivePageTheme(theme);
   return {
     minContentWidth: effective.minContentWidth,
     maxContentWidth: effective.maxCardWidth,
-    // The edge corridor is a Page engine constant, not a theme lever: a stored
-    // legacy value can never move an arrow (PAGE_EDGE_GEOMETRY).
-    siblingGap: PAGE_EDGE_GEOMETRY.siblingGap,
+    siblingGap: effective.siblingGap,
+    // The horizontal corridor is a Page engine constant, not a theme lever: a
+    // stored legacy value can never move an arrow (PAGE_EDGE_GEOMETRY).
+    rightGroupGap: PAGE_EDGE_GEOMETRY.siblingGap,
     wrapIndent: effective.wrapIndent,
     maxWrapIndent: effective.maxWrapIndent,
     childIndent: PAGE_EDGE_GEOMETRY.childIndent,
@@ -575,10 +641,8 @@ export function pageLayoutOptions(theme: PageTheme): LayoutOptions {
     calloutModes: effective.pagePacking === 'beside',
     wrapPolicy: DEFAULT_LAYOUT_OPTIONS.wrapPolicy,
     pagePacking: effective.pagePacking,
-    calloutGap: PAGE_EDGE_GEOMETRY.calloutGap,
-    // Page chapter spacing is an engine constant (32 px), not a PageTheme
-    // field. The Continuous shell's 28 px chapter gap is a separate surface.
-    chapterGap: DEFAULT_LAYOUT_OPTIONS.chapterGap,
+    calloutGap: effective.calloutGap,
+    chapterGap: effective.chapterGap,
     cardPadding: effective.cardPadding,
     cardBorder: effective.cardBorder,
     segmentGap: effective.segmentGap,
@@ -769,7 +833,8 @@ function resolveTheme(
     cardPadding: clamp('cardPadding', 8, 0, 40),
     cardBorder: clamp('cardBorder', 1, 0, 8),
     segmentGap: clamp('segmentGap', 4, 0, 32),
-    siblingGap: clamp('siblingGap', 16, 0, 96),
+    siblingGap: clamp('siblingGap', PAGE_CHILD_GAP_DEFAULT, PAGE_GAP_MIN, PAGE_GAP_MAX),
+    chapterGap: clamp('chapterGap', PAGE_TOP_LEVEL_GAP_DEFAULT, PAGE_GAP_MIN, PAGE_GAP_MAX),
     wrapIndent,
     maxWrapIndent,
     childIndent,
@@ -778,7 +843,7 @@ function resolveTheme(
     calloutCardIndent,
     calloutRightGap,
     calloutModeMinWidth,
-    calloutGap: clamp('calloutGap', 12, 0, 96),
+    calloutGap: clamp('calloutGap', PAGE_CALLOUT_GAP_DEFAULT, PAGE_GAP_MIN, PAGE_GAP_MAX),
     maxCardWidth,
     minContentWidth,
     pagePacking,
@@ -855,6 +920,7 @@ const PAGE_THEME_NUMERIC_KEYS = [
   'cardBorder',
   'segmentGap',
   'siblingGap',
+  'chapterGap',
   'wrapIndent',
   'maxWrapIndent',
   'childIndent',

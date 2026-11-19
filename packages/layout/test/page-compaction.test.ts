@@ -588,6 +588,9 @@ describe('page compaction: committed fixtures', () => {
     minContentWidth: 160,
     maxContentWidth: 420,
     siblingGap: 16,
+    // The compaction row mixes axes: the in-row gap is horizontal, the row top
+    // is vertical, so the oracle pins both to its historical 16 px.
+    rightGroupGap: 16,
     wrapIndent: 12,
     maxWrapIndent: 36,
     calloutGap: 12,

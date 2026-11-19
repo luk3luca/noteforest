@@ -50,7 +50,8 @@ theme; explicit overrides win; `custom` is a marker for explicit values with no 
 | `cardPadding` (px) | 8 | 12 | 0–40; density scales proportionally |
 | `cardBorder` (px) | 1 | 1 | 0–8; not density-scaled |
 | `segmentGap` (px) | 4 | 8 | 0–32; density scales proportionally |
-| `siblingGap` (px) | 18 | 18 | **Engine constant** (`PAGE_EDGE_GEOMETRY`); stored 0–96 but not density-scaled |
+| `siblingGap` (px) | 18 | 18 | 0–96; **Child gap** Page setting (ADR-0010), fixed under density; never the horizontal corridor |
+| `chapterGap` (px) | 32 | 32 | 0–96; **Top-level gap** Page setting, fixed under density |
 | `wrapIndent` (px) | 12 | 18 | 0–96; fixed under density (origin token) |
 | `maxWrapIndent` (px) | 36 | 54 | 0–192; forced to at least `wrapIndent`; fixed under density; never below `childIndent` |
 | `childIndent` (px) | 26 | 26 | **Engine constant** = `childTrunkInset` 12 + stem 14; stored 0–96, ignored by the engine |
@@ -59,7 +60,7 @@ theme; explicit overrides win; `custom` is a marker for explicit values with no 
 | `calloutCardIndent` (px) | 38 | 38 | **Engine constant** = `calloutTrunkInset` 24 + stem 14; stored 0–160, ignored |
 | `calloutRightGap` (px) | 24 | 24 | **Engine constant**; stored `stemMin`–96, ignored |
 | `calloutModeMinWidth` (px) | 240 | 240 | 0–800; not density-scaled |
-| `calloutGap` (px) | 16 | 16 | **Engine constant**; stored 0–96, ignored |
+| `calloutGap` (px) | 16 | 16 | 0–96; **Callout gap** Page setting, fixed under density |
 | `maxCardWidth` (px) | 420 | 420 | 120–2000; density clamps the preset band to 240–560 |
 | `minContentWidth` (px) | 160 | 160 | 80–800; density floor 140 for preset-range values |
 
@@ -82,7 +83,6 @@ theme; explicit overrides win; `custom` is a marker for explicit values with no 
 | Quote border `3px` | Page CSS constant | Uses `--nf-page-rule`. |
 | List marker width `1.2em` | Page CSS constant | Uses `wrapIndent` for list indentation. |
 | Card radius `4px` | **Shared shell primitive** | Page cards consume `--nf-card-radius` from `DESIGN_TOKENS.cardRadius`; it is intentionally shared with Continuous and is not a PageTheme field. |
-| Chapter gap `32px` | **Page engine constant** | `pageLayoutOptions` uses `DEFAULT_LAYOUT_OPTIONS.chapterGap`; the Continuous shell chapter gap is a separate 28 px token. Not a PageTheme field. |
 
 ## Density lens
 
@@ -106,9 +106,11 @@ Below 100% type follows a floor-anchored curve: each preset size interpolates fr
 compact theme resolves to body 7 pt, card padding 4.8 px, and max card 252 px; at 120% body is
 10.8 pt, card padding 9.6 px, and max card 504 px.
 
-Density does **not** scale the Page edge corridor or the wrap origins: `siblingGap`, `childIndent`,
-`calloutCardIndent`, `calloutGap`, `calloutRightGap`, the trunk insets, `wrapIndent`, and
-`maxWrapIndent` are fixed at every step, so 60/70/100/120% draw the same arrows. Density still moves
+Density does **not** scale the Page vertical gaps or the horizontal corridor and wrap origins: the child
+gap (`siblingGap`), top-level gap (`chapterGap`), callout gap (`calloutGap`), `childIndent`,
+`calloutCardIndent`, `calloutRightGap`, the trunk insets, `wrapIndent`, and `maxWrapIndent` are fixed
+at every step, so 60/70/100/120% draw the same arrows and the same vertical rhythm. The fixed
+horizontal parent → right-group corridor stays 18 px at every density. Density still moves
 typography, card padding, segment gap, and content/card width, so wrapping can change because the
 placed width and the mode-A lane gate are geometric inputs; that is the current model, not a token
 drift. Page setup/margins never change.
@@ -185,18 +187,20 @@ shared/base `EDGE_STYLE`; guard: `packages/layout/test/edge-style-isolation.test
 |---|---:|---|
 | `lead` | 4 px | Parent port (right edge / trunk) to the corridor trunk |
 | `stem` | 14 px | Final straight run before the fixed arrowhead; `PAGE_EDGE_STYLE.stemMin` |
-| `corridor` | 18 px | `lead + stem` = parent card right edge → child card left edge = `siblingGap` |
-| `siblingGap` | 18 px | Vertical sibling gap; also the right-group horizontal corridor |
+| `corridor` | 18 px | `lead + stem` = parent card right edge → child card left edge |
+| `siblingGap` | 18 px | Horizontal parent → right-group corridor only (historical name; the vertical child gap is `PageTheme.siblingGap`) |
 | `childIndent` | 26 px | `childTrunkInset` 12 + `stem` 14 |
 | `calloutCardIndent` | 38 px | `calloutTrunkInset` 24 + `stem` 14 |
-| `calloutGap` | 16 px | Stacked callout card gap |
 | `calloutRightGap` | 24 px | Parent right edge to the mode A callout lane |
 | `childTrunkInset` / `calloutTrunkInset` | 12 / 24 px | Below-trunk insets (B2 groups) |
 
 The 6 × 6 px arrowhead (`arrowLength` 6, `arrowHalfWidth` 3) and the Page stroke widths
 (1.25 / 1.75 / 1) are unchanged. The corridor is density-independent and is not a user-facing
-advanced control; the stored `PageTheme` fields remain for settings compatibility only. Continuous
-keeps its own 12 px stem and 16 px child gap; the two surfaces never share these values.
+advanced control; Page production maps it to `LayoutOptions.rightGroupGap` and the remaining stored
+`PageTheme` corridor fields (`childIndent`, the trunk insets, `calloutCardIndent`,
+`calloutRightGap`) stay for settings compatibility only. The three vertical gaps (child,
+top-level, callout) are Page settings, not corridor values (ADR-0010). Continuous keeps its own
+12 px stem and 16 px child gap; the two surfaces never share these values.
 
 Page-only route search values (on top of the shared contract) are:
 
@@ -295,7 +299,8 @@ the Page fields through `pageLayoutOptions(theme)`.
 |---|---:|---|
 | `minContentWidth` | 160 | Page theme (engine fallback) |
 | `maxContentWidth` | 420 | Page theme (engine fallback) |
-| `siblingGap` | 24 | DOM-free engine fallback (Page production always uses `PAGE_EDGE_GEOMETRY.siblingGap` 18) |
+| `siblingGap` | 24 | DOM-free engine fallback for the vertical child gap (Page production always maps `PageTheme.siblingGap`, default 18) |
+| `rightGroupGap` | 24 | Horizontal corridor fallback (Page production always maps `PAGE_EDGE_GEOMETRY.siblingGap` 18) |
 | `wrapIndent` | 18 | Page theme (engine fallback) |
 | `maxWrapIndent` | 54 | Page theme (engine fallback), per level |
 | `childIndent` | 26 | Engine fallback (matches the Page corridor) |
@@ -304,8 +309,8 @@ the Page fields through `pageLayoutOptions(theme)`.
 | `calloutCardIndent` | 38 | Page theme (engine fallback) |
 | `calloutRightGap` | 24 | Page theme (engine fallback) |
 | `calloutModeMinWidth` | 240 | Page theme (engine fallback) |
-| `calloutGap` | 20 | Page theme (engine fallback) |
-| `chapterGap` | 32 | Page engine constant |
+| `calloutGap` | 20 | Page theme vertical callout gap (engine fallback) |
+| `chapterGap` | 32 | Page theme vertical top-level gap (engine fallback) |
 | `cardPadding` | 12 | Page theme (engine fallback) |
 | `cardBorder` | 1 | Page theme (engine fallback) |
 | `segmentGap` | 8 | Page theme (engine fallback) |

@@ -186,7 +186,7 @@ const APPLIED_COPY: Record<string, readonly string[]> = {
   ],
   'src/renderer/src/settings/PageAdvancedSettings.tsx': [
     'Sizes in points, line heights as a multiplier. Editing a value makes this layer Custom.',
-    'Values in pixels, per level. Editing a value makes this layer Custom.',
+    'Values in pixels. Editing a value makes this layer Custom.',
     'Card width limit. It follows density; images use the same limit.',
   ],
   'src/renderer/src/settings/PageSettingsPreview.tsx': [

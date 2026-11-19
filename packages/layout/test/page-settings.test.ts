@@ -13,14 +13,19 @@ import {
   normalizePageSettingsOverride,
   mergePageSettings,
   PAGE_BODY_PT_FLOOR,
+  PAGE_CALLOUT_GAP_DEFAULT,
+  PAGE_CHILD_GAP_DEFAULT,
   PAGE_DENSITY_DEFAULT,
   PAGE_DENSITY_MAX,
   PAGE_DENSITY_MIN,
   PAGE_DENSITY_STEP,
+  PAGE_GAP_MAX,
+  PAGE_GAP_MIN,
   PAGE_MAX_CARD_WIDTH_MAX,
   PAGE_MAX_CARD_WIDTH_MIN,
   PAGE_MIN_CONTENT_WIDTH_FLOOR,
   PAGE_THEME_PRESETS,
+  PAGE_TOP_LEVEL_GAP_DEFAULT,
   pageCssVariables,
   pageDimensionsMm,
   pageGeometry,
@@ -53,6 +58,8 @@ describe('page settings defaults', () => {
       cardPadding: 8,
       segmentGap: 4,
       siblingGap: 18,
+      chapterGap: 32,
+      calloutGap: 16,
       wrapIndent: 12,
       maxWrapIndent: 36,
       childIndent: 26,
@@ -94,6 +101,8 @@ describe('page settings defaults', () => {
       cardPadding: 12,
       segmentGap: 8,
       siblingGap: 18,
+      chapterGap: 32,
+      calloutGap: 16,
       wrapIndent: 18,
       maxWrapIndent: 54,
       childIndent: 26,
@@ -416,6 +425,7 @@ describe('theme maps', () => {
       minContentWidth: theme.minContentWidth,
       maxContentWidth: theme.maxCardWidth,
       siblingGap: theme.siblingGap,
+      rightGroupGap: PAGE_EDGE_GEOMETRY.siblingGap,
       wrapIndent: theme.wrapIndent,
       maxWrapIndent: theme.maxWrapIndent,
       childIndent: theme.childIndent,
@@ -428,7 +438,7 @@ describe('theme maps', () => {
       wrapPolicy: DEFAULT_LAYOUT_OPTIONS.wrapPolicy,
       pagePacking: theme.pagePacking,
       calloutGap: theme.calloutGap,
-      chapterGap: DEFAULT_LAYOUT_OPTIONS.chapterGap,
+      chapterGap: theme.chapterGap,
       cardPadding: theme.cardPadding,
       cardBorder: theme.cardBorder,
       segmentGap: theme.segmentGap,
@@ -765,17 +775,19 @@ describe('Page edge corridor (fixed 18 px)', () => {
     expect(PAGE_EDGE_STYLE.edgeWidthMuted).toBe(1);
   });
 
-  it('keeps the same corridor and arrowhead at 60/70/100/120%', () => {
+  it('keeps the horizontal corridor and arrowhead at 60/70/100/120% without scaling the vertical gaps', () => {
     for (const density of densities) {
       const effective = effectivePageTheme({ ...compact, density });
-      expect(effective.siblingGap, `sibling gap at ${density}`).toBe(
-        PAGE_EDGE_GEOMETRY.siblingGap,
-      );
+      // The three vertical gaps are settings: stored and effective agree, and
+      // density never scales them.
+      expect(effective.siblingGap, `child gap at ${density}`).toBe(compact.siblingGap);
+      expect(effective.chapterGap, `top-level gap at ${density}`).toBe(compact.chapterGap);
+      expect(effective.calloutGap, `callout gap at ${density}`).toBe(compact.calloutGap);
+      // The horizontal corridor, lanes and origins are fixed.
       expect(effective.childIndent).toBe(PAGE_EDGE_GEOMETRY.childIndent);
       expect(effective.childTrunkInset).toBe(PAGE_EDGE_GEOMETRY.childTrunkInset);
       expect(effective.calloutTrunkInset).toBe(PAGE_EDGE_GEOMETRY.calloutTrunkInset);
       expect(effective.calloutCardIndent).toBe(PAGE_EDGE_GEOMETRY.calloutCardIndent);
-      expect(effective.calloutGap).toBe(PAGE_EDGE_GEOMETRY.calloutGap);
       expect(effective.calloutRightGap).toBe(PAGE_EDGE_GEOMETRY.calloutRightGap);
       // Indents and wrap origins are fixed too, so a group cannot be pulled
       // inside the artery by a density-scaled cap.
@@ -784,12 +796,14 @@ describe('Page edge corridor (fixed 18 px)', () => {
       expect(effective.maxWrapIndent).toBeGreaterThanOrEqual(effective.childIndent);
 
       const options = pageLayoutOptions({ ...compact, density });
-      expect(options.siblingGap).toBe(PAGE_EDGE_GEOMETRY.siblingGap);
+      expect(options.siblingGap).toBe(compact.siblingGap);
+      expect(options.chapterGap).toBe(compact.chapterGap);
+      expect(options.calloutGap).toBe(compact.calloutGap);
+      expect(options.rightGroupGap).toBe(PAGE_EDGE_GEOMETRY.siblingGap);
       expect(options.childIndent).toBe(PAGE_EDGE_GEOMETRY.childIndent);
       expect(options.childTrunkInset).toBe(PAGE_EDGE_GEOMETRY.childTrunkInset);
       expect(options.calloutTrunkInset).toBe(PAGE_EDGE_GEOMETRY.calloutTrunkInset);
       expect(options.calloutCardIndent).toBe(PAGE_EDGE_GEOMETRY.calloutCardIndent);
-      expect(options.calloutGap).toBe(PAGE_EDGE_GEOMETRY.calloutGap);
       expect(options.calloutRightGap).toBe(PAGE_EDGE_GEOMETRY.calloutRightGap);
       // Density still moves type, padding, segment gap, and content width
       // below 100%.
@@ -803,27 +817,96 @@ describe('Page edge corridor (fixed 18 px)', () => {
     expect(high.segmentGap).toBe(4.8);
   });
 
-  it('ignores a legacy stored geometry override at every density', () => {
-    const legacy = {
+  it('honours the three vertical gaps and ignores a legacy stored corridor override', () => {
+    const nonDefault = {
       ...compact,
       siblingGap: 40,
+      chapterGap: 64,
+      calloutGap: 24,
       childIndent: 60,
       calloutCardIndent: 70,
-      calloutGap: 30,
       calloutRightGap: 36,
       childTrunkInset: 30,
       calloutTrunkInset: 44,
       maxWrapIndent: 20,
     };
     for (const density of densities) {
-      const options = pageLayoutOptions({ ...legacy, density });
-      expect(options.siblingGap).toBe(PAGE_EDGE_GEOMETRY.siblingGap);
+      const options = pageLayoutOptions({ ...nonDefault, density });
+      // The vertical axis is honoured raw: no lens, no corridor constant.
+      expect(options.siblingGap).toBe(40);
+      expect(options.chapterGap).toBe(64);
+      expect(options.calloutGap).toBe(24);
+      // The horizontal corridor is still the fixed engine value.
+      expect(options.rightGroupGap).toBe(PAGE_EDGE_GEOMETRY.siblingGap);
       expect(options.childIndent).toBe(PAGE_EDGE_GEOMETRY.childIndent);
       expect(options.calloutCardIndent).toBe(PAGE_EDGE_GEOMETRY.calloutCardIndent);
-      expect(options.calloutGap).toBe(PAGE_EDGE_GEOMETRY.calloutGap);
       expect(options.calloutRightGap).toBe(PAGE_EDGE_GEOMETRY.calloutRightGap);
       expect(options.childTrunkInset).toBe(PAGE_EDGE_GEOMETRY.childTrunkInset);
       expect(options.calloutTrunkInset).toBe(PAGE_EDGE_GEOMETRY.calloutTrunkInset);
     }
+  });
+});
+
+describe('Page vertical gaps (ADR-0010)', () => {
+  it('stores 18/32/16 by default and clamps each to 0–96', () => {
+    expect(PAGE_CHILD_GAP_DEFAULT).toBe(18);
+    expect(PAGE_TOP_LEVEL_GAP_DEFAULT).toBe(32);
+    expect(PAGE_CALLOUT_GAP_DEFAULT).toBe(16);
+    expect(PAGE_GAP_MIN).toBe(0);
+    expect(PAGE_GAP_MAX).toBe(96);
+    const defaults = normalizePageSettings().theme;
+    expect(defaults.siblingGap).toBe(18);
+    expect(defaults.chapterGap).toBe(32);
+    expect(defaults.calloutGap).toBe(16);
+
+    const clamped = normalizePageSettings({
+      theme: { siblingGap: -4, chapterGap: 400, calloutGap: Number.NaN },
+    }).theme;
+    expect(clamped.siblingGap).toBe(PAGE_GAP_MIN);
+    expect(clamped.chapterGap).toBe(PAGE_GAP_MAX);
+    // A non-finite value falls back to its own default, not to another gap.
+    expect(clamped.calloutGap).toBe(PAGE_CALLOUT_GAP_DEFAULT);
+  });
+
+  it('keeps a per-document chapterGap override and the other two gaps independent', () => {
+    const override = normalizePageSettingsOverride({
+      theme: { siblingGap: 40, chapterGap: 64, calloutGap: 24 },
+    });
+    expect(override).toEqual({
+      theme: { siblingGap: 40, chapterGap: 64, calloutGap: 24 },
+    });
+    const resolved = mergePageSettings(DEFAULT_PAGE_SETTINGS, override);
+    expect(resolved.theme.siblingGap).toBe(40);
+    expect(resolved.theme.chapterGap).toBe(64);
+    expect(resolved.theme.calloutGap).toBe(24);
+    // A chapterGap-only override survives without dragging the others.
+    expect(normalizePageSettingsOverride({ theme: { chapterGap: 48 } })).toEqual({
+      theme: { chapterGap: 48 },
+    });
+    expect(
+      mergePageSettings(DEFAULT_PAGE_SETTINGS, { theme: { chapterGap: 48 } }).theme,
+    ).toMatchObject({ siblingGap: 18, chapterGap: 48, calloutGap: 16 });
+  });
+
+  it('applies no density lens to any of the three and never writes a corridor value', () => {
+    for (const density of [0.6, 0.8, 1, 1.2]) {
+      const effective = effectivePageTheme({ ...PAGE_THEME_PRESETS.compact, density });
+      expect(effective.siblingGap).toBe(18);
+      expect(effective.chapterGap).toBe(32);
+      expect(effective.calloutGap).toBe(16);
+      expect(effective.density).toBe(1);
+      const options = pageLayoutOptions({ ...PAGE_THEME_PRESETS.compact, density });
+      expect(options.rightGroupGap).toBe(PAGE_EDGE_GEOMETRY.siblingGap);
+    }
+    // effectivePageTheme normalizes a bypassed stored value to 0–96.
+    const outOfRange = effectivePageTheme({
+      ...PAGE_THEME_PRESETS.compact,
+      siblingGap: 400,
+      chapterGap: -8,
+      calloutGap: 200,
+    });
+    expect(outOfRange.siblingGap).toBe(PAGE_GAP_MAX);
+    expect(outOfRange.chapterGap).toBe(PAGE_GAP_MIN);
+    expect(outOfRange.calloutGap).toBe(PAGE_GAP_MAX);
   });
 });

@@ -499,7 +499,7 @@ class LayoutBuilder {
       return column;
     }
 
-    const remaining = available - cardWidth - this.options.siblingGap;
+    const remaining = available - cardWidth - this.options.rightGroupGap;
     if (!cardFits || remaining <= EPSILON || this.subtreeColumnStack.has(target.id)) {
       const column: SubtreeColumn = {
         cardWidth,
@@ -524,7 +524,7 @@ class LayoutBuilder {
     const column: SubtreeColumn = {
       cardWidth,
       preferredWidth: fits
-        ? cardWidth + this.options.siblingGap + widestChild
+        ? cardWidth + this.options.rightGroupGap + widestChild
         : cardWidth,
       fits,
     };
@@ -731,7 +731,7 @@ class LayoutBuilder {
     // Direct candidates are resolved before callouts: the beside decision
     // depends on whether the whole direct-child group can stay in the right
     // column at the parent's y.
-    const rightX = x + width + this.options.siblingGap;
+    const rightX = x + width + this.options.rightGroupGap;
     const rightAvailable = Math.max(0, context.rightLimit - rightX);
     const candidates: Array<{ branch: BranchRecord; target: ContentBlock; fitsRight: boolean }> = [];
     const fitsByTarget = new Map<string, boolean>();
@@ -831,9 +831,10 @@ class LayoutBuilder {
     // R2b beside packing (legacy/no-mode path): anchored callouts keep the
     // below-parent order in the left column, while the direct-child group
     // starts at the parent's y in the right column. The callout lane ends at
-    // the parent's right edge, so the right column starts one sibling gap
-    // later. If any callout cannot fit the lane without a new width defect,
-    // the whole block keeps the stacked order instead of clipping.
+    // the parent's right edge, so the right column starts one right-group
+    // corridor (horizontal) later. If any callout cannot fit the lane without
+    // a new width defect, the whole block keeps the stacked order instead of
+    // clipping.
     const besidePlan =
       !useCalloutModes &&
       this.options.pagePacking === 'beside' &&
@@ -1105,9 +1106,12 @@ class LayoutBuilder {
       components.push({ branch, target, anchorId: null, attachment: null, isCallout: false });
     }
 
-    const gap = this.options.siblingGap;
+    // Compaction mixes both axes: the in-row item gap is the horizontal
+    // parent → right-group corridor, while a row top is the vertical child gap.
+    const horizontalGap = this.options.rightGroupGap;
+    const verticalGap = this.options.siblingGap;
     const rightLimit = context.rightLimit;
-    const firstRowX = x + width + gap;
+    const firstRowX = x + width + horizontalGap;
     // The wrap origin must leave room for the widest component's readable card;
     // otherwise a later wide component would be forced into a zero-width column.
     const wrapMinCard = components.reduce(
@@ -1151,7 +1155,7 @@ class LayoutBuilder {
         const firstMin = this.compactionRequiredCardWidth(pending[0]!.target);
         if (firstRowX > rightLimit - EPSILON || available < firstMin - EPSILON) {
           firstRow = false;
-          rowTop = cardBottom + gap;
+          rowTop = cardBottom + verticalGap;
           continue;
         }
       }
@@ -1193,11 +1197,11 @@ class LayoutBuilder {
         });
         layoutBlock.childIds.push(component.target.id);
         rowBottom = Math.max(rowBottom, placed.subtreeBottom);
-        itemX += column.allocation + gap;
+        itemX += column.allocation + horizontalGap;
       }
 
       subtreeBottom = Math.max(subtreeBottom, rowBottom);
-      rowTop = rowBottom + gap;
+      rowTop = rowBottom + verticalGap;
       firstRow = false;
       // Advance past the consumed components. Any skipped duplicate before the
       // next pending component is re-reported (deduplicated) on the next pass.
@@ -1225,7 +1229,7 @@ class LayoutBuilder {
     available: number,
   ): CompactionColumn[] {
     if (components.length === 0) return [];
-    const gap = this.options.siblingGap;
+    const gap = this.options.rightGroupGap;
     const minWidths = components.map((component) =>
       this.compactionMinColumnWidth(component.target, available),
     );
@@ -1364,8 +1368,8 @@ class LayoutBuilder {
     const box = this.resolveBlockBox(block, available);
     let width = box.width;
     const branches = this.childrenMap.get(blockId) ?? [];
-    if (branches.length > 0 && available > box.width + this.options.siblingGap) {
-      const remaining = available - box.width - this.options.siblingGap;
+    if (branches.length > 0 && available > box.width + this.options.rightGroupGap) {
+      const remaining = available - box.width - this.options.rightGroupGap;
       const widths: number[] = [];
       for (const branch of branches) {
         const target = this.document.blocks[branch.targetBlockId];
@@ -1376,8 +1380,8 @@ class LayoutBuilder {
         width = Math.min(
           available,
           box.width +
-            this.options.siblingGap +
-            this.packPreferredRows(widths, remaining, this.options.siblingGap),
+            this.options.rightGroupGap +
+            this.packPreferredRows(widths, remaining, this.options.rightGroupGap),
         );
       }
     }

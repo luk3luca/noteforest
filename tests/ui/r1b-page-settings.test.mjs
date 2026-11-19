@@ -1,6 +1,6 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, rm } from 'node:fs/promises';
+import { mkdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { artifactsPath } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
@@ -101,6 +101,19 @@ async function pageSize() {
     width: Number(await sheet.getAttribute('data-page-width-px')),
     height: Number(await sheet.getAttribute('data-page-height-px')),
   };
+}
+
+async function fragmentBox(blockId) {
+  return activePageView()
+    .locator(`.nf-page-fragment[data-fragment-block="${blockId}"]`)
+    .first()
+    .evaluate((element) => ({
+      left: Number.parseFloat(element.style.left),
+      top: Number.parseFloat(element.style.top),
+      width: Number.parseFloat(element.style.width),
+      height: Number.parseFloat(element.style.height),
+      page: Number(element.getAttribute('data-fragment-page')),
+    }));
 }
 
 async function settings() {
@@ -303,6 +316,172 @@ describe('R1b personal page settings and page theme', () => {
     await page.keyboard.press('Escape');
     await page.waitForSelector('[data-page-edit-overlay]', { state: 'detached', timeout: 10000 });
     assert.deepEqual((await ui.structure()).manualBreakBeforeBlockIds, []);
+  });
+
+  it('applies per-document child, top-level and callout gaps and keeps the horizontal corridor at 18', async () => {
+    const env = ui.isolated('r1b-gaps');
+    await launch('r1b-gaps');
+
+    // A parent with an anchored callout and two direct children, plus a second
+    // top-level block. `stacked` places every rhythm below the parent so all
+    // three vertical gaps are visible in one Page.
+    const quote = 'anchored callout';
+    const parentText = `Parent with an ${quote} and two children.`;
+    const start = parentText.indexOf(quote);
+    const gapDocument = pageDocument({
+      id: 'gap-document',
+      title: 'Gap document',
+      chapterTitle: 'Gaps',
+      blocks: [
+        {
+          id: 'parent',
+          label: 'Parent',
+          content: {
+            type: 'doc',
+            children: [
+              {
+                type: 'paragraph',
+                children: [
+                  ...(start > 0 ? [{ type: 'text', text: parentText.slice(0, start) }] : []),
+                  {
+                    type: 'text',
+                    text: quote,
+                    marks: [{ type: 'anchor', attrs: { anchorId: 'anchor-gap' } }],
+                  },
+                  ...(start + quote.length < parentText.length
+                    ? [{ type: 'text', text: parentText.slice(start + quote.length) }]
+                    : []),
+                ],
+              },
+            ],
+          },
+        },
+        textBlock('child1', 'Child one', 'First child block.'),
+        textBlock('child2', 'Child two', 'Second child block.'),
+        textBlock('callout', 'Callout', 'An anchored callout below its parent.'),
+        textBlock('second', 'Second top-level', 'A second top-level block.'),
+      ],
+      anchors: [
+        {
+          id: 'anchor-gap',
+          blockId: 'parent',
+          kind: 'text',
+          selector: { kind: 'text', quote },
+          quote,
+        },
+      ],
+      branches: [
+        {
+          id: 'branch-callout',
+          sourceBlockId: 'parent',
+          sourceAnchorId: 'anchor-gap',
+          targetBlockId: 'callout',
+          role: 'primary',
+        },
+        {
+          id: 'branch-child1',
+          sourceBlockId: 'parent',
+          targetBlockId: 'child1',
+          role: 'primary',
+        },
+        {
+          id: 'branch-child2',
+          sourceBlockId: 'parent',
+          targetBlockId: 'child2',
+          role: 'primary',
+        },
+      ],
+    });
+    const packagePath = await openPackage(env, 'Gap document', gapDocument);
+    await showPageRead();
+
+    const gapStart = await modelRuns();
+    const override = {
+      theme: {
+        siblingGap: 40,
+        chapterGap: 64,
+        calloutGap: 24,
+        pagePacking: 'stacked',
+      },
+    };
+    const resolved = await setPageSettingsOverride(packagePath, override);
+    assert.equal(resolved.theme.siblingGap, 40);
+    assert.equal(resolved.theme.chapterGap, 64);
+    assert.equal(resolved.theme.calloutGap, 24);
+    await waitPageReady({ minRuns: gapStart + 1 });
+
+    const parent = await fragmentBox('parent');
+    const callout = await fragmentBox('callout');
+    const child1 = await fragmentBox('child1');
+    const child2 = await fragmentBox('child2');
+    const second = await fragmentBox('second');
+    for (const box of [parent, callout, child1, child2, second]) {
+      assert.equal(box.page, 1, 'the gap fixture fits one page');
+    }
+    assert.ok(
+      closeTo(callout.top - (parent.top + parent.height), 24, 0.05),
+      `callout gap 24 (${callout.top - (parent.top + parent.height)})`,
+    );
+    assert.ok(
+      closeTo(child2.top - (child1.top + child1.height), 40, 0.05),
+      `child gap 40 (${child2.top - (child1.top + child1.height)})`,
+    );
+    assert.ok(
+      closeTo(second.top - (child2.top + child2.height), 64, 0.05),
+      `top-level gap 64 (${second.top - (child2.top + child2.height)})`,
+    );
+    const screenshotDir = artifactsPath('r1b-page-settings');
+    await mkdir(screenshotDir, { recursive: true });
+    await page.screenshot({ path: join(screenshotDir, 'page-gaps-40-64-24.png') });
+
+    // The global layer stays at the defaults, and the per-document values are
+    // durable outside the session (chapterGap must survive normalization).
+    const stored = await settings();
+    assert.equal(stored.app.page.theme.siblingGap, 18);
+    assert.equal(stored.app.page.theme.chapterGap, 32);
+    assert.equal(stored.app.page.theme.calloutGap, 16);
+    assert.deepEqual(stored.pageOverrides[packagePath], override);
+    await page.evaluate(() => window.__noteforestTest.flushSession());
+    const documentId = JSON.parse(
+      await readFile(join(packagePath, 'document.json'), 'utf8'),
+    ).id;
+    const documentSettings = JSON.parse(
+      await readFile(join(env.NOTEFOREST_APP_SUPPORT, 'document-settings.json'), 'utf8'),
+    );
+    assert.deepEqual(
+      documentSettings.entries.find((entry) => entry.documentId === documentId)?.page,
+      override,
+      'the three gaps persist, including chapterGap',
+    );
+
+    // A right child group keeps the fixed 18 px corridor at a child gap of 40.
+    const sideDocument = pageDocument({
+      id: 'corridor-document',
+      title: 'Corridor document',
+      chapterTitle: 'Corridor',
+      blocks: [
+        textBlock('side-parent', 'Parent', 'A short parent block.'),
+        textBlock('side-child', 'Child', 'A short direct child.'),
+      ],
+      branches: [
+        { id: 'branch-side', sourceBlockId: 'side-parent', targetBlockId: 'side-child' },
+      ],
+    });
+    const sidePath = await openPackage(env, 'Corridor document', sideDocument);
+    await showPageRead();
+    const sideStart = await modelRuns();
+    await setPageSettingsOverride(sidePath, { theme: { siblingGap: 40 } });
+    await waitPageReady({ minRuns: sideStart + 1 });
+    const sideParent = await fragmentBox('side-parent');
+    const sideChild = await fragmentBox('side-child');
+    assert.ok(
+      closeTo(sideChild.top - sideParent.top, 0, 0.05),
+      'the right group starts at the parent y',
+    );
+    assert.ok(
+      closeTo(sideChild.left - (sideParent.left + sideParent.width), 18, 0.05),
+      `the horizontal corridor stays 18 (${sideChild.left - (sideParent.left + sideParent.width)})`,
+    );
   });
 
   it('supports Letter geometry and reports the resolved orientation in the bridge', async () => {

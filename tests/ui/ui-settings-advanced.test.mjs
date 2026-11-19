@@ -285,6 +285,9 @@ describe('Batch C Page advanced typography and layout', () => {
       'cardPadding',
       'cardBorder',
       'segmentGap',
+      'siblingGap',
+      'chapterGap',
+      'calloutGap',
       'wrapIndent',
       'maxWrapIndent',
     ];
@@ -304,11 +307,61 @@ describe('Batch C Page advanced typography and layout', () => {
       await page.locator('[data-page-theme-field="maxWrapIndent"]').innerText(),
       /Max list indent/,
     );
+    // The three vertical Page gaps (ADR-0010) in the owner's order.
+    for (const [key, label] of [
+      ['siblingGap', /Child gap/],
+      ['chapterGap', /Top-level gap/],
+      ['calloutGap', /Callout gap/],
+    ]) {
+      assert.match(
+        await page.locator(`[data-page-theme-field="${key}"]`).innerText(),
+        label,
+        `${key} carries its label`,
+      );
+      assert.equal(
+        await page.locator(`[data-page-theme-input="${key}"]`).inputValue(),
+        key === 'chapterGap' ? '32' : key === 'siblingGap' ? '18' : '16',
+        `${key} shows the stored default`,
+      );
+      assert.equal(
+        await page
+          .locator(`[data-page-theme-field="${key}"]`)
+          .evaluate((element) => element.textContent.includes('px')),
+        true,
+        `${key} is a px value`,
+      );
+    }
+    assert.equal(
+      (
+        await page
+          .locator('[data-page-advanced-layout="true"] .nf-settings-help')
+          .innerText()
+      ).trim(),
+      'Values in pixels. Editing a value makes this layer Custom.',
+      'the ratified group help',
+    );
     assert.equal(
       await page.locator('[data-page-theme-input="bodyPt"]').isVisible(),
       true,
       'both disclosures can be open',
     );
+
+    // One out-of-range gap draft is reported and never written (0–96, step 1).
+    const beforeGap = (await settings()).app.page.theme.chapterGap;
+    await fillThemeField('chapterGap', '97');
+    await page.waitForSelector('[data-page-theme-error="chapterGap"]', { timeout: 5000 });
+    assert.match(
+      await page.locator('[data-page-theme-error="chapterGap"]').innerText(),
+      /0 to 96 px/,
+    );
+    assert.equal(
+      await page.locator('[data-page-theme-input="chapterGap"]').getAttribute('aria-invalid'),
+      'true',
+    );
+    assert.equal(await page.locator('[data-page-theme-input="chapterGap"]').inputValue(), '97');
+    assert.equal((await settings()).app.page.theme.chapterGap, beforeGap, 'no silent write');
+    await fillThemeField('chapterGap', String(beforeGap));
+    await page.waitForSelector('[data-page-theme-error="chapterGap"]', { state: 'detached' });
 
     // Hidden engine values never appear as fields.
     for (const hidden of [
@@ -324,9 +377,7 @@ describe('Batch C Page advanced typography and layout', () => {
       'calloutCardIndent',
       'calloutRightGap',
       'calloutModeMinWidth',
-      'siblingGap',
       'childIndent',
-      'calloutGap',
     ]) {
       assert.equal(
         await page.locator(`[data-page-theme-input="${hidden}"]`).count(),
@@ -480,6 +531,9 @@ describe('Batch C Page advanced typography and layout', () => {
       cardPadding: '14',
       cardBorder: '2',
       segmentGap: '6',
+      siblingGap: '40',
+      chapterGap: '64',
+      calloutGap: '24',
       wrapIndent: '22',
       maxWrapIndent: '64',
     };
@@ -492,6 +546,9 @@ describe('Batch C Page advanced typography and layout', () => {
       cardPadding: 14,
       cardBorder: 2,
       segmentGap: 6,
+      siblingGap: 40,
+      chapterGap: 64,
+      calloutGap: 24,
       wrapIndent: 22,
       maxWrapIndent: 64,
       preset: 'custom',
@@ -569,6 +626,10 @@ describe('Batch C Page advanced typography and layout', () => {
     assert.equal(resolved.theme.minContentWidth, 180);
     assert.equal(resolved.theme.wrapIndent, 22);
     assert.equal(resolved.theme.maxWrapIndent, 64);
+    // The three vertical gaps persist on the document layer.
+    assert.equal(resolved.theme.siblingGap, 40);
+    assert.equal(resolved.theme.chapterGap, 64);
+    assert.equal(resolved.theme.calloutGap, 24);
     // The edge corridor stays an engine constant and is never written by the UI.
     assert.equal(resolved.theme.childIndent, 26);
   });
@@ -745,6 +806,37 @@ describe('Batch C Page advanced typography and layout', () => {
       { timeout: 20000 },
     );
     assert.equal(await page.locator('[data-page-theme-override="maxCardWidth"]').count(), 0);
+
+    // A vertical Page gap uses the same per-field override path: the override
+    // dot appears, the global layer stays at 18, and Use global removes it.
+    await openAdvanced('layout');
+    await fillThemeField('siblingGap', '40');
+    await page.waitForFunction(
+      (path) => {
+        const state = window.__noteforestTest.settings();
+        return (
+          state.pageOverrides[path]?.theme?.siblingGap === 40 &&
+          state.saveState.status === 'saved'
+        );
+      },
+      packagePath,
+      { timeout: 20000 },
+    );
+    assert.equal((await settings()).app.page.theme.siblingGap, 18, 'the global layer stays 18');
+    assert.equal(await page.locator('[data-page-theme-override="siblingGap"]').count(), 1);
+    await page.locator('[data-page-theme-use-global="siblingGap"]').click();
+    await page.waitForFunction(
+      (path) => {
+        const state = window.__noteforestTest.settings();
+        return (
+          state.pageOverrides[path] === undefined && state.saveState.status === 'saved'
+        );
+      },
+      packagePath,
+      { timeout: 20000 },
+    );
+    assert.equal(await page.locator('[data-page-theme-input="siblingGap"]').inputValue(), '18');
+    assert.equal(await page.locator('[data-page-theme-override="siblingGap"]').count(), 0);
 
     // Advanced typography: partial custom override with per-field dots.
     await openAdvanced('typography');

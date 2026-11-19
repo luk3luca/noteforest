@@ -80,7 +80,7 @@ function wrappedChildrenByParent(
   for (const [parentId, children] of childrenByParent) {
     const parent = layout.blockById[parentId];
     if (!parent) continue;
-    const rightX = parent.x + parent.width + layoutOptions.siblingGap;
+    const rightX = parent.x + parent.width + layoutOptions.rightGroupGap;
     const below = children.filter((child) => Math.abs(child.x - rightX) > EPSILON);
     if (below.length > 0) wrapped.set(parentId, below);
   }
@@ -100,7 +100,7 @@ function maxWrapDepthOf(layout: ContinuousLayout, layoutOptions: LayoutOptions):
     if (block && block.role === 'child' && block.parentBlockId) {
       const parent = layout.blockById[block.parentBlockId];
       if (parent) {
-        const rightX = parent.x + parent.width + layoutOptions.siblingGap;
+        const rightX = parent.x + parent.width + layoutOptions.rightGroupGap;
         const below = Math.abs(block.x - rightX) > EPSILON ? 1 : 0;
         depth = below + depthOf(parent.blockId);
       }

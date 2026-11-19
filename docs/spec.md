@@ -423,7 +423,7 @@ Page settings are personal: a global default plus a per-document override, keyed
 | What | Global | Per-document override |
 |---|---|---|
 | Page size, orientation, margins | yes | yes |
-| Theme: presets, density 0.6–1.2, typography, packing | yes | yes |
+| Theme: presets, density 0.6–1.2, typography, vertical gaps, packing | yes | yes |
 | Chrome: header, footer, page number | yes | yes |
 | Manual break hints | — | yes |
 | Layout, mode, page, zoom, scroll, selection, collapse | — | view state only |
@@ -696,10 +696,21 @@ Read/Edit and the print model.
 
 - Continuous: content-driven widths; a right group occupies the space it needs; the canvas does not
   force a wrap at the window edge.
-- Page: a fixed content box per page, derived from page size and margins. The Page edge corridor is
-  an invariant: sibling gap 18, child indent 26, callout card indent 38, callout gap 16, callout
-  right gap 24, below-trunk insets 12 (children) and 24 (callouts), corridor 18 px (4 lead + 14
-  stem). Density never scales it.
+- Page: a fixed content box per page, derived from page size and margins.
+- Page vertical gaps are three personal Page settings, each 0–96 px with a per-document override,
+  consumed by Page Read/Edit, measurement and PDF; density never scales them:
+  - **Child gap** (`PageTheme.siblingGap`, default 18) sets the parent → below-child gap, the child
+    → child stack, the next sibling after a previous subtree and the callout-stack → child
+    transition.
+  - **Top-level gap** (`PageTheme.chapterGap`, default 32) sets the vertical gap between top-level
+    blocks in a chapter.
+  - **Callout gap** (`PageTheme.calloutGap`, default 16) sets the parent → anchored-callout gap for
+    below placements and the callout → callout stack. In callout mode A the first callout stays in
+    the right lane at the parent's y, so only the callout → callout gap applies there.
+- The Page edge corridor is an invariant and is horizontal only: 18 px from the parent card's right
+  edge to the child card's left edge (4 lead + 14 stem), child indent 26, callout card indent 38,
+  callout right gap 24, below-trunk insets 12 (children) and 24 (callouts). None of the three
+  vertical settings moves it, and density never scales it.
 - A block's width is content-driven and capped by `maxCardWidth`.
 
 ### 7.3 Tree packing (Page, `beside`)

@@ -458,7 +458,22 @@ export interface PaginatedDocument {
 export interface LayoutOptions {
   minContentWidth: number;
   maxContentWidth: number;
+  /**
+   * Vertical child gap (Page child gap): parent → below-child gap, child →
+   * child stack, the next sibling after a previous subtree and the
+   * callout-stack → child transition. Page production maps the resolved
+   * `PageTheme.siblingGap` here; it never moves a horizontal coordinate.
+   */
   siblingGap: number;
+  /**
+   * Horizontal parent → right-group corridor (Page engine constant, 18 px).
+   *
+   * This is the one horizontal sibling read: `subtreeColumn`, `rightX`, the
+   * compaction in-row gap and the preferred-width packing use it. It is mapped
+   * from `PAGE_EDGE_GEOMETRY.siblingGap`, so a vertical gap setting can never
+   * move an arrow.
+   */
+  rightGroupGap: number;
   /** Per-level left-origin indent used when a child group wraps below its parent. */
   wrapIndent: number;
   /**
@@ -504,7 +519,16 @@ export interface LayoutOptions {
   wrapPolicy: WrapPolicy;
   /** Page/PDF packing policy; ignored by the Continuous renderer. */
   pagePacking: PagePacking;
+  /**
+   * Vertical callout gap: parent → anchored callout for below placements and
+   * the callout → callout stack. Page production maps the resolved
+   * `PageTheme.calloutGap` here.
+   */
   calloutGap: number;
+  /**
+   * Vertical top-level gap between top-level blocks in a chapter. Page
+   * production maps the resolved `PageTheme.chapterGap` here.
+   */
   chapterGap: number;
   cardPadding: number;
   cardBorder: number;
@@ -525,6 +549,7 @@ export const DEFAULT_LAYOUT_OPTIONS: LayoutOptions = {
   minContentWidth: 160,
   maxContentWidth: 420,
   siblingGap: 24,
+  rightGroupGap: 24,
   wrapIndent: 18,
   maxWrapIndent: 54,
   childIndent: ENGINE_DEFAULT_CHILD_INDENT,

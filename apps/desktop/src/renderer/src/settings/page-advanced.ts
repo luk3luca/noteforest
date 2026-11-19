@@ -43,6 +43,7 @@ export const PAGE_THEME_NUMERIC_KEYS = [
   'cardBorder',
   'segmentGap',
   'siblingGap',
+  'chapterGap',
   'wrapIndent',
   'maxWrapIndent',
   'childIndent',
@@ -77,16 +78,20 @@ export type AdvancedTypographyKey = (typeof ADVANCED_TYPOGRAPHY_KEYS)[number];
 /**
  * Advanced layout, in the frozen order. `maxCardWidth` is first-class.
  *
- * The Page edge corridor (`siblingGap`, `childIndent`, `calloutGap`, and the
- * callout/right-gap fields) is an engine constant (`PAGE_EDGE_GEOMETRY`), not a
- * user lever: those stored fields stay in the model for compatibility but are
- * no longer exposed here.
+ * The three vertical Page gaps (child, top-level, callout) are editable Page
+ * settings (ADR-0010). Only the horizontal right-group corridor, `childIndent`
+ * and the callout lane/trunk fields stay hidden engine values
+ * (`PAGE_EDGE_GEOMETRY`); their stored fields remain in the model for settings
+ * compatibility but are not exposed here.
  */
 export const ADVANCED_LAYOUT_KEYS = [
   'minContentWidth',
   'cardPadding',
   'cardBorder',
   'segmentGap',
+  'siblingGap',
+  'chapterGap',
+  'calloutGap',
   'wrapIndent',
   'maxWrapIndent',
 ] as const satisfies readonly PageThemeNumericKey[];
@@ -144,6 +149,9 @@ export const PAGE_THEME_FIELD_SPECS: Readonly<
   cardPadding: { label: 'Card padding', unit: 'px', min: 0, max: 40, step: 1 },
   cardBorder: { label: 'Card border', unit: 'px', min: 0, max: 8, step: 1 },
   segmentGap: { label: 'Segment gap', unit: 'px', min: 0, max: 32, step: 1 },
+  siblingGap: { label: 'Child gap', unit: 'px', min: 0, max: 96, step: 1 },
+  chapterGap: { label: 'Top-level gap', unit: 'px', min: 0, max: 96, step: 1 },
+  calloutGap: { label: 'Callout gap', unit: 'px', min: 0, max: 96, step: 1 },
   wrapIndent: { label: 'List indent', unit: 'px', min: 0, max: 96, step: 1 },
   maxWrapIndent: { label: 'Max list indent', unit: 'px', min: 0, max: 192, step: 1 },
   maxCardWidth: { label: 'Max card width', unit: 'px', min: 120, max: 2000, step: 1 },
