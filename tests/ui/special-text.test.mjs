@@ -167,6 +167,54 @@ async function waitCaretSettled() {
   );
 }
 
+/**
+ * Text and offset that own the live DOM caret. A hard break splits the
+ * paragraph into two text nodes, so the text identifies the visual line the
+ * browser caret is on.
+ */
+async function caretText() {
+  return page.evaluate(() => {
+    const selection = window.getSelection();
+    const node = selection?.anchorNode ?? null;
+    if (node === null) return null;
+    return {
+      text: node.nodeType === Node.TEXT_NODE ? node.textContent : null,
+      offset: selection.anchorOffset,
+    };
+  });
+}
+
+/** The live DOM caret is inside the block's prose. */
+async function caretInBlock(blockId) {
+  return page.evaluate((block) => {
+    const selection = window.getSelection();
+    const node = selection?.anchorNode ?? null;
+    return (
+      node !== null &&
+      document
+        .querySelector(`[data-block-card="${block}"] .nf-block-prose`)
+        ?.contains(node) === true
+    );
+  }, blockId);
+}
+
+/**
+ * Caret offset inside one element, counted from its start. Syntax highlighting
+ * can split a code line into spans, so the plain text node is not stable there.
+ */
+async function caretOffsetIn(selector) {
+  return page.evaluate((target) => {
+    const element = document.querySelector(target);
+    const selection = window.getSelection();
+    const node = selection?.anchorNode ?? null;
+    if (element === null || node === null) return null;
+    const range = document.createRange();
+    range.setStart(element, 0);
+    range.setEnd(node, selection.anchorOffset);
+    return range.toString().length;
+  }, selector);
+}
+
 describe('NoteForest special text editing', () => {
   before(async () => {
     await rm(tempRoot, { recursive: true, force: true });
@@ -644,7 +692,7 @@ describe('NoteForest special text editing', () => {
     await h.waitSaved();
   });
 
-  it('B2: plain arrows stay inside the block and ⌘↓ still navigates', async () => {
+  it('B2: plain arrows stay inside the block and ⌘↑/⌘↓ still navigate', async () => {
     const env = isolated('special-text-arrows');
     await launch(env);
     await h.setWindowSize(1440, 900);
@@ -670,19 +718,7 @@ describe('NoteForest special text editing', () => {
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('ArrowRight');
     assert.equal(await selectedBlockId(), firstId);
-    assert.equal(
-      await page.evaluate((block) => {
-        const selection = window.getSelection();
-        const node = selection?.anchorNode ?? null;
-        return (
-          node !== null &&
-          document
-            .querySelector(`[data-block-card="${block}"] .nf-block-prose`)
-            ?.contains(node) === true
-        );
-      }, firstId),
-      true,
-    );
+    assert.equal(await caretInBlock(firstId), true);
 
     // At the block start, ArrowUp and ArrowLeft are consumed too. The native
     // ⌘← moves the DOM caret before ProseMirror observes it: the following
@@ -701,7 +737,7 @@ describe('NoteForest special text editing', () => {
     assert.equal(await selectedBlockId(), firstId);
     assert.equal(await page.evaluate(() => window.getSelection()?.anchorOffset), 0);
 
-    // Block navigation is still ⌘↓.
+    // Block navigation is still ⌘↓ and ⌘↑.
     await page.keyboard.press('Meta+ArrowDown');
     await page.waitForFunction(
       (expected) => {
@@ -712,6 +748,185 @@ describe('NoteForest special text editing', () => {
       secondId,
       { timeout: 5000 },
     );
+    await page.keyboard.press('Meta+ArrowUp');
+    await page.waitForFunction(
+      (expected) => {
+        const current = window.__noteforestTest.state();
+        const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+        return runtime?.selectedBlockId === expected;
+      },
+      firstId,
+      { timeout: 5000 },
+    );
+
+    // Mid-word Up/Down on the first/last visual line stay in the block. The
+    // hard break gives the paragraph two real visual lines, so the caret is in
+    // the middle of a line and not at a paragraph offset boundary.
+    const linesId = 'st-arrow-lines';
+    await blankBlock(linesId);
+    await typeInBlank(linesId, 'alpha');
+    await page.keyboard.press('Shift+Enter');
+    await page.keyboard.type('beta');
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('ArrowLeft');
+    assert.deepEqual(await caretText(), { text: 'beta', offset: 2 });
+    // Mid-word on the last line: ArrowDown is consumed, the caret keeps its
+    // column and the block does not change.
+    await page.keyboard.press('ArrowDown');
+    assert.equal(await selectedBlockId(), linesId);
+    assert.equal(await caretInBlock(linesId), true);
+    assert.deepEqual(await caretText(), { text: 'beta', offset: 2 });
+    // The guard is vertical only: ArrowUp still moves between the lines.
+    // The caret keeps the visual column, so the character offset on the
+    // previous line can differ; the line and the block are the contract.
+    await page.keyboard.press('ArrowUp');
+    const firstLine = await caretText();
+    assert.equal(firstLine.text, 'alpha');
+    assert.ok(firstLine.offset >= 0 && firstLine.offset <= 'alpha'.length);
+    // Mid-word on the first line: ArrowUp is consumed too.
+    await page.keyboard.press('ArrowUp');
+    assert.equal(await selectedBlockId(), linesId);
+    assert.equal(await caretInBlock(linesId), true);
+    assert.deepEqual(await caretText(), firstLine);
+    // ArrowDown still moves inside the block from the first line.
+    await page.keyboard.press('ArrowDown');
+    assert.equal((await caretText()).text, 'beta');
+    // ⌘←/⌘→ stay line start/end in one block; no new chord.
+    await page.keyboard.press('Meta+ArrowLeft');
+    assert.deepEqual(await caretText(), { text: 'beta', offset: 0 });
+    await page.keyboard.press('Meta+ArrowRight');
+    assert.deepEqual(await caretText(), { text: 'beta', offset: 4 });
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await selectedBlockId(), linesId);
+    assert.deepEqual(await caretText(), { text: 'beta', offset: 4 });
+
+    // A selected formula at the block end is a NodeSelection. ArrowRight and
+    // ArrowDown are consumed: no block move, no lost atom and never a literal
+    // `$` in place of the node.
+    const formulaId = 'st-arrow-formula';
+    await blankBlock(formulaId);
+    await typeInBlank(formulaId, 'sum $x^2$');
+    await page.waitForSelector(`[data-block-card="${formulaId}"] [data-type="inline-math"]`);
+    const afterId = 'st-arrow-after';
+    await blankBlock(afterId);
+    await typeInBlank(afterId, 'omega');
+    await card(formulaId).locator('[data-type="inline-math"]').first().click();
+    await page.waitForFunction(
+      (block) =>
+        document.querySelector(
+          `[data-block-card="${block}"] [data-type="inline-math"].ProseMirror-selectednode`,
+        ) !== null,
+      formulaId,
+      { timeout: 5000 },
+    );
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowDown');
+    assert.equal(await selectedBlockId(), formulaId, 'the block never moves');
+    assert.equal(await caretInBlock(formulaId), true, 'the caret stays in the block');
+    assert.equal(
+      await card(formulaId).locator('[data-type="inline-math"]').count(),
+      1,
+      'the atom remains',
+    );
+    assert.equal(
+      (await proseText(formulaId)).includes('$'),
+      false,
+      'the atom is never replaced by its source text',
+    );
+
+    // The same boundary holds for a block formula: a selected leaf block at the
+    // end of the block body is never a block move.
+    const blockMathId = 'st-arrow-block-formula';
+    await blankBlock(blockMathId);
+    await typeInBlank(blockMathId, '$$E=mc^2$$');
+    await page.waitForSelector(`[data-block-card="${blockMathId}"] [data-type="block-math"]`);
+    const blockMathAfterId = 'st-arrow-block-formula-after';
+    await blankBlock(blockMathAfterId);
+    await typeInBlank(blockMathAfterId, 'omega');
+    await card(blockMathId).locator('[data-type="block-math"]').first().click();
+    await page.waitForFunction(
+      (block) =>
+        document.querySelector(
+          `[data-block-card="${block}"] [data-type="block-math"].ProseMirror-selectednode`,
+        ) !== null,
+      blockMathId,
+      { timeout: 5000 },
+    );
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await selectedBlockId(), blockMathId, 'the block never moves');
+    assert.equal(
+      await card(blockMathId).locator('[data-type="block-math"].ProseMirror-selectednode').count(),
+      1,
+      'the selected block formula keeps its selection',
+    );
+
+    // A code block owns its caret keys: plain arrows edit the code natively and
+    // ArrowDown still exits from the code end to a paragraph in the block.
+    const codeId = 'st-arrow-code';
+    await blankBlock(codeId);
+    await typeInBlank(codeId, '```js');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('ab');
+    await page.keyboard.press('ArrowLeft');
+    assert.equal(
+      await caretOffsetIn(
+        `[data-block-card="${codeId}"] pre[data-anchor-kind="code"] code`,
+      ),
+      1,
+    );
+    await page.keyboard.press('ArrowRight');
+    assert.equal(
+      await caretOffsetIn(
+        `[data-block-card="${codeId}"] pre[data-anchor-kind="code"] code`,
+      ),
+      2,
+    );
+    await page.keyboard.press('ArrowDown');
+    await page.waitForFunction(
+      (block) =>
+        document.querySelectorAll(`[data-block-card="${block}"] .nf-block-prose p`).length === 1,
+      codeId,
+      { timeout: 5000 },
+    );
+    assert.equal(await selectedBlockId(), codeId);
+
+    // A table owns its cell keys: native ArrowDown moves to the cell below
+    // instead of being swallowed by the block guard.
+    const tableId = 'st-arrow-table';
+    await blankBlock(tableId);
+    await typeInBlank(tableId, '| A | B |');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('| --- | --- |');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('| 1 | 2 |');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector(`[data-block-card="${tableId}"] .nf-block-prose table`);
+    const table = card(tableId).locator('.nf-block-prose table').first();
+    await table.locator('th').nth(1).click();
+    await waitCaretSettled();
+    assert.equal(await cellAtCaret(), '0:1');
+    await page.keyboard.press('ArrowDown');
+    await page.waitForFunction(
+      (block) => {
+        const selection = window.getSelection();
+        const node = selection?.anchorNode ?? null;
+        const element =
+          node === null ? null : node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+        const cell = element?.closest?.('td,th') ?? null;
+        const row = cell?.parentElement ?? null;
+        return (
+          row !== null &&
+          document
+            .querySelector(`[data-block-card="${block}"] .nf-block-prose`)
+            ?.contains(node) === true &&
+          [...row.parentElement.children].indexOf(row) === 1
+        );
+      },
+      tableId,
+      { timeout: 5000 },
+    );
+    assert.equal(await selectedBlockId(), tableId);
   });
 
   it('C: $…$ and $$…$$ rules, in-place source editing and the anchor click', async () => {
