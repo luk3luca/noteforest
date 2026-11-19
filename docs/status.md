@@ -2,7 +2,8 @@
 
 **Release:** 0.1.3, 19 November 2026.
 
-- Tag `v0.1.3` at the release commit; dmg `dist/NoteForest-0.1.3-arm64.dmg`.
+- Tag `v0.1.3` at `1d73c13`; dmg `dist/NoteForest-0.1.3-arm64.dmg`, installed at
+  `/Applications/NoteForest.app` (0.1.3).
 - Distribution: local unsigned build, ad-hoc signed by the `afterPack` hook. No Developer ID, no
   notarization, no auto-update.
 - Repo: public on GitHub, MIT. Bundle id `com.github.luk3luca.noteforest`.
