@@ -114,6 +114,13 @@ No batch is committed. The product owner picks the next one from the lists below
     line-aware (compare the caret line with the block content's first/last line). Add UI regressions:
     a formula at the block end, mid-word Up/Down on the first/last line, and `⌘↑`/`⌘↓` still
     navigating.
+15. **HTML paste from a rendered Markdown/LaTeX source drops the `$`.** With a dual-format clipboard
+    (plain text plus HTML from Obsidian's reading view or KaTeX/MathJax), the editor prefers the
+    HTML; the math spans carry the LaTeX without delimiters, so a line like
+    `- $Z_1 = X W_1 + \mathbf{b}_1$: … $D$ … $H$.` pastes as a list item with `Z_1 = …` and no `$`.
+    The plain-text alternative still has them. Reproduced with a synthetic `.math` span clipboard.
+    On paste, rewrite math spans or their TeX annotations to `$…$`/inline formula nodes, keep the
+    list and marks, and add a regression with a dual-format clipboard.
 
 ## Open decisions
 
