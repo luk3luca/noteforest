@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.1.1 — 19 November 2026
+
+Second release. macOS (Apple silicon), local unsigned build.
+
+- **Anchors:** one resolution index over the core resolver; Continuous, Page and PDF agree on resolved,
+  ambiguous, broken and idle anchors. Below-callout trunks start at +24 and a below card never sits
+  left of the +38 lane.
+- **Page vertical gaps:** three per-document settings in Page → Advanced — Child gap (18), Top-level
+  gap (32), Callout gap (16), each 0–96, fixed under density, applied to Page and PDF. The horizontal
+  parent → right-group corridor stays a fixed 18 px.
+- **Tables:** cells carry inline marks and formulas through GFM paste and typed conversion (bold,
+  italic, strike, inline code, inline math, hard break); Copy as Markdown writes them back. The
+  classic selection bubble formats inside a cell; the table management bar is fixed to the bottom
+  edge with its 13 management actions.
+- **Editing:** typing `#` on a heading shows the marker and changes the level; Backspace lowers it to
+  a paragraph. `$` on a selection wraps an inline formula; `$` on a selected formula unwraps it.
+- **Paste:** HTML from a rendered Markdown/LaTeX source restores formulas instead of dropping `$`.
+- **Verify:** 183 unit files / 1,909 tests, e2e 16, recovery 14, UI 71/71 at concurrency 4.
+
+Known limitations remain in `docs/plan.md`: long inline-formula card width and the arrow-boundary
+rule are deferred.
+
 ## 0.1.0 — 18 November 2026
 
 First release. macOS (Apple silicon), local unsigned build.

@@ -1,9 +1,9 @@
 {
   "name": "noteforest",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
-  "description": "NoteForest \u2014 spatial note-taking app (M2 editor shell and branch editor)",
+  "description": "NoteForest — spatial note-taking app (M2 editor shell and branch editor)",
   "workspaces": [
     "apps/desktop",
     "packages/core",

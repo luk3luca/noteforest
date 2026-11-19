@@ -18,27 +18,7 @@ No batch is committed. The product owner picks the next one from the lists below
   a lone top-level may take the whole sheet, half or three quarters, content-driven; proportions
   follow text amount. It is a pre-pagination phase, so the page count may change; measure the
   showcase and the PDF gate before and after.
-- **Page sibling gap setting.** Expose the 18 px Page `siblingGap` in Page → Advanced as a
-  per-document override. Today one engine constant drives both the vertical gap between sibling
-  cards and the horizontal parent→right-group corridor; decide whether the setting moves both or the
-  two are split. The stored `PageTheme.siblingGap` (0–96) already exists but `pageLayoutOptions`
-  ignores it. A dense study tree with repeated sibling stacks is the target: the current 18 px gap
-  dominates page height there. Because it moves the edge corridor and Page/PDF parity, an ADR must
-  settle density behavior and the corridor rule before the UI.
 - Image crop editor and region re-pick.
-- **Formula selection toggle.** With text selected, `$` wraps it in an inline formula; with the
-  formula selected, `$` unwraps it back to its LaTeX source, mirroring the backtick code toggle.
-  Empty-caret `$…$` typing stays as today; trim the selected source, keep invalid LaTeX visible with
-  its inline error, one undo step, and tests for wrap/unwrap plus prose containing `$`.
-- **Inline marks and formulas in table cells.** The cell model is already one paragraph of inline
-  content: bold/italic/code marks and inline math are representable, and Page/PDF already render
-  them. The gap is the surface: the selection toolbar is hidden inside tables (the table owns its
-  own toolbar) and the table toolbar has no formatting actions; GFM paste and export treat every
-  cell as plain text, so imported/pasted tables flatten marks and `$…$`. A pasted `$…$` stays literal
-  until the closing `$` is deleted and retyped, because the input rule only sees typed text. Expose
-  the formatting actions in the table context, parse and serialize inline marks/math per GFM cell on
-  paste and export, and keep block content refused (VH1). Cover Continuous, Page, PDF and Markdown
-  round-trip.
 - Math symbol/template palette.
 - Markdown export.
 - Drag a block onto another to indent/outdent (today drag only reorders).
@@ -87,22 +67,14 @@ No batch is committed. The product owner picks the next one from the lists below
     right, the sentence is wrong; fixing it needs a new reason and approved copy.
 11. **Fit page is enabled and inert outside Page** (D6, command surface). Keep or hide it in
     Continuous is a UX call.
-12. **Heading markers are permanent.** Typing `# ` converts the block to a heading and consumes the
-    marker; afterwards the heading has no editable `#` prefix, so returning to it cannot change the
-    level or turn it back into a paragraph. The block type is effectively permanent and the level is
-    hidden. Mirror inline code: while the caret is in the heading, show the `#`/`##`/`###` marker and
-    let the user add or remove it to change the level or convert to paragraph, with no ambiguous
-    in-between state. Keep the heading node as the only stored state (no marker text in the
-    document), and cover typing `#`, returning to the heading, add/remove, and Page/PDF parity in the
-    UI suite.
-13. **A long inline formula keeps the standard card.** A display formula (`$$`) already triggers the
+12. **A long inline formula keeps the standard card.** A display formula (`$$`) already triggers the
     full-width card through the unbreakable-content exception, like a wide table; an inline formula
     (`$…$`) does not: the paragraph wraps around it and the card stays at `maxCardWidth`, so a
     formula wider than the cap can overflow or take a `content-too-wide` defect. Treat a long inline
     formula like the display case: expand the card to the available page width, never wrap, clip or
     shrink the formula itself, and keep Page/PDF parity. Cover an inline formula wider than
     `maxCardWidth` in the layout and PDF gates.
-14. **Plain arrows can leave the block.** Two paths bypass the boundary guard:
+13. **Plain arrows can leave the block.** Two paths bypass the boundary guard:
     - A selected formula is a `NodeSelection`; `arrowStays` exempts every `NodeSelection` ("code
       blocks and tables own their keys"), so ArrowRight at the block end moves to the next block.
     - ArrowUp/ArrowDown at the first/last visual line are guarded only by document offsets
@@ -114,13 +86,6 @@ No batch is committed. The product owner picks the next one from the lists below
     line-aware (compare the caret line with the block content's first/last line). Add UI regressions:
     a formula at the block end, mid-word Up/Down on the first/last line, and `⌘↑`/`⌘↓` still
     navigating.
-15. **HTML paste from a rendered Markdown/LaTeX source drops the `$`.** With a dual-format clipboard
-    (plain text plus HTML from Obsidian's reading view or KaTeX/MathJax), the editor prefers the
-    HTML; the math spans carry the LaTeX without delimiters, so a line like
-    `- $Z_1 = X W_1 + \mathbf{b}_1$: … $D$ … $H$.` pastes as a list item with `Z_1 = …` and no `$`.
-    The plain-text alternative still has them. Reproduced with a synthetic `.math` span clipboard.
-    On paste, rewrite math spans or their TeX annotations to `$…$`/inline formula nodes, keep the
-    list and marks, and add a regression with a dual-format clipboard.
 
 ## Open decisions
 

@@ -1,6 +1,6 @@
 {
   "name": "@noteforest/desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "NoteForest desktop shell and branch editor",
   "main": "out/main/index.js",
@@ -53,7 +53,7 @@
     "@dnd-kit/sortable": "10.0.0",
     "@dnd-kit/utilities": "3.2.2",
     "@fontsource/jetbrains-mono": "5.3.0",
-    "@noteforest/core": "0.1.0",
+    "@noteforest/core": "0.1.1",
     "@tiptap/core": "3.32.2",
     "@tiptap/extension-code-block-lowlight": "3.32.2",
     "@tiptap/extension-image": "3.32.2",
