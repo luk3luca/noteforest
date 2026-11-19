@@ -18,6 +18,12 @@ No batch is committed. The product owner picks the next one from the lists below
   a lone top-level may take the whole sheet, half or three quarters, content-driven; proportions
   follow text amount. It is a pre-pagination phase, so the page count may change; measure the
   showcase and the PDF gate before and after.
+- **Page sibling gap setting.** Expose the 18 px Page `siblingGap` in Page → Advanced as a
+  per-document override. Today one engine constant drives both the vertical gap between sibling
+  cards and the horizontal parent→right-group corridor; decide whether the setting moves both or the
+  two are split. The stored `PageTheme.siblingGap` (0–96) already exists but `pageLayoutOptions`
+  ignores it. Because it moves the edge corridor and Page/PDF parity, an ADR must settle density
+  behavior and the corridor rule before the UI.
 - Image crop editor and region re-pick.
 - Math symbol/template palette.
 - Markdown export.
