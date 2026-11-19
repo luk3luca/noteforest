@@ -87,6 +87,13 @@ No batch is committed. The product owner picks the next one from the lists below
     defect. Treat a formula wider than the cap like a wide table: expand the card to the available
     page width, never clip or shrink the formula, and keep Page/PDF parity. Cover a formula wider
     than `maxCardWidth` in the layout and PDF gates.
+14. **ArrowRight on a selected formula leaves the block.** A single click selects a formula as a
+    NodeSelection; `arrowStays` exempts every NodeSelection ("code blocks and tables own their
+    keys"), so the block-end guard is skipped and repeated ArrowRight moves to the next block.
+    Narrow the exemption to the surfaces that really own arrows (code block, table) and compute the
+    boundary from the selected node's end for inline and block formulas; plain arrows must stay
+    inside the block. Add a UI regression: select a formula at the block end, press ArrowRight
+    repeatedly, assert the block and the DOM caret stay; then confirm ⌘↓ still navigates.
 
 ## Open decisions
 
