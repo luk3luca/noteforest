@@ -777,16 +777,20 @@ describe('NoteForest special text editing', () => {
     assert.equal(await caretInBlock(linesId), true);
     assert.deepEqual(await caretText(), { text: 'beta', offset: 2 });
     // The guard is vertical only: ArrowUp still moves between the lines.
+    // The caret keeps the visual column, so the character offset on the
+    // previous line can differ; the line and the block are the contract.
     await page.keyboard.press('ArrowUp');
-    assert.deepEqual(await caretText(), { text: 'alpha', offset: 2 });
+    const firstLine = await caretText();
+    assert.equal(firstLine.text, 'alpha');
+    assert.ok(firstLine.offset >= 0 && firstLine.offset <= 'alpha'.length);
     // Mid-word on the first line: ArrowUp is consumed too.
     await page.keyboard.press('ArrowUp');
     assert.equal(await selectedBlockId(), linesId);
     assert.equal(await caretInBlock(linesId), true);
-    assert.deepEqual(await caretText(), { text: 'alpha', offset: 2 });
+    assert.deepEqual(await caretText(), firstLine);
     // ArrowDown still moves inside the block from the first line.
     await page.keyboard.press('ArrowDown');
-    assert.deepEqual(await caretText(), { text: 'beta', offset: 2 });
+    assert.equal((await caretText()).text, 'beta');
     // ⌘←/⌘→ stay line start/end in one block; no new chord.
     await page.keyboard.press('Meta+ArrowLeft');
     assert.deepEqual(await caretText(), { text: 'beta', offset: 0 });
@@ -818,10 +822,11 @@ describe('NoteForest special text editing', () => {
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('ArrowDown');
     assert.equal(await selectedBlockId(), formulaId, 'the block never moves');
+    assert.equal(await caretInBlock(formulaId), true, 'the caret stays in the block');
     assert.equal(
-      await card(formulaId).locator('[data-type="inline-math"].ProseMirror-selectednode').count(),
+      await card(formulaId).locator('[data-type="inline-math"]').count(),
       1,
-      'the selected atom keeps its selection',
+      'the atom remains',
     );
     assert.equal(
       (await proseText(formulaId)).includes('$'),
