@@ -2,8 +2,9 @@
 
 **Release:** 0.1.1, 19 November 2026.
 
-- Tag `v0.1.1` at the release commit; dmg `dist/NoteForest-0.1.1-arm64.dmg`, installed at
-  `/Applications/NoteForest.app`.
+- Tag `v0.1.1` at `c2bdf55`; dmg `dist/NoteForest-0.1.1-arm64.dmg`.
+- Install: NoteForest was running when the dmg was built; quit it and run `npm run install:local`
+  (or install the dmg) to replace `/Applications/NoteForest.app`.
 - Distribution: local unsigned build, ad-hoc signed by the `afterPack` hook. No Developer ID, no
   notarization, no auto-update.
 - Repo: public on GitHub, MIT. Bundle id `com.github.luk3luca.noteforest`.
