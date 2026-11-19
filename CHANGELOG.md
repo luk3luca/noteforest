@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.3 — 19 November 2026
+
+Fourth release. macOS (Apple silicon), local unsigned build.
+
+- **Mixed-polarity code chrome:** when a code theme's polarity differs from the app theme (`Light+` in
+  a dark app, `Dark+`/`Monokai` in a light app), the code fence row and copy chip follow the code
+  theme's own surface and ink instead of the shell chrome. Same-polarity pairs and the theme picker
+  are unchanged.
+- **Palette reason:** the clipped Read-mode reason in the command palette exposes the full sentence
+  as a tooltip on the reason span; row height, copy and disabled behaviour are unchanged.
+- **Verify:** 184 unit files / 1,933 tests, e2e 16, recovery 14, UI 71/71 at concurrency 4.
+
+Known limitations remain in `docs/plan.md`.
+
 ## 0.1.2 — 19 November 2026
 
 Third release. macOS (Apple silicon), local unsigned build.
