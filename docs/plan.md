@@ -87,13 +87,18 @@ No batch is committed. The product owner picks the next one from the lists below
     defect. Treat a formula wider than the cap like a wide table: expand the card to the available
     page width, never clip or shrink the formula, and keep Page/PDF parity. Cover a formula wider
     than `maxCardWidth` in the layout and PDF gates.
-14. **ArrowRight on a selected formula leaves the block.** A single click selects a formula as a
-    NodeSelection; `arrowStays` exempts every NodeSelection ("code blocks and tables own their
-    keys"), so the block-end guard is skipped and repeated ArrowRight moves to the next block.
-    Narrow the exemption to the surfaces that really own arrows (code block, table) and compute the
-    boundary from the selected node's end for inline and block formulas; plain arrows must stay
-    inside the block. Add a UI regression: select a formula at the block end, press ArrowRight
-    repeatedly, assert the block and the DOM caret stay; then confirm ⌘↓ still navigates.
+14. **Plain arrows can leave the block.** Two paths bypass the boundary guard:
+    - A selected formula is a `NodeSelection`; `arrowStays` exempts every `NodeSelection` ("code
+      blocks and tables own their keys"), so ArrowRight at the block end moves to the next block.
+    - ArrowUp/ArrowDown at the first/last visual line are guarded only by document offsets
+      (`parentOffset === 0` / `=== content.size`). A caret in the middle of the line is not at the
+      paragraph start/end, so the native key leaves the block.
+    Plain arrows must stay inside the block; crossing is the explicit `⌘↑`/`⌘↓` (already documented
+    as previous/next block in Continuous). Narrow the `NodeSelection` exemption to code blocks and
+    tables, compute the horizontal boundary from the selected node's end, and make the vertical guard
+    line-aware (compare the caret line with the block content's first/last line). Add UI regressions:
+    a formula at the block end, mid-word Up/Down on the first/last line, and `⌘↑`/`⌘↓` still
+    navigating.
 
 ## Open decisions
 
