@@ -142,13 +142,13 @@ diff.
 | `tests/ui/m4c1-print-compositor.test.mjs` | edit | One focused table-cell bold + inline-math Page/PDF parity case. |
 | `apps/desktop/src/renderer/src/editor/table-commands.ts` | edit | A4: typed GFM conversion serializes the paragraph's inline marks/math, not `textContent`. |
 | `tests/ui/markdown-file-view.test.mjs` | edit | A4: strip the heading marker widget from the guest heading text assertion; canonical content stays clean. |
+| `tests/ui/editor-appearance.test.mjs` | edit | A4: replace the stale above-cell placement block with the table-relative bottom-bar stability check; 13 actions stay. |
 | `docs/batch/report-input-fix.md` | new | A4 report input. |
 | `docs/batch/report-input.md` | new | Track A builder report input (avoids `report.md` collision). |
 
 **Track A run-only:** `apps/desktop/test/table-cell-guard.test.ts`,
 `apps/desktop/test/formula-transactions.test.ts`, `apps/desktop/test/formula-clipboard.test.ts`,
-`tests/ui/m4b1b1-page-edit-overlay.test.mjs` (cell formula rendering in Page Edit),
-`tests/ui/editor-appearance.test.mjs` (13 management actions, one compact row, fixed bar).
+`tests/ui/m4b1b1-page-edit-overlay.test.mjs` (cell formula rendering in Page Edit).
 
 ### 5.2 Track B (`t3/v0.1.1-page-gap`)
 
@@ -298,6 +298,9 @@ remain, plus the table-surface split and the typed GFM conversion; the files are
 5. Typed GFM conversion (AC-08): `table-commands.ts` still reads `paragraph.textContent`, so a typed
    table loses delimiters already consumed by the inline input rules. Serialize the paragraph's
    inline nodes/marks with the A1 layer so typed tables keep marks/math. Add a focused test.
+6. `editor-appearance`: replace the stale "deeper body row keeps the bar above the active cell"
+   block with the table-relative bottom-bar stability check (the bar's offset from the table bottom
+   is unchanged when the caret moves to another cell). The 13-action count stays.
 
 Run `special-text`, `m4c1`, `markdown-file-view` and `editor-appearance` in one lane after
 `npm run build`; focused unit tests and `typecheck`. Report `docs/batch/report-input-fix.md`.
@@ -396,7 +399,7 @@ owns the final gate.
 | AC-08 | A pasted or typed GFM table cell with `**bold**`, `*italic*`, `~~strike~~`, `` `code` ``, `$…$` and `<br>` becomes real marks/nodes in the cell; a pasted `$…$` is a node immediately, not literal until retyped. | `gfm-inline.test.ts`, `special-text.test.ts`, `special-text` UI. |
 | AC-09 | Copy as Markdown writes the cell marks/math back and a parse→serialize→parse round-trip is stable; literal delimiters are escaped and survive. | `gfm-inline.test.ts`, `special-text` UI clipboard assertion. |
 | AC-10 | Cell block content is still refused and never flattened (VH1); the cell remains one paragraph. | `table-cell-guard.test.ts` (run), `special-text` UI. |
-| AC-11 | Inside a table cell, the classic selection bubble is the formatting surface (Bold, Italic, Inline code, Link, Math, highlight, branch) and appears only for a non-empty selection; the table management bar keeps only row/column/alignment/copy/source (13 actions), has no formatting cluster, and is anchored to the table bottom edge: moving the caret between cells leaves its rect unchanged, and no second management bar appears. The guest Markdown editor mounts the same surfaces; Page Edit shows no formatting cluster. | `special-text` UI, `editor-appearance` (run), `markdown-file-view` (edit). |
+| AC-11 | Inside a table cell, the classic selection bubble is the formatting surface (Bold, Italic, Inline code, Link, Math, highlight, branch) and appears only for a non-empty selection; the table management bar keeps only row/column/alignment/copy/source (13 actions), has no formatting cluster, and is anchored to the table bottom edge: moving the caret between cells leaves its rect unchanged, and no second management bar appears. The guest Markdown editor mounts the same surfaces; Page Edit shows no formatting cluster. | `special-text` UI, `editor-appearance` (edit), `markdown-file-view` (edit). |
 | AC-12 | Bold + inline formula in a cell render in Continuous, Page Read and the print/PDF output; table pagination rules are unchanged. | `special-text` UI, `m4c1` UI + PDF text. |
 | AC-13 | A dual-format clipboard with plain `$…$` and HTML `.math`/annotation spans pastes as a list with the formulas restored and the other marks kept; NoteForest-to-NoteForest rich paste is unchanged. | `html-math-paste.test.ts`, `special-text` UI, `markdown-file-view` (edit). |
 | AC-14 | `PageTheme.siblingGap` (Child gap, default 18), `PageTheme.chapterGap` (Top-level gap, default 32) and `PageTheme.calloutGap` (Callout gap, default 16) are stored 0–96, normalized on load, per-document overridable, and reach Page Read/Edit, measurement and PDF; none is density-scaled. | `page-settings.test.ts`, `print-model.test.ts`, `r1b` UI. |
@@ -583,7 +586,7 @@ owns the final gate.
 | `tests/ui/special-text.test.mjs` | A | extend | Heading marker H1–H3, add/remove/no-op/undo, Read no marker; formula wrap/unwrap/invalid/undo; table cell paste, marks/math, Copy as Markdown; selection-bubble formatting and the fixed bottom table bar. | A |
 | `tests/ui/m4c1-print-compositor.test.mjs` | A | one case | Bold + inline formula in a cell: Page Read and print compositor parity; PDF text. | A |
 | `tests/ui/markdown-file-view.test.mjs` | A | edit | NoteForest ↔ guest rich paste still keeps table/formula/marks; the guest heading text assertion strips the marker widget (serial suite). | A |
-| `tests/ui/editor-appearance.test.mjs` | A | no | 13 management actions, one compact row; the table bar is anchored to the table bottom edge. | A |
+| `tests/ui/editor-appearance.test.mjs` | A | edit | 13 management actions, one compact row; the table bar is anchored to the table bottom edge and its table-relative offset is stable across cell moves. | A |
 | `tests/ui/m4b1b1-page-edit-overlay.test.mjs` | A | no | Cell formula still renders and the inline→block refusal still names the reason. | A |
 | `tests/ui/ui-settings-advanced.test.mjs` | B | edit | Three gap fields present with their labels and the ratified help; 0–96 validation, saved values, override dot, Use global. | B |
 | `tests/ui/r1b-page-settings.test.mjs` | B | edit | Per-document child 40 / top-level 64 / callout 24 apply to Page, persist, global stays 18/32/16; horizontal child offset 18. | B |
