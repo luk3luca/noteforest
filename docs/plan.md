@@ -22,8 +22,9 @@ No batch is committed. The product owner picks the next one from the lists below
   per-document override. Today one engine constant drives both the vertical gap between sibling
   cards and the horizontal parent→right-group corridor; decide whether the setting moves both or the
   two are split. The stored `PageTheme.siblingGap` (0–96) already exists but `pageLayoutOptions`
-  ignores it. Because it moves the edge corridor and Page/PDF parity, an ADR must settle density
-  behavior and the corridor rule before the UI.
+  ignores it. A dense study tree with repeated sibling stacks is the target: the current 18 px gap
+  dominates page height there. Because it moves the edge corridor and Page/PDF parity, an ADR must
+  settle density behavior and the corridor rule before the UI.
 - Image crop editor and region re-pick.
 - **Formula selection toggle.** With text selected, `$` wraps it in an inline formula; with the
   formula selected, `$` unwraps it back to its LaTeX source, mirroring the backtick code toggle.
@@ -92,12 +93,13 @@ No batch is committed. The product owner picks the next one from the lists below
     in-between state. Keep the heading node as the only stored state (no marker text in the
     document), and cover typing `#`, returning to the heading, add/remove, and Page/PDF parity in the
     UI suite.
-13. **A long formula does not trigger the full-width block.** Wide tables (and long code lines) can
-    widen a card to the page content box through the unbreakable-content exception; a display formula
-    wide enough to need it stays at the readable cap and can overflow or take a `content-too-wide`
-    defect. Treat a formula wider than the cap like a wide table: expand the card to the available
-    page width, never clip or shrink the formula, and keep Page/PDF parity. Cover a formula wider
-    than `maxCardWidth` in the layout and PDF gates.
+13. **A long inline formula keeps the standard card.** A display formula (`$$`) already triggers the
+    full-width card through the unbreakable-content exception, like a wide table; an inline formula
+    (`$…$`) does not: the paragraph wraps around it and the card stays at `maxCardWidth`, so a
+    formula wider than the cap can overflow or take a `content-too-wide` defect. Treat a long inline
+    formula like the display case: expand the card to the available page width, never wrap, clip or
+    shrink the formula itself, and keep Page/PDF parity. Cover an inline formula wider than
+    `maxCardWidth` in the layout and PDF gates.
 14. **Plain arrows can leave the block.** Two paths bypass the boundary guard:
     - A selected formula is a `NodeSelection`; `arrowStays` exempts every `NodeSelection` ("code
       blocks and tables own their keys"), so ArrowRight at the block end moves to the next block.
