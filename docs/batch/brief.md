@@ -1,7 +1,7 @@
 # Batch — v0.1.1 input and Page gap
 
 **Role:** Planner (design package, no code). **Branch:** `docs/v0.1.1-plan` in a worktree.
-**Base:** the commit that contains this brief. **Plan:** `docs/architecture/v0.1.1-plan.md`.
+**Base:** the commit that contains this brief. **Plan:** `docs/batch/plan.md`.
 **ADR:** `docs/adr/0010-page-sibling-gap.md` (next free number; confirm against `docs/adr/`).
 **Sentinel:** none unless the product owner explicitly approves one.
 **Timebox:** one planning session. Cap the decision count; stop and ask if a product decision is
@@ -121,7 +121,7 @@ the brief:
 
 ## Planner output
 
-`docs/architecture/v0.1.1-plan.md` with: goal, decisions, file map, checkpoints, acceptance criteria
+`docs/batch/plan.md` with: goal, decisions, file map, checkpoints, acceptance criteria
 (numbered), test matrix, screenshots/evidence plan, release steps and risks. Plus
 `docs/adr/0010-page-sibling-gap.md` with the decision and the consequences. Commit both on the
 Planner worktree branch; do not write code, do not merge, do not push.
