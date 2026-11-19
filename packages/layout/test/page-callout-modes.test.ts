@@ -103,6 +103,7 @@ function stubMeasurement(
           DEFAULT_PAGE_SETTINGS.theme.cardBorder,
         maxContentWidth: spec.max,
         minContentWidth: spec.min,
+        inlineFormulaWidth: 0,
         segments: [
           {
             index: 0,

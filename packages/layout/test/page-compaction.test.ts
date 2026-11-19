@@ -72,6 +72,7 @@ function stubMeasurement(specs: Record<string, StubSpec>): MeasurementPort {
         cardHeight: contentTop + contentHeight + DEFAULT_LAYOUT_OPTIONS.cardPadding + DEFAULT_LAYOUT_OPTIONS.cardBorder,
         maxContentWidth: spec.max,
         minContentWidth: spec.min,
+        inlineFormulaWidth: 0,
         segments: Array.from({ length: segmentCount }, (_, index) => ({
           index,
           kind: 'paragraph' as const,

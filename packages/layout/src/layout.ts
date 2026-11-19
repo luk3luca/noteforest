@@ -329,12 +329,21 @@ class LayoutBuilder {
     // code lines, wide tables) may use the full page width before it becomes a
     // content-too-wide defect.
     const unbreakable = maxMeasurement.minContentWidth > this.options.maxContentWidth;
-    const wanted = unbreakable
-      ? Math.min(maxMeasurement.contentWidth, availableContent)
-      : Math.max(
-          this.options.minContentWidth,
-          Math.min(maxMeasurement.contentWidth, this.options.maxContentWidth),
-        );
+    // A rendered inline formula never wraps or shrinks. Once it is wider than
+    // the readable measure, the card takes the whole available Page content
+    // width (plan #12), like the display-formula/wide-table case. A formula
+    // wider than that content box stays `content-too-wide` through the
+    // unbreakable minimum below; no second overflow mode.
+    const formulaGrowsCard =
+      maxMeasurement.inlineFormulaWidth > this.options.maxContentWidth;
+    const wanted = formulaGrowsCard
+      ? availableContent
+      : unbreakable
+        ? Math.min(maxMeasurement.contentWidth, availableContent)
+        : Math.max(
+            this.options.minContentWidth,
+            Math.min(maxMeasurement.contentWidth, this.options.maxContentWidth),
+          );
     const desiredContent = Math.min(availableContent, wanted);
     const measurement = this.measure(block, { kind: 'fixed', contentWidth: desiredContent });
     const width = Math.min(availableWidth, measurement.cardWidth);

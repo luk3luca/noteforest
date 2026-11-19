@@ -42,6 +42,8 @@ interface IntrinsicWidths {
   max: number;
   min: number;
   maxHeight: number;
+  /** Widest rendered inline formula outside a table cell (plan #12). */
+  inlineFormulaWidth: number;
 }
 
 export interface DomPageMeasurement extends MeasurementPort {
@@ -158,6 +160,25 @@ function firstTablePaths(content: ContentNode): Array<{ key: string; node: Conte
     walk(node, [index]);
   }
   return tables;
+}
+
+/**
+ * Widest rendered inline formula on a max-content card, in content px.
+ *
+ * KaTeX 0.18 splits an inline formula into several `katex-base` blocks that can
+ * wrap at top-level operators, so min-content sizing stops at the widest base
+ * and a long formula would silently wrap inside a `maxCardWidth` card. The card
+ * is already rendered at max-content when this runs, where each formula keeps
+ * its unbroken rendered width. A formula inside a table cell is ignored: the
+ * cell is one paragraph and the table layout is out of scope (plan #12).
+ */
+function widestInlineFormulaWidth(card: HTMLElement): number {
+  let widest = 0;
+  for (const element of card.querySelectorAll<HTMLElement>('.nf-math-inline')) {
+    if (element.closest('table') !== null) continue;
+    widest = Math.max(widest, element.getBoundingClientRect().width);
+  }
+  return widest;
 }
 
 export function createDomPageMeasurement(
@@ -289,11 +310,19 @@ export function createDomPageMeasurement(
     card.classList.add('nf-width-max');
     const maxWidth = Math.max(1, card.getBoundingClientRect().width - chrome);
     const maxHeight = card.getBoundingClientRect().height;
+    const inlineFormulaWidth = widestInlineFormulaWidth(card);
     card.classList.remove('nf-width-max');
     card.classList.add('nf-width-min');
     const minWidth = Math.max(1, card.getBoundingClientRect().width - chrome);
     card.classList.remove('nf-width-min');
-    const widths = { max: maxWidth, min: minWidth, maxHeight };
+    const widths = {
+      max: maxWidth,
+      // The rendered formula is atomic even where CSS min-content under-reports
+      // it, so it raises the block's unbreakable minimum.
+      min: Math.max(minWidth, inlineFormulaWidth),
+      maxHeight,
+      inlineFormulaWidth,
+    };
     intrinsicCache.set(key, widths);
     return widths;
   }
@@ -405,6 +434,7 @@ export function createDomPageMeasurement(
       cardHeight: cardRect.height,
       maxContentWidth: intrinsic.max,
       minContentWidth: intrinsic.min,
+      inlineFormulaWidth: intrinsic.inlineFormulaWidth,
       segments: measuredSegments,
       anchors,
       tableColumns,
@@ -434,6 +464,7 @@ export function createDomPageMeasurement(
       cardHeight: intrinsic.maxHeight,
       maxContentWidth: intrinsic.max,
       minContentWidth: intrinsic.min,
+      inlineFormulaWidth: intrinsic.inlineFormulaWidth,
       segments: [],
       anchors: [],
       tableColumns: {},

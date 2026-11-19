@@ -96,6 +96,7 @@ function port(): MeasurementPort {
         cardHeight: contentTop + contentHeight + 13,
         maxContentWidth: contentWidth,
         minContentWidth: 80,
+        inlineFormulaWidth: 0,
         segments: [
           { index: 0, kind: 'paragraph', nodePath: [0], y: 0, height: contentHeight, breakableBefore: false },
         ],

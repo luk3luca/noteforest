@@ -66,6 +66,7 @@ function stubMeasurement(
           DEFAULT_LAYOUT_OPTIONS.cardBorder,
         maxContentWidth: spec.max,
         minContentWidth: spec.min,
+        inlineFormulaWidth: 0,
         segments: [
           {
             index: 0,

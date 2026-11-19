@@ -138,7 +138,20 @@ export interface BlockMeasurement {
   labelHeight: number;
   cardHeight: number;
   maxContentWidth: number;
+  /**
+   * The narrowest content width at which nothing breaks inside an atomic unit.
+   * A rendered inline formula is atomic, so its width is included here even
+   * when CSS min-content under-reports it (KaTeX splits a long formula into
+   * breakable bases).
+   */
   minContentWidth: number;
+  /**
+   * Widest rendered inline formula in the block, in content px; 0 when the
+   * block has none. A formula wider than `LayoutOptions.maxContentWidth` grows
+   * the card to the available page content width; above that width the block
+   * keeps the existing `content-too-wide` defect (plan #12).
+   */
+  inlineFormulaWidth: number;
   segments: MeasuredSegment[];
   anchors: MeasuredAnchor[];
   /** Table path key -> fixed column widths in px, content-box relative. */

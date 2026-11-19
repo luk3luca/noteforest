@@ -32,6 +32,90 @@ const LABEL_LINE = LABEL_FONT * 1.2;
 const LABEL_GAP = 8;
 const TABLE_CELL_PADDING = 12;
 
+/**
+ * LaTeX commands that draw no glyph of their own: spacing, sizing/style
+ * switches, line-break hints and the delimiters that grow a neighbour. They
+ * must not widen the rendered-width estimate.
+ */
+const ZERO_WIDTH_LATEX_COMMANDS = new Set([
+  'left',
+  'right',
+  'big',
+  'Big',
+  'bigg',
+  'Bigg',
+  ',',
+  ';',
+  ':',
+  '!',
+  ' ',
+  'quad',
+  'qquad',
+  'enspace',
+  'thinspace',
+  'limits',
+  'nolimits',
+  'displaystyle',
+  'textstyle',
+  'scriptstyle',
+  'mathrm',
+  'mathbf',
+  'mathit',
+  'mathsf',
+  'mathtt',
+  'text',
+  'operatorname',
+]);
+
+function latexTokens(latex: string): string[] {
+  return latex.match(/\\(?:[a-zA-Z]+|.)|[\s\S]/gu) ?? [];
+}
+
+/**
+ * Approximate the rendered width of an inline formula.
+ *
+ * The DOM port measures the real KaTeX box; this estimate only has to be
+ * content-driven for the DOM-free layout tests. LaTeX source length is a poor
+ * proxy: `\frac`, `\left`, `\,` and braces occupy source characters but draw
+ * little or no glyph. Count rendered symbols instead — a named command is one
+ * symbol (its arguments are counted separately), a spacing/style command is
+ * none.
+ */
+function estimateInlineFormulaWidth(latex: string, charWidth = BODY_CHAR): number {
+  let glyphs = 0;
+  for (const token of latexTokens(latex)) {
+    if (token === '{' || token === '}' || token === '&' || token === '_' || token === '^') continue;
+    if (token.startsWith('\\')) {
+      if (ZERO_WIDTH_LATEX_COMMANDS.has(token.slice(1))) continue;
+      glyphs += 1;
+      continue;
+    }
+    if (/\s/u.test(token)) continue;
+    glyphs += 1;
+  }
+  return Math.max(12, glyphs * charWidth);
+}
+
+/** LaTeX of an inline formula node, or an empty string. */
+function inlineMathLatex(node: ContentNode): string {
+  return typeof node.attrs?.['latex'] === 'string' ? node.attrs['latex'] : '';
+}
+
+/**
+ * Widest rendered inline formula anywhere in the content, in body-character
+ * units. A table cell is excluded: it is one paragraph with its own column
+ * policy, and the formula never widens a table or its atomic row (plan #12).
+ */
+function widestInlineFormulaWidth(node: ContentNode): number {
+  if (node.type === 'table') return 0;
+  if (node.type === 'inlineMath') return estimateInlineFormulaWidth(inlineMathLatex(node));
+  let widest = 0;
+  for (const child of node.children ?? []) {
+    widest = Math.max(widest, widestInlineFormulaWidth(child));
+  }
+  return widest;
+}
+
 function textWidth(text: string, charWidth = BODY_CHAR): number {
   return text.replace(/\s+/g, ' ').trim().length * charWidth;
 }
@@ -48,8 +132,7 @@ function longestWordWidth(text: string, charWidth = BODY_CHAR): number {
 function inlineNodeWidth(node: ContentNode, charWidth = BODY_CHAR): number {
   if (node.type === 'text') return (node.text ?? '').length * charWidth;
   if (node.type === 'inlineMath') {
-    const latex = typeof node.attrs?.['latex'] === 'string' ? node.attrs['latex'] : '';
-    return latex.length * charWidth;
+    return estimateInlineFormulaWidth(inlineMathLatex(node), charWidth);
   }
   if (node.type === 'image') {
     return typeof node.attrs?.['width'] === 'number' ? node.attrs['width'] : 220;
@@ -61,8 +144,9 @@ function inlineNodeWidth(node: ContentNode, charWidth = BODY_CHAR): number {
 function inlineMinWidth(node: ContentNode, charWidth = BODY_CHAR): number {
   if (node.type === 'text') return longestWordWidth(node.text ?? '', charWidth);
   if (node.type === 'inlineMath') {
-    const latex = typeof node.attrs?.['latex'] === 'string' ? node.attrs['latex'] : '';
-    return Math.max(12, latex.length * charWidth);
+    // A formula never wraps or shrinks between its parts: its rendered width
+    // is the atomic minimum, whatever the LaTeX source looks like.
+    return estimateInlineFormulaWidth(inlineMathLatex(node), charWidth);
   }
   if (node.type === 'image') {
     // Images are atomic vertically but scalable horizontally: they never force
@@ -426,7 +510,7 @@ function measureAt(
   block: ContentBlock,
   mode: MeasurementMode,
   contentWidth: number,
-  intrinsic: { natural: number; min: number },
+  intrinsic: { natural: number; min: number; inlineFormulaWidth: number },
   layoutOptions: LayoutOptions = DEFAULT_LAYOUT_OPTIONS,
 ): BlockMeasurement {
   const hasAsset = (id: string): boolean => Boolean(document.assets[id]);
@@ -561,6 +645,7 @@ function measureAt(
     cardHeight: contentTop + cursor + options.cardPadding + options.cardBorder,
     maxContentWidth: intrinsic.natural,
     minContentWidth: intrinsic.min,
+    inlineFormulaWidth: intrinsic.inlineFormulaWidth,
     segments,
     anchors,
     tableColumns,
@@ -597,9 +682,13 @@ export function createEstimatedMeasurement(
         const widths = contentIntrinsicWidths(block.content, (id) => Boolean(document.assets[id]));
         const labelWidth = block.label ? textWidth(block.label, 9) : 0;
         const labelMin = block.label ? longestWordWidth(block.label, 9) : 0;
+        const inlineFormulaWidth = widestInlineFormulaWidth(block.content);
         return {
-          natural: Math.max(widths.natural, labelWidth),
-          min: Math.max(widths.min, labelMin),
+          // A rendered inline formula is atomic: it is part of both the
+          // unbreakable minimum and the natural width, whatever its container.
+          natural: Math.max(widths.natural, labelWidth, inlineFormulaWidth),
+          min: Math.max(widths.min, labelMin, inlineFormulaWidth),
+          inlineFormulaWidth,
         };
       })();
       let contentWidth: number;
