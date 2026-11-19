@@ -11,6 +11,7 @@
 | [0007](0007-editor-layouts-and-modes.md) | Editor layouts and interaction modes | Accepted | 7 Nov 2026 |
 | [0008](0008-personal-page-settings.md) | Personal page settings, continuous canonical document | Accepted | 8 Nov 2026 |
 | [0009](0009-copy-mints-new-document-id.md) | Save a copy mints a new document id | Accepted | 14 Nov 2026 |
+| [0010](0010-page-sibling-gap.md) | Page sibling gap: vertical setting, fixed horizontal corridor | Accepted | 19 Nov 2026 |
 
 ## When to write one
 
