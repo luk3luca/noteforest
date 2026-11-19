@@ -41,9 +41,12 @@ Build checkpoints A0–A3 in plan §4.2, only the files in plan §5.1.
    with the trimmed selection as `latex`; an inline-formula `NodeSelection` unwraps to its LaTeX.
    Empty-caret `$…$` typing is unchanged; invalid LaTeX stays visible; one undo. Barriers and anchor
    behavior are in plan §6 A2 and §8.2 — follow them exactly.
-3. **Table cells.** Put Bold, Italic, Inline code and Inline formula in the existing `TableToolbar`
-   (the selection bubble stays suppressed). GFM paste/typed conversion parses bold, italic, strike,
-   inline code, inline math and hard break per cell; Copy as Markdown serializes them back. A pasted
+3. **Table cells.** Split the surfaces: the classic selection bubble formats inside a cell (Bold,
+   Italic, Inline code, Link, Math, highlight, branch) and appears for a non-empty selection;
+   `TableToolbar` keeps table management only (13 actions: rows, columns, alignment, Copy as
+   Markdown, source) and is anchored to the table **bottom edge**, not the active cell, so moving
+   between cells does not move it. GFM paste/typed conversion parses bold, italic, strike, inline
+   code, inline math and hard break per cell; Copy as Markdown serializes them back. A pasted
    `$…$` becomes a node immediately. Block content stays refused (VH1). Page/PDF render marks/math;
    Page Edit stays render-only.
 4. **HTML math paste.** Normalize foreign `.math`/KaTeX/MathJax containers and their TeX annotations

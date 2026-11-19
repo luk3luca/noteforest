@@ -46,7 +46,7 @@ integrated once, verified once, and released as one 0.1.1 dmg.
 
 | # | Decision | Why |
 |---|---|---|
-| P1 | The table formatting actions go in the **existing `TableToolbar`** as one compact cluster: Bold, Italic, Inline code, Inline formula. The general `SelectionToolbar` stays suppressed inside tables. Page Edit stays render-only (Q6). | The table already owns one contextual bar and `SelectionToolbar.shouldShow` explicitly defers to it. Two bubbles over one cell selection would stack, cover the cell and duplicate the table's command surface. |
+| P1 | **Split the two surfaces.** The general `SelectionToolbar` is shown inside table cells for a non-empty inline selection (its existing Bold, Italic, Inline code, Link, Math, highlight, branch actions). `TableToolbar` keeps table management only (row/column/alignment/copy/source, 13 actions) and is anchored to the **bottom edge of the table**, not the active cell: its rect depends only on the table, so moving between cells does not move it. It sits outside the horizontal scroll wrapper; Page Edit stays render-only (Q6). | The old bubble followed the active cell (`getReferencedVirtualElement` returned `cellBounds`), so the bar jumped on every cell move; the formatting cluster made it 17 actions. Two surfaces, two jobs; the 13 management actions stay and `editor-appearance` stays at 13. |
 | P2 | GFM cell inline support = **bold, italic, strike, inline code, inline math, hard break** (ratified Q5). Links, highlights and anchor marks are not created by GFM paste and are exported as plain cell text. | The cell model is one paragraph of inline content; the brief names bold/italic/code/math and the acceptance only requires bold + `$…$`. Links need URL parsing/sanitization and are a separate format decision; highlights/anchors are not representable in GFM. |
 | P3 | The heading marker removes a level with **Backspace at the heading start** (H3→H2→H1→paragraph); adds a level with `#` at the start. A fourth `#` at H3 is consumed as a no-op; guest `.md` headings follow 1–6 (ratified Q2/Q3). | Mirrors the marker the user sees; no new chord; keeps plain Backspace's "never cross the block" rule (the key is consumed by the heading, not by the block boundary). |
 | P4 | The HTML math normalizer rewrites **foreign** containers only (`.math`, `.math-inline`, KaTeX/MathJax annotation) and leaves NoteForest's own inline-math markup untouched. | Protects NoteForest-to-NoteForest paste; the foreign shapes are the ones the bug reports use. |
@@ -76,8 +76,8 @@ disjoint (section 5). Track B's ADR is already on `main` before it starts.
 | **A0** | Branch and baseline. | `npm test` baseline recorded on the untouched branch; no product change before A1. |
 | **A1 — paste** | HTML math normalization (P4) and the GFM cell inline parser/serializer (P2), including pasted `$…$` becoming real nodes in cells. | Unit tests for the normalizer and the GFM inline layer are green; the `special-text` paste cases are green; `npm run typecheck` green. |
 | **A2 — toggles** | Heading marker (P3) and formula `$` wrap/unwrap, registered in the forest editor and the flat guest schema. | Unit tests + the `special-text` heading/formula cases green; Read mode shows no marker; invalid LaTeX visible; one undo step. |
-| **A3 — table surface** | `TableToolbar` formatting cluster (P1) and the Continuous/Page/PDF cell proof. | `special-text` and the new `m4c1` cell case green; Copy as Markdown round-trip evidenced; `verify:fast` green on the branch. |
-| **A4 — lane regressions** | Fix the five failures from the first orchestrator Electron lane (plan §6 Track A A4) and the typed GFM conversion. | The four touched UI files pass in one lane; unit/typecheck green; no file beyond the A4 list. |
+| **A3 — table surface** | Split surfaces (P1): selection bubble formatting in cells, fixed bottom management bar, and the Continuous/Page/PDF cell proof. | `special-text` and the new `m4c1` cell case green; Copy as Markdown round-trip evidenced; `verify:fast` green on the branch. |
+| **A4 — lane regressions** | Fix the four remaining lane failures (plan §6 Track A A4), the P1 split and the typed GFM conversion. | The four touched UI files pass in one lane; unit/typecheck green; no file beyond the A4 list. |
 
 ### 4.3 Track B checkpoints (in order)
 
@@ -127,27 +127,28 @@ diff.
 | `apps/desktop/src/renderer/src/lib/gfm-inline.ts` | new | Cell inline AST ↔ GFM source: bold/italic/strike/code/math/hard break + escaping. |
 | `apps/desktop/src/renderer/src/lib/gfm-table.ts` | edit | `tableCellText` delegates to the inline serializer; splitter/round-trip contract. |
 | `apps/desktop/src/renderer/src/editor/table-node.ts` | edit | `tableNodeFromGfm` builds marks and inline-math nodes from the inline AST. |
-| `apps/desktop/src/renderer/src/editor/TableToolbar.tsx` | edit | Formatting cluster (P1) with `data-action` hooks for tests. |
+| `apps/desktop/src/renderer/src/editor/TableToolbar.tsx` | edit | Management only (13 actions); remove the formatting cluster; anchor to the table bottom edge, not the active cell (P1). |
+| `apps/desktop/src/renderer/src/editor/SelectionToolbar.tsx` | edit | Show the classic formatting bubble inside table cells; remove the `!isActive('table')` suppression (P1). |
 | `apps/desktop/src/renderer/src/editor/extensions.ts` | edit | Register the three new extensions in the forest editor. |
 | `apps/desktop/src/renderer/src/markdown/flat-schema.ts` | edit | Register the same extensions in the flat guest schema (heading cap follows 1–6 there). |
-| `apps/desktop/src/renderer/src/styles.css` | edit | Heading marker widget style only (mirror the inline-code delimiter token; no new copy). |
+| `apps/desktop/src/renderer/src/styles.css` | edit | Heading marker widget style and the table management bar's bottom-edge layout (mirror the inline-code token; no new copy). |
 | `tests/support/harness.mjs` | edit | Add a dual-format clipboard helper (`text` + `html`) beside `writeClipboard`. Track A owns it. |
 | `apps/desktop/test/heading-marker.test.ts` | new | Pure add/remove/cap/read-only/guest-level cases. |
 | `apps/desktop/test/formula-toggle.test.ts` | new | Wrap/unwrap/guards/trim/one-transaction cases. |
 | `apps/desktop/test/html-math-paste.test.ts` | new | Synthetic `.math`, KaTeX and MathJax annotation clips; NoteForest HTML untouched; list/mark preservation. |
 | `apps/desktop/test/gfm-inline.test.ts` | new | Parse/serialize marks, math guards, escapes, round-trip, malformed input. |
 | `apps/desktop/test/special-text.test.ts` | edit | Table cell marks/math through `parseGfmTable`/`gfmFromTableNode`. |
-| `tests/ui/special-text.test.mjs` | edit | Heading marker, formula toggle, cell paste/copy cases (section 10.2). |
+| `tests/ui/special-text.test.mjs` | edit | Heading marker, formula toggle, cell paste/copy, selection-bubble formatting in a cell, fixed bottom table bar (section 10.2). |
 | `tests/ui/m4c1-print-compositor.test.mjs` | edit | One focused table-cell bold + inline-math Page/PDF parity case. |
 | `apps/desktop/src/renderer/src/editor/table-commands.ts` | edit | A4: typed GFM conversion serializes the paragraph's inline marks/math, not `textContent`. |
-| `tests/ui/editor-appearance.test.mjs` | edit | A4: the table toolbar now has 17 buttons; update the count assertion. |
 | `tests/ui/markdown-file-view.test.mjs` | edit | A4: strip the heading marker widget from the guest heading text assertion; canonical content stays clean. |
 | `docs/batch/report-input-fix.md` | new | A4 report input. |
 | `docs/batch/report-input.md` | new | Track A builder report input (avoids `report.md` collision). |
 
 **Track A run-only:** `apps/desktop/test/table-cell-guard.test.ts`,
 `apps/desktop/test/formula-transactions.test.ts`, `apps/desktop/test/formula-clipboard.test.ts`,
-`tests/ui/m4b1b1-page-edit-overlay.test.mjs` (cell formula rendering in Page Edit).
+`tests/ui/m4b1b1-page-edit-overlay.test.mjs` (cell formula rendering in Page Edit),
+`tests/ui/editor-appearance.test.mjs` (13 management actions, one compact row, fixed bar).
 
 ### 5.2 Track B (`t3/v0.1.1-page-gap`)
 
@@ -256,37 +257,45 @@ so their numbers must not change. If one fails, fix the axis read — do not upd
 
 **A3 — table surface.**
 
-1. Add the cluster to `TableToolbar` (P1): Bold, Italic, Inline code, Inline formula. Bold/italic/
-   code use the editor's own toggle commands; the formula button wraps a non-empty selection with
-   the A2 transaction, or inserts an empty inline formula and opens its source editor through the
-   existing auto-edit path. `SelectionToolbar` keeps `!isActive('table')`. Page Edit keeps no
-   formatting cluster (ratified Q6).
-2. Verify the cell model is unchanged: `InlineTableCell`/`InlineTableHeader` still hold exactly one
+1. Show the existing `SelectionToolbar` inside table cells for a non-empty inline selection: keep
+   its current Bold, Italic, Inline code, Link, Math, highlight and branch actions; remove the
+   `!isActive('table')` suppression. It may move with the text selection; that is the formatting
+   surface. Page Edit keeps no formatting cluster (Q6).
+2. `TableToolbar` keeps management only: row above/below/delete, column left/right/delete, align
+   left/center/right, Copy as Markdown, source. Remove the Bold/Italic/Inline code/Inline formula
+   cluster (13 actions stay). Anchor the bar to the **table bottom edge**: return the table bounds
+   from `getReferencedVirtualElement`, not `cellBounds`, and place a zero-height reference at the
+   table bottom so the bar sits below the table, outside the horizontal scroll wrapper. Moving the
+   caret between cells must not move it; page/table scroll may.
+3. Verify the cell model is unchanged: `InlineTableCell`/`InlineTableHeader` still hold exactly one
    paragraph; block content is still refused and never flattened (VH1).
-3. Add the Page/PDF cell proof to `m4c1`: a table cell with bold text and an inline formula renders
+4. Add the Page/PDF cell proof to `m4c1`: a table cell with bold text and an inline formula renders
    the same marks/nodes in Page Read and the print compositor, and the exported PDF text contains
    the cell text. No table layout change, no new page-break rule.
-4. Copy as Markdown uses the A1 serializer; source panel shows the same string.
+5. Copy as Markdown uses the A1 serializer; source panel shows the same string.
 
 **A4 — lane regressions.**
 
-The first orchestrator Electron lane (after the A/B merge) found five failures. Fix them in this
-order; the files are authorized in §5.1.
+The first orchestrator Electron lane (after the A/B merge) found five failures. The fifth
+(`editor-appearance` 13→17) is resolved by the P1 split, not by a test update. Four lane fixes
+remain, plus the table-surface split and the typed GFM conversion; the files are authorized in
+§5.1.
 
 1. `special-text` A1/A2: after a native `Home`, `#` at the heading start does not raise the level
    because the handler reads the ProseMirror selection, which can lag the DOM caret. Resolve the
    live DOM caret (the `arrowStays` pattern) or otherwise make `Home` + `#` work; keep one undo.
 2. `special-text` A1/A3: the assertion looks for `strong`/`em` in `tbody td`, but the GFM fixture
-   puts Bold/Italic in the header row. Assert `th` for Bold/Italic and `td` for `$x^2$`/`<br>`;
-   do not change the product path to fit the test.
+   puts Bold/Italic in the header row. Assert `th` for Bold/Italic and `td` for `$x^2$`/`<br>`.
+   Update the same case for the P1 split: formatting actions come from the selection bubble, the
+   table bar has only the 13 management actions, and its rect is unchanged when the caret moves
+   between cells.
 3. `m4c1`: the Page Read table has no `strong` for the fixture's `bold` mark. Trace the Page cell
    mark path; fix the product if the mark is dropped, or the fixture only if its mark name is not
    canonical. Prove bold in Page Read and the PDF text.
 4. `markdown-file-view`: the heading marker widget appears in `innerText`, so the guest heading
    assertion sees `#Markdown fixture`. Strip `.nf-heading-marker` in the test (canonical content is
    clean) or make the affordance not contribute to text without hiding it in editable guest views.
-5. `editor-appearance`: the table toolbar now has 17 buttons; update the 13 expectation.
-6. Typed GFM conversion (AC-08): `table-commands.ts` still reads `paragraph.textContent`, so a typed
+5. Typed GFM conversion (AC-08): `table-commands.ts` still reads `paragraph.textContent`, so a typed
    table loses delimiters already consumed by the inline input rules. Serialize the paragraph's
    inline nodes/marks with the A1 layer so typed tables keep marks/math. Add a focused test.
 
@@ -387,7 +396,7 @@ owns the final gate.
 | AC-08 | A pasted or typed GFM table cell with `**bold**`, `*italic*`, `~~strike~~`, `` `code` ``, `$…$` and `<br>` becomes real marks/nodes in the cell; a pasted `$…$` is a node immediately, not literal until retyped. | `gfm-inline.test.ts`, `special-text.test.ts`, `special-text` UI. |
 | AC-09 | Copy as Markdown writes the cell marks/math back and a parse→serialize→parse round-trip is stable; literal delimiters are escaped and survive. | `gfm-inline.test.ts`, `special-text` UI clipboard assertion. |
 | AC-10 | Cell block content is still refused and never flattened (VH1); the cell remains one paragraph. | `table-cell-guard.test.ts` (run), `special-text` UI. |
-| AC-11 | The table toolbar exposes Bold, Italic, Inline code and Inline formula; no second selection bubble appears in a cell; the actions work in Continuous, and the guest Markdown editor mounts the same toolbar (no second copy); Page Edit shows no cluster. | `special-text` UI, `markdown-file-view` (edit). |
+| AC-11 | Inside a table cell, the classic selection bubble is the formatting surface (Bold, Italic, Inline code, Link, Math, highlight, branch) and appears only for a non-empty selection; the table management bar keeps only row/column/alignment/copy/source (13 actions), has no formatting cluster, and is anchored to the table bottom edge: moving the caret between cells leaves its rect unchanged, and no second management bar appears. The guest Markdown editor mounts the same surfaces; Page Edit shows no formatting cluster. | `special-text` UI, `editor-appearance` (run), `markdown-file-view` (edit). |
 | AC-12 | Bold + inline formula in a cell render in Continuous, Page Read and the print/PDF output; table pagination rules are unchanged. | `special-text` UI, `m4c1` UI + PDF text. |
 | AC-13 | A dual-format clipboard with plain `$…$` and HTML `.math`/annotation spans pastes as a list with the formulas restored and the other marks kept; NoteForest-to-NoteForest rich paste is unchanged. | `html-math-paste.test.ts`, `special-text` UI, `markdown-file-view` (edit). |
 | AC-14 | `PageTheme.siblingGap` (Child gap, default 18), `PageTheme.chapterGap` (Top-level gap, default 32) and `PageTheme.calloutGap` (Callout gap, default 16) are stored 0–96, normalized on load, per-document overridable, and reach Page Read/Edit, measurement and PDF; none is density-scaled. | `page-settings.test.ts`, `print-model.test.ts`, `r1b` UI. |
@@ -456,8 +465,8 @@ owns the final gate.
 - Pasting a table into a table, or into a code block, keeps today's refusal.
 - Block content pasted into a cell is still refused; a multi-paragraph cell never flattens.
 - Page/PDF: marks and inline math render; a table row is still atomic; no new break rule.
-- The guest `.md` editor's table toolbar gets the same cluster; its flat schema already has the
-  marks and inline math.
+- The guest `.md` editor gets the same split: selection-bubble formatting in a cell, and the fixed
+  bottom management bar; its flat schema already has the marks and inline math.
 
 ### 8.4 HTML math paste
 
@@ -515,7 +524,7 @@ owns the final gate.
 - Block content in table cells, merged cells, table resize, or table layout changes.
 - Links/highlights/anchors in GFM cells; Markdown export beyond the existing Copy as Markdown.
 - A formatting toolbar in the Page Edit overlay (Q6 ratified: Page Edit renders stored marks/math
-  only; the cluster stays in the Continuous/guest table toolbar).
+  only; formatting stays in the selection bubble and table management in the Continuous/guest bar).
 - Copy changes beyond the three gap labels and the ratified group help (Q4).
 - Callout lane/dot/trunk changes from the anchor batch.
 
@@ -571,10 +580,10 @@ owns the final gate.
 
 | Suite | Track | Edit? | What it proves | Lane |
 |---|---|---|---|---|
-| `tests/ui/special-text.test.mjs` | A | extend | Heading marker H1–H3, add/remove/no-op/undo, Read no marker; formula wrap/unwrap/invalid/undo; table cell paste, marks/math, Copy as Markdown; cell formatting cluster. | A |
+| `tests/ui/special-text.test.mjs` | A | extend | Heading marker H1–H3, add/remove/no-op/undo, Read no marker; formula wrap/unwrap/invalid/undo; table cell paste, marks/math, Copy as Markdown; selection-bubble formatting and the fixed bottom table bar. | A |
 | `tests/ui/m4c1-print-compositor.test.mjs` | A | one case | Bold + inline formula in a cell: Page Read and print compositor parity; PDF text. | A |
 | `tests/ui/markdown-file-view.test.mjs` | A | edit | NoteForest ↔ guest rich paste still keeps table/formula/marks; the guest heading text assertion strips the marker widget (serial suite). | A |
-| `tests/ui/editor-appearance.test.mjs` | A | edit | The table toolbar count is 17; the toolbar still renders one compact row. | A |
+| `tests/ui/editor-appearance.test.mjs` | A | no | 13 management actions, one compact row; the table bar is anchored to the table bottom edge. | A |
 | `tests/ui/m4b1b1-page-edit-overlay.test.mjs` | A | no | Cell formula still renders and the inline→block refusal still names the reason. | A |
 | `tests/ui/ui-settings-advanced.test.mjs` | B | edit | Three gap fields present with their labels and the ratified help; 0–96 validation, saved values, override dot, Use global. | B |
 | `tests/ui/r1b-page-settings.test.mjs` | B | edit | Per-document child 40 / top-level 64 / callout 24 apply to Page, persist, global stays 18/32/16; horizontal child offset 18. | B |
@@ -588,9 +597,9 @@ any parallel pool.
 ### 10.3 Screenshots and evidence
 
 - Track A: `special-text` artifacts showing the marker on H1/H2/H3, no marker in Read, the formula
-  wrap/unwrap, the invalid-LaTeX error, the pasted table with bold + formula, and the table toolbar
-  cluster. `m4c1` artifacts showing the cell in Page and print, plus the extracted PDF text line.
-  Copy as Markdown output as text in the report.
+  wrap/unwrap, the invalid-LaTeX error, the pasted table with bold + formula, the selection bubble
+  over a cell, and the fixed bottom management bar. `m4c1` artifacts showing the cell in Page and
+  print, plus the extracted PDF text line. Copy as Markdown output as text in the report.
 - Track B: `ui-settings-advanced` screenshot of the three fields and the help sentence; `r1b`/`m4d1`
   screenshots of Page at the default and at child 40 / top-level 64 / callout 24, with the measured
   horizontal child offset (18) and vertical gaps; the JSON rect evidence (`layoutOptions`, block
@@ -609,8 +618,9 @@ integration. Do not add retries or sleeps; do not run two UI suites at concurren
 
 ## 11. Rejected alternatives (plan-level)
 
-- **Put table formatting in the selection bubble instead of the table toolbar** — two bubbles over
-  one cell, and `SelectionToolbar` already defers to the table; rejected (P1).
+- **Keep the formatting cluster in the table toolbar / let the bar follow the active cell** — the
+  bar moves on every cell change and the cluster makes 17 actions; rejected by the product owner
+  in favor of the split (P1).
 - **Make the GFM inline layer a full Markdown parser** — out of scope, high risk, and the cell
   model has no block content; a narrow parser is enough (P2).
 - **Normalize HTML math to literal `$…$` only** — prose paste would stay literal (the input rule
@@ -658,7 +668,7 @@ remains.** These are recorded, not proposed.
 | Q3 | Is Backspace at the heading start the removal key? | **Yes.** It lowers H3→H2→H1→paragraph, one undo step. |
 | Q4 | May the Advanced layout group help become "Values in pixels. Editing a value makes this layer Custom."? | **Yes.** That exact sentence. |
 | Q5 | Is the table-cell inline set bold, italic, strike, code, inline math, hard break? | **Yes.** Links, highlights and anchors are not parsed and export as plain text. |
-| Q6 | May Page Edit stay render-only while the formatting cluster lives in the Continuous/guest table toolbar? | **Yes.** Page Edit renders marks/math only for this batch. |
+| Q6 | May Page Edit stay render-only while formatting lives in the selection bubble and table management in the Continuous/guest bar? | **Yes.** Page Edit renders marks/math only for this batch. |
 
 Resolved without a product decision:
 
