@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.1.2 — 19 November 2026
+
+Third release. macOS (Apple silicon), local unsigned build.
+
+- **Long inline formulas:** a rendered `$…$` formula wider than the card grows the Page card to the
+  available content width, never wraps, clips or shrinks the formula, and keeps Page Read/Edit and
+  PDF parity. A formula wider than the page keeps the existing `content-too-wide` defect; a fitting
+  formula and the 18/32/16 Page gaps are unchanged.
+- **Arrow boundary:** plain ArrowUp/ArrowDown stay inside the block at the first/last visual line,
+  even mid-word; a selected formula or block atom at the block end no longer moves to the next
+  block. `⌘↑`/`⌘↓` still navigate blocks, `⌘←`/`⌘→` stay line start/end.
+- **Page selection:** the selection ink inside Page Read/Edit is paper ink with an accent tint in both
+  themes; the global selection is untouched.
+- **Library:** the Library section header has the 28 px refresh button, wired to the existing
+  `refreshLibrary()`; the menu Refresh stays.
+- **Verify:** 184 unit files / 1,930 tests, e2e 16, recovery 14, UI 71/71 at concurrency 4.
+
+Known limitations remain in `docs/plan.md`.
+
 ## 0.1.1 — 19 November 2026
 
 Second release. macOS (Apple silicon), local unsigned build.

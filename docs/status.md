@@ -1,5 +1,19 @@
 # Status
 
+**Release:** 0.1.2, 19 November 2026.
+
+- Tag `v0.1.2` at the release commit; dmg `dist/NoteForest-0.1.2-arm64.dmg`.
+- Distribution: local unsigned build, ad-hoc signed by the `afterPack` hook. No Developer ID, no
+  notarization, no auto-update.
+- Repo: public on GitHub, MIT. Bundle id `com.github.luk3luca.noteforest`.
+- Verified at release: full `npm run verify` green — 184 unit files / 1,930 tests, e2e 16,
+  recovery 14, UI 71/71 at concurrency 4 (364.6 s).
+- Shipped: long inline-formula card growth, the visual-line/atom arrow boundary, Page selection ink,
+  and the Library header refresh.
+- Open gate: the product owner's visual, VoiceOver and PDF pass on the installed app.
+
+## 0.1.1 — 19 November 2026
+
 **Release:** 0.1.1, 19 November 2026.
 
 - Tag `v0.1.1` at `c2bdf55`; dmg `dist/NoteForest-0.1.1-arm64.dmg`.

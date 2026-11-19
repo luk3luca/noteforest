@@ -6,8 +6,6 @@ No batch is committed. The product owner picks the next one from the lists below
 
 **Small, known fixes** (details in Known issues):
 
-- Page text selection ink in the dark theme (7).
-- Library refresh button in the section header (8).
 - Mixed-polarity code-theme chrome (3).
 - Second structural undo entry on some Page Edit commits (5).
 
@@ -54,38 +52,13 @@ No batch is committed. The product owner picks the next one from the lists below
    is dirty with a normalization. The honest fix is to fold the normalization into the same entry.
 6. **`⇧Esc` inside the Page Edit overlay is inert.** `Esc` and `⌘⏎` commit; `Esc` from the page
    closes the find. Recorded so nobody restores a second chord.
-7. **Page text selection is unreadable in the dark theme.** The global `::selection` uses near-white
-   `--text-1`, while Page is fixed light paper. Scope selection inside `.nf-page-view` and the Page
-   Edit prose to the paper ink and a paper accent tint, in both themes; add a CSS guard test.
-8. **No refresh button in the Library header.** `refreshLibrary()` exists and the library menu
-   carries Refresh, but the section header has no control. Add the same 28 px icon button used by
-   Health, plus a test.
-9. **The unified Read reason is clipped in the palette row** (command surface, 18 November 2026).
+7. **The unified Read reason is clipped in the palette row** (command surface, 18 November 2026).
    The full string is in `data-palette-reason` and in the key/menu toast; the row needs a wrap or a
    tooltip.
-10. **A read-only or locked note gets the Read-mode sentence** (D3, command surface). The refusal is
-    right, the sentence is wrong; fixing it needs a new reason and approved copy.
-11. **Fit page is enabled and inert outside Page** (D6, command surface). Keep or hide it in
-    Continuous is a UX call.
-12. **A long inline formula keeps the standard card.** A display formula (`$$`) already triggers the
-    full-width card through the unbreakable-content exception, like a wide table; an inline formula
-    (`$…$`) does not: the paragraph wraps around it and the card stays at `maxCardWidth`, so a
-    formula wider than the cap can overflow or take a `content-too-wide` defect. Treat a long inline
-    formula like the display case: expand the card to the available page width, never wrap, clip or
-    shrink the formula itself, and keep Page/PDF parity. Cover an inline formula wider than
-    `maxCardWidth` in the layout and PDF gates.
-13. **Plain arrows can leave the block.** Two paths bypass the boundary guard:
-    - A selected formula is a `NodeSelection`; `arrowStays` exempts every `NodeSelection` ("code
-      blocks and tables own their keys"), so ArrowRight at the block end moves to the next block.
-    - ArrowUp/ArrowDown at the first/last visual line are guarded only by document offsets
-      (`parentOffset === 0` / `=== content.size`). A caret in the middle of the line is not at the
-      paragraph start/end, so the native key leaves the block.
-    Plain arrows must stay inside the block; crossing is the explicit `⌘↑`/`⌘↓` (already documented
-    as previous/next block in Continuous). Narrow the `NodeSelection` exemption to code blocks and
-    tables, compute the horizontal boundary from the selected node's end, and make the vertical guard
-    line-aware (compare the caret line with the block content's first/last line). Add UI regressions:
-    a formula at the block end, mid-word Up/Down on the first/last line, and `⌘↑`/`⌘↓` still
-    navigating.
+8. **A read-only or locked note gets the Read-mode sentence** (D3, command surface). The refusal is
+   right, the sentence is wrong; fixing it needs a new reason and approved copy.
+9. **Fit page is enabled and inert outside Page** (D6, command surface). Keep or hide it in
+   Continuous is a UX call.
 
 ## Open decisions
 

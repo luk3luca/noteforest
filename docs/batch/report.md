@@ -1,71 +1,65 @@
-# Batch report — v0.1.1 input and Page gaps
+# Batch report — v0.1.2 input correctness and small UI fixes
 
-**Status:** shipped 0.1.1 on 19 November 2026. One integration window; the full `verify` is green.
-No Sentinel: the product owner did not approve one. The orchestrator reviewed the plan and ran the
+**Status:** shipped 0.1.2 on 19 November 2026. One integration window; the full `verify` is green.
+No Sentinel: the product owner did not approve one. The orchestrator reviewed the brief and ran the
 gate.
 
-**Commits:** anchor index `fc8fbbc`; Track B `60a4e45`; Track A `0db131a`; Track A lane fixes
-`5a2201b`; legacy UI assertions `275d523`; release commit (version, changelog, status, this report).
+**Commits:** T3 `2353c95`; T2 merge `2ee0393`; T1 merge `29de828`; release commit (version,
+changelog, status, this report). The three builder reports are `report-small-ui.md`,
+`report-arrows.md` and `report-formula-width.md`.
 
 ## What shipped
 
-- **Anchor resolution index** (already merged before this batch): one index in core, owned by
-  `DocumentSession`; Continuous, Page and PDF agree on resolved, ambiguous, broken and idle anchors.
-  The below-callout trunk is at +24 and a below card never sits left of the +38 lane.
-- **Track A — editor input and paste:** heading marker levels (H1–H3, `#` raises, Backspace lowers,
-  one undo), `$` selection wrap/unwrap for inline formulas, table-cell inline marks/formulas with
-  GFM paste and Copy-as-Markdown round-trip, and foreign HTML math paste restored to the editor's
-  inline shape. Table surfaces are split: the classic selection bubble formats in a cell; the table
-  management bar keeps 13 actions and is anchored to the table bottom edge, not the active cell.
-- **Track B — Page vertical gaps:** three per-document settings in Page → Advanced — Child gap (18),
-  Top-level gap (32), Callout gap (16); 0–96, fixed under density, applied to Page and PDF. The
-  horizontal parent → right-group corridor stays a fixed 18 px (`LayoutOptions.rightGroupGap`).
-- **A4:** lane regressions closed (live DOM caret for Home + `#`, header/body table assertions,
-  Page cell bold/PDF, guest `.md` marker strip, typed GFM conversion via `gfmInlineFromNode`), plus
-  the table-surface split and the Electron 45 clipboard helper.
+- **T1 — long inline formula (#12):** the Page measurement publishes the widest rendered inline
+  formula; a formula wider than the card grows the card to the available Page content width with no
+  wrap, clip or shrink. Page Read/Edit and PDF use the same width; a formula wider than the page
+  keeps the existing `content-too-wide` defect. The display-formula path, the 18/32/16 gaps, the
+  horizontal corridor and the default page counts are unchanged.
+- **T2 — arrow boundary (#13):** plain ArrowUp/ArrowDown stay inside the block on the first/last
+  visual line, mid-word included; a selected inline/block formula at the block end does not move to
+  the next block. Code blocks and tables keep native arrows. `⌘↑`/`⌘↓` still navigate blocks;
+  `⌘←`/`⌘→` stay line start/end.
+- **T3 — small UI (#7 + #8):** Page selection ink is scoped to the paper ink + accent tint in both
+  themes; the Library section header has the 28 px refresh button wired to `refreshLibrary()`,
+  while the menu Refresh stays.
+- **Test-only integration adjustments:** the T2 lane relaxed two assertions to match native/desired
+  behavior — the visual column can change the character offset on the other line, and an inline
+  formula collapses to a caret in the block (the “continue writing” path) while a block formula keeps
+  its NodeSelection. No product assertion was weakened.
 
 ## Checks
 
 | Check | Result |
 |---|---|
-| Full `npm run verify` | **green** — 183 unit files / 1,909 tests; boundaries 306 files / 1,495 imports / 16 rules; e2e 16/16; recovery 14/14; UI **71/71** at concurrency 4 (364.9 s) |
-| `npm ci` + `npm run typecheck` from the 0.1.1 lock | green |
-| Track A UI lane | `special-text` 11/11, `m4c1` 8/8, `markdown-file-view` 5/5, `editor-appearance` 1/1 |
-| Track B UI lane | `ui-settings-advanced` 8/8, `r1b-page-settings` 5/5, `m4d1-page-density` 4/4 |
-| Perf | The anchor warm-up p95 guard flaked once under parallel load (17.46 ms / 16.56 ms vs 16); it passes isolated and in the green full run. No test weakened. |
-
-The first full verify found two **legacy test assertions**, not product regressions: the stacked
-callout test still expected the pre-anchor lane x, and the vault guest heading read `#Diario` because
-the marker widget is visible in the editable guest. Both were updated test-only; the second full
-verify is the green one above.
+| Full `npm run verify` | **green** — 184 unit files / 1,930 tests; boundaries 306 files / 1,495 imports / 16 rules; e2e 16/16; recovery 14/14; UI **71/71** at concurrency 4 (364.6 s) |
+| Per-track `verify:fast` | T3 183/1,913, T2 183/1,920, T1 184/1,915; e2e 16/16 each |
+| T1 UI lane | `m4c1` 8/8, `m4b1-page-view` 12/12, `m4c3-pdf-gate` 3/3 |
+| T2 UI lane | `special-text` 11/11 |
+| T3 UI lane | `b2-contrast` 4/4, `library-surface` 8/8, `sidebar-system` 4/4 |
 
 ## Acceptance
 
-- Track A AC-01…AC-13 pass (unit + the lane evidence); A4 items pass; the `editor-appearance` test
-  keeps 13 management actions and asserts the bottom-bar rect is stable across cell moves.
-- Track B AC-14…AC-23 pass: the three gaps move independently, the horizontal corridor stays 18,
-  Page/PDF parity holds, density does not scale them, and the 18/32/16 default baseline is unchanged.
-- No new dependency, no document-schema change, no second layout derivation.
-- The product owner's visual, VoiceOver and PDF pass on the installed app is the remaining release
-  gate.
+- T1: a long rendered inline formula grows the Page card in Read/Edit and PDF; a fitting formula,
+  the display formula, the gaps/corridor and the default page count are unchanged; an over-page
+  formula keeps the existing defect.
+- T2: mid-word Up/Down and selected formula arrows stay in the block; code/table native arrows and
+  `⌘↑`/`⌘↓`/`⌘←`/`⌘→` are unchanged; no new chord.
+- T3: both-theme Page selection CSS guard; the 28 px Library refresh button with accessible name,
+  click behavior and the menu path kept.
+- No new dependency, no document-schema change, no new UI suite file.
+- The product owner's visual, VoiceOver and PDF pass on the installed app remains the release gate.
 
 ## Evidence
 
-- `docs/batch/report-input.md` — Track A builder report.
-- `docs/batch/report-input-fix.md` — A4 lane fixes and test-only evidence.
-- `docs/batch/report-page-gap.md` — Track B builder report.
-- `artifacts/special-text/v011-*`, `artifacts/m4c1/ui/print-table-cell-*`,
-  `artifacts/editor-appearance/table-toolbar-header.png`,
-  `artifacts/ui-settings-advanced/advanced-layout.png`,
-  `artifacts/r1b-page-settings/page-gaps-40-64-24.png`,
-  `artifacts/m4d1-page-density/page-read-gaps-*`.
+- `docs/batch/report-formula-width.md`, `docs/batch/report-arrows.md`,
+  `docs/batch/report-small-ui.md`.
+- T1: `artifacts/m4c1/ui/print-table-cell-*` and the new long-inline-formula Page/PDF case.
+- T2: `tests/ui/special-text.test.mjs` B2 (live DOM caret/canonical block, no pixels).
+- T3: `artifacts/b2-contrast/page-selection-{dark,light}.png`,
+  `artifacts/library-surface/library-refresh-header.png`.
 
-## Risks and next
+## Remaining known issues
 
-- `docs/plan.md` keeps the long inline-formula card width and the arrow-boundary issue as the next
-  known issues; the Page-gap, heading, formula-toggle, table-cell and HTML-paste items are shipped and
-  removed from the roadmap.
-- A legacy stored non-default `siblingGap`/`calloutGap` now applies on load; the 18/32/16 defaults
-  keep the 0.1.0 output byte-compatible.
-- The three UI test updates are test-only: the stacked callout lane 38 (anchor clamp), the guest `.md`
-  marker strip, and the bottom-bar stability assertion in `editor-appearance`.
+`docs/plan.md` now lists nine: empty-child floor, 1,000-block scroll p95, mixed-polarity code chrome,
+rich-cell move reconciliation, the Page Edit second undo entry, `⇧Esc`, the clipped palette reason,
+the read-only sentence and Fit page. The small-fix shortlist keeps #3 and #5.
