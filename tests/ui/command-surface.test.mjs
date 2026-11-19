@@ -249,6 +249,25 @@ describe('command surface parity', () => {
     assert.equal(reason, READ_MODE, 'the palette row uses the unified sentence');
     // The old short toast sentence is gone from the palette too.
     assert.ok(!String(reason).includes('switch to Edit to make changes.'));
+    // The reason span clips at 190px, so it exposes the full sentence as a
+    // native tooltip; the row keeps its short label, its data attribute and its
+    // disabled behaviour.
+    const reasonSpan = paletteRow('cmd-new-chapter').locator('.nf-palette-reason');
+    assert.equal(
+      await reasonSpan.getAttribute('title'),
+      READ_MODE,
+      'the clipped reason exposes the full sentence in a tooltip',
+    );
+    assert.equal(
+      await paletteRow('cmd-new-chapter').locator('.nf-palette-label').innerText(),
+      'New chapter',
+      'the row still renders the short label',
+    );
+    assert.equal(
+      await reasonSpan.getAttribute('data-palette-reason-label'),
+      'true',
+      'the reason span keeps its marker',
+    );
     await page.screenshot({ path: join(evidence, 'read-palette-reason.png') });
     await closePalette();
 

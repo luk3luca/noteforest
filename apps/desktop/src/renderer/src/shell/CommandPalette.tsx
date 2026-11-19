@@ -193,7 +193,11 @@ export function CommandPalette(): JSX.Element | null {
                         {item.label}
                       </span>
                       {item.reason === undefined ? null : (
-                        <span className="nf-palette-reason" data-palette-reason-label="true">
+                        <span
+                          className="nf-palette-reason"
+                          data-palette-reason-label="true"
+                          title={item.reason}
+                        >
                           {item.reason}
                         </span>
                       )}

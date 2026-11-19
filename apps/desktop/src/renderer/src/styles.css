@@ -9129,6 +9129,86 @@ body.nf-dragging-block .nf-gutter-handle {
   background: var(--surface-2);
 }
 
+/* B2 mixed-polarity chrome (plan #3). A code theme owns a surface and ink, so
+   when its polarity differs from the app theme (Light+/One Light on a dark app,
+   Dark+/Monokai on a light app) the fence rows and the copy chip follow
+   `--code-surface`/`--code-text` instead of the shell `--surface-*`/`--text-*`
+   chrome. One selector per app-theme × code-theme pair states the four mixed
+   pairs exactly; the six same-polarity pairs keep the rules above untouched.
+   The separators stay the shell hairline: in a mixed pair that hairline is
+   always the opposite polarity of the code surface, so it stays visible. */
+html[data-theme="dark"][data-code-theme="light-plus"] .nf-code-fence,
+html[data-theme="dark"][data-code-theme="one-light"] .nf-code-fence,
+html[data-theme="light"][data-code-theme="dark-plus"] .nf-code-fence,
+html[data-theme="light"][data-code-theme="monokai"] .nf-code-fence {
+  background: var(--code-surface);
+  color: var(--code-text);
+}
+
+html[data-theme="dark"][data-code-theme="light-plus"] .nf-code-fence-mark,
+html[data-theme="dark"][data-code-theme="light-plus"] .nf-code-fence-hint,
+html[data-theme="dark"][data-code-theme="light-plus"] .nf-code-fence-close,
+html[data-theme="dark"][data-code-theme="one-light"] .nf-code-fence-mark,
+html[data-theme="dark"][data-code-theme="one-light"] .nf-code-fence-hint,
+html[data-theme="dark"][data-code-theme="one-light"] .nf-code-fence-close,
+html[data-theme="light"][data-code-theme="dark-plus"] .nf-code-fence-mark,
+html[data-theme="light"][data-code-theme="dark-plus"] .nf-code-fence-hint,
+html[data-theme="light"][data-code-theme="dark-plus"] .nf-code-fence-close,
+html[data-theme="light"][data-code-theme="monokai"] .nf-code-fence-mark,
+html[data-theme="light"][data-code-theme="monokai"] .nf-code-fence-hint,
+html[data-theme="light"][data-code-theme="monokai"] .nf-code-fence-close {
+  color: var(--code-text);
+  opacity: 0.72;
+}
+
+html[data-theme="dark"][data-code-theme="light-plus"] .nf-code-fence-close:hover,
+html[data-theme="dark"][data-code-theme="one-light"] .nf-code-fence-close:hover,
+html[data-theme="light"][data-code-theme="dark-plus"] .nf-code-fence-close:hover,
+html[data-theme="light"][data-code-theme="monokai"] .nf-code-fence-close:hover {
+  background: color-mix(in srgb, var(--code-text) 12%, var(--code-surface));
+  color: var(--code-text);
+  opacity: 1;
+}
+
+html[data-theme="dark"][data-code-theme="light-plus"] .nf-code-lang-input,
+html[data-theme="dark"][data-code-theme="one-light"] .nf-code-lang-input,
+html[data-theme="light"][data-code-theme="dark-plus"] .nf-code-lang-input,
+html[data-theme="light"][data-code-theme="monokai"] .nf-code-lang-input {
+  color: var(--code-text);
+}
+
+html[data-theme="dark"][data-code-theme="light-plus"] .nf-code-lang-input::placeholder,
+html[data-theme="dark"][data-code-theme="one-light"] .nf-code-lang-input::placeholder,
+html[data-theme="light"][data-code-theme="dark-plus"] .nf-code-lang-input::placeholder,
+html[data-theme="light"][data-code-theme="monokai"] .nf-code-lang-input::placeholder {
+  color: var(--code-text);
+  opacity: 0.6;
+}
+
+html[data-theme="dark"][data-code-theme="light-plus"] .nf-code-lang-input:focus,
+html[data-theme="dark"][data-code-theme="one-light"] .nf-code-lang-input:focus,
+html[data-theme="light"][data-code-theme="dark-plus"] .nf-code-lang-input:focus,
+html[data-theme="light"][data-code-theme="monokai"] .nf-code-lang-input:focus {
+  background: color-mix(in srgb, var(--code-text) 12%, var(--code-surface));
+}
+
+html[data-theme="dark"][data-code-theme="light-plus"] .nf-code-copy,
+html[data-theme="dark"][data-code-theme="one-light"] .nf-code-copy,
+html[data-theme="light"][data-code-theme="dark-plus"] .nf-code-copy,
+html[data-theme="light"][data-code-theme="monokai"] .nf-code-copy {
+  background: color-mix(in srgb, var(--code-text) 16%, var(--code-surface));
+  color: var(--code-text);
+}
+
+html[data-theme="dark"][data-code-theme="light-plus"] .nf-code-copy:hover,
+html[data-theme="dark"][data-code-theme="one-light"] .nf-code-copy:hover,
+html[data-theme="light"][data-code-theme="dark-plus"] .nf-code-copy:hover,
+html[data-theme="light"][data-code-theme="monokai"] .nf-code-copy:hover {
+  border-color: color-mix(in srgb, var(--code-text) 50%, var(--code-surface));
+  background: color-mix(in srgb, var(--code-text) 26%, var(--code-surface));
+  color: var(--code-text);
+}
+
 /* A · Syntax colours (editor appearance phase 1). The same token roles reach
    Continuous, Page Read/Edit, and print. `hljs-*` classes only exist on
    highlighted code-block content, so tables, inline code, and prose never read

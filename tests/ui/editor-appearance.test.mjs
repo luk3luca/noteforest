@@ -246,6 +246,112 @@ async function waitTheme(theme) {
   );
 }
 
+/** The four registry themes' own surface and ink (B2). */
+const CODE_THEME_CHROME = {
+  'dark-plus': { surface: '#1e1e1e', text: '#d4d4d4' },
+  'light-plus': { surface: '#ffffff', text: '#000000' },
+  monokai: { surface: '#272822', text: '#f8f8f2' },
+  'one-light': { surface: '#fafafa', text: '#383a42' },
+};
+
+function hexToRgb(hex) {
+  const value = hex.replace('#', '');
+  return `rgb(${Number.parseInt(value.slice(0, 2), 16)}, ${Number.parseInt(
+    value.slice(2, 4),
+    16,
+  )}, ${Number.parseInt(value.slice(4, 6), 16)})`;
+}
+
+/** CSSOM can serialize `#ffffff` as `#fff`; compare the same normalized hex. */
+function normalizeHex(value) {
+  const hex = value.trim().replace('#', '').toLowerCase();
+  const full = hex.length === 3 ? hex.split('').map((char) => char + char).join('') : hex;
+  return `#${full}`;
+}
+
+/**
+ * Select a code theme through the real settings control and wait for the
+ * resolved root attribute. `auto` resolves to the app theme's default.
+ */
+async function chooseCodeTheme(value, resolved) {
+  await page.locator('[data-code-theme-select]').selectOption(value);
+  await page.waitForFunction(
+    (codeTheme) => window.__noteforestTest.settings()?.app?.appearance?.codeTheme === codeTheme,
+    value,
+    { timeout: 15000 },
+  );
+  await page.waitForFunction(
+    (expected) => document.documentElement.dataset.codeTheme === expected,
+    resolved,
+    { timeout: 10000 },
+  );
+}
+
+/** The fence row and copy chip backgrounds and ink, plus the code tokens. */
+async function codeChromeState() {
+  return page.evaluate(() => {
+    const fence = document.querySelector('.nf-editor[data-active="true"] .nf-code-fence');
+    const chip = document.querySelector('.nf-editor[data-active="true"] .nf-code-copy');
+    const root = getComputedStyle(document.documentElement);
+    return {
+      surface: root.getPropertyValue('--code-surface').trim(),
+      ink: root.getPropertyValue('--code-text').trim(),
+      fenceBackground: fence === null ? null : getComputedStyle(fence).backgroundColor,
+      fenceColor: fence === null ? null : getComputedStyle(fence).color,
+      chipBackground: chip === null ? null : getComputedStyle(chip).backgroundColor,
+      chipColor: chip === null ? null : getComputedStyle(chip).color,
+      shellSurface2: root.getPropertyValue('--surface-2').trim(),
+    };
+  });
+}
+
+/**
+ * Plan #3: in a mixed polarity pair the fence row and the copy chip follow the
+ * code theme's own surface and ink, not the app-theme surface/text chrome.
+ */
+async function assertMixedPolarityChrome(themeId, appTheme, screenshotName) {
+  const expected = CODE_THEME_CHROME[themeId];
+  assert.equal(
+    await page.evaluate(() => document.documentElement.dataset.theme),
+    appTheme,
+    `${themeId} runs on the ${appTheme} app`,
+  );
+  assert.equal(
+    await page.evaluate(() => document.documentElement.dataset.codeTheme),
+    themeId,
+    `${themeId} is the resolved code theme`,
+  );
+  const state = await codeChromeState();
+  assert.equal(
+    normalizeHex(state.surface),
+    normalizeHex(expected.surface),
+    `${themeId} surface token`,
+  );
+  assert.equal(normalizeHex(state.ink), normalizeHex(expected.text), `${themeId} ink token`);
+  assert.equal(
+    state.fenceBackground,
+    hexToRgb(expected.surface),
+    `${themeId} fence sits on the code surface`,
+  );
+  assert.equal(
+    state.fenceColor,
+    hexToRgb(expected.text),
+    `${themeId} fence uses the code ink`,
+  );
+  assert.equal(
+    state.chipColor,
+    hexToRgb(expected.text),
+    `${themeId} copy chip uses the code ink`,
+  );
+  assert.notEqual(
+    state.chipBackground,
+    hexToRgb(state.shellSurface2),
+    `${themeId} copy chip leaves the shell surface`,
+  );
+  await h.screenshot(resolve(screenshotDir, screenshotName), { width: 1440, height: 900 });
+  return { appTheme, themeId, ...state, screenshot: screenshotName };
+}
+
 async function openSettings(pageId = 'appearance') {
   await page.waitForSelector('[data-settings-dialog="true"]', { state: 'detached' });
   await page.keyboard.press('Meta+,');
@@ -593,6 +699,26 @@ describe('editor appearance phase 1', () => {
     await page.locator('[data-testid="table-toolbar"] [data-action="toggle-source"]').click();
     await page.waitForSelector('[data-table-source]', { state: 'detached' });
 
+    // Mixed polarity on the dark app: Light+ and One Light are light code
+    // themes, so the fence row and the copy chip follow their white surface and
+    // dark ink instead of the dark shell chrome (plan #3).
+    const mixedOnDark = [];
+    for (const [id, screenshot] of [
+      ['light-plus', 'mixed-light-plus-dark-app.png'],
+      ['one-light', 'mixed-one-light-dark-app.png'],
+    ]) {
+      await openSettings();
+      await chooseCodeTheme(id, id);
+      await closeSettings();
+      await waitContinuousCode();
+      mixedOnDark.push(await assertMixedPolarityChrome(id, 'dark', screenshot));
+    }
+    // Back to auto: Dark+ on the dark app, the same-polarity look.
+    await openSettings();
+    await chooseCodeTheme('auto', 'dark-plus');
+    await closeSettings();
+    await waitContinuousCode();
+
     // Light Continuous: the auto theme is Light+ on its own white surface.
     await openSettings();
     await chooseTheme('light');
@@ -604,6 +730,26 @@ describe('editor appearance phase 1', () => {
       width: 1440,
       height: 900,
     });
+
+    // Mixed polarity on the light app: Dark+ and Monokai are dark code themes,
+    // so the fence row and the copy chip follow their dark surface and light
+    // ink instead of the light shell chrome (plan #3).
+    const mixedOnLight = [];
+    for (const [id, screenshot] of [
+      ['monokai', 'mixed-monokai-light-app.png'],
+      ['dark-plus', 'mixed-dark-plus-light-app.png'],
+    ]) {
+      await openSettings();
+      await chooseCodeTheme(id, id);
+      await closeSettings();
+      await waitContinuousCode();
+      mixedOnLight.push(await assertMixedPolarityChrome(id, 'light', screenshot));
+    }
+    // Back to auto: Light+ on the light app, the same-polarity look.
+    await openSettings();
+    await chooseCodeTheme('auto', 'light-plus');
+    await closeSettings();
+    await waitContinuousCode();
 
     // Page Read renders the same highlighted segments, the code-token anchor,
     // and real selectable text.
@@ -688,6 +834,8 @@ describe('editor appearance phase 1', () => {
       pageColors,
       editColors,
       paperOnDark,
+      mixedOnDark,
+      mixedOnLight,
       headerToolbar: headerGeometry,
       bodyToolbar: bodyGeometry,
     });

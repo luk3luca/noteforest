@@ -214,6 +214,118 @@ describe('code theme stylesheet rendering', () => {
   });
 });
 
+/**
+ * Mixed-polarity chrome (plan #3). A code theme is a surface; when its polarity
+ * differs from the app theme the fence rows and the copy chip must follow
+ * `--code-surface`/`--code-text`, while same-polarity pairs keep the shell
+ * chrome unchanged. The guard reads every themed chrome rule in the stylesheet:
+ * the set of pairs must be exactly the four mixed pairs, each fence and copy
+ * rule must state the code tokens, and no mixed rule may reach a shell
+ * `--surface-*`/`--text-*` role.
+ */
+describe('mixed-polarity code chrome', () => {
+  const APP_THEMES = ['dark', 'light'] as const;
+
+  interface ChromeRule {
+    app: 'dark' | 'light';
+    id: string;
+    target: string;
+    body: string;
+  }
+
+  const chromeRules: ChromeRule[] = [];
+  for (const match of stripComments(stylesSource).matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const body = match[2] ?? '';
+    for (const raw of (match[1] ?? '').split(',')) {
+      const selector = raw.replace(/\s+/g, ' ').trim();
+      const themed =
+        /^html\[data-theme="(dark|light)"\]\[data-code-theme="([a-z-]+)"\] (\.nf-code-(?:fence|copy|lang-input)[a-z-]*(?:::?[a-z-]+)?)$/.exec(
+          selector,
+        );
+      if (themed === null) continue;
+      chromeRules.push({
+        app: themed[1] as 'dark' | 'light',
+        id: themed[2] ?? '',
+        target: themed[3] ?? '',
+        body,
+      });
+    }
+  }
+
+  it('states the four mixed pairs and never a same-polarity pair', () => {
+    const expected = CODE_THEMES.flatMap((theme) =>
+      APP_THEMES.filter((app) => app !== theme.polarity).map((app) => `${app}/${theme.id}`),
+    ).sort();
+    const actual = [...new Set(chromeRules.map((rule) => `${rule.app}/${rule.id}`))].sort();
+    expect(actual).toEqual(expected);
+    expect(actual).toEqual([
+      'dark/light-plus',
+      'dark/one-light',
+      'light/dark-plus',
+      'light/monokai',
+    ]);
+  });
+
+  it('gives the fence and the copy chip the code surface and ink in every mixed pair', () => {
+    for (const app of APP_THEMES) {
+      for (const theme of CODE_THEMES) {
+        if (theme.polarity === app) continue;
+        const pair = chromeRules.filter((rule) => rule.app === app && rule.id === theme.id);
+        const fence = pair.find((rule) => rule.target === '.nf-code-fence');
+        expect(fence, `${app} app + ${theme.id} fence`).toBeDefined();
+        const fenceBody = declarations(fence?.body ?? '');
+        expect(fenceBody.get('background'), `${app} + ${theme.id} fence surface`).toBe(
+          'var(--code-surface)',
+        );
+        expect(fenceBody.get('color'), `${app} + ${theme.id} fence ink`).toBe(
+          'var(--code-text)',
+        );
+        const copy = pair.find((rule) => rule.target === '.nf-code-copy');
+        expect(copy, `${app} app + ${theme.id} copy chip`).toBeDefined();
+        const copyBody = declarations(copy?.body ?? '');
+        expect(copyBody.get('background'), `${app} + ${theme.id} chip surface`).toMatch(
+          /^color-mix\(in srgb, var\(--code-text\) [\d.]+%, var\(--code-surface\)\)$/,
+        );
+        expect(copyBody.get('color'), `${app} + ${theme.id} chip ink`).toBe('var(--code-text)');
+        // No mixed chrome rule may reach the app-theme surface or text roles.
+        for (const rule of pair) {
+          expect(rule.body, `${app} + ${theme.id} ${rule.target}`).not.toMatch(
+            /var\(--(?:surface|text)-/,
+          );
+        }
+      }
+    }
+  });
+
+  it('keeps the same-polarity chrome and the visible separators as before', () => {
+    // Same-polarity pairs read these base rules; none of them may change.
+    expect(declarations(blockAt(stylesSource, '.nf-code-fence {')).get('background')).toBe(
+      'var(--surface-3)',
+    );
+    expect(declarations(blockAt(stylesSource, '.nf-code-fence {')).get('color')).toBe(
+      'var(--text-3)',
+    );
+    expect(declarations(blockAt(stylesSource, '.nf-code-copy {')).get('background')).toBe(
+      'var(--surface-2)',
+    );
+    expect(declarations(blockAt(stylesSource, '.nf-code-copy {')).get('color')).toBe(
+      'var(--text-3)',
+    );
+    // The language label already followed the code ink; it still does.
+    expect(declarations(blockAt(stylesSource, '.nf-code-label {')).get('color')).toBe(
+      'var(--code-text)',
+    );
+    // The fence separators stay the shell hairline and stay visible on the
+    // opposite-polarity code surface of every mixed pair.
+    expect(declarations(blockAt(stylesSource, '.nf-code-fence-open {')).get('border-bottom')).toBe(
+      '1px solid var(--border-1)',
+    );
+    expect(
+      declarations(blockAt(stylesSource, '.nf-code-fence-close-row {')).get('border-top'),
+    ).toBe('1px dashed var(--border-1)');
+  });
+});
+
 describe('computed contrast', () => {
   it('recomputes every worst role from the registry', () => {
     const expected: Record<CodeThemeId, { role: string; label: string }> = {
