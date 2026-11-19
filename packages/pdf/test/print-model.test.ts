@@ -58,6 +58,8 @@ interface StubSpec {
   max: number;
   min: number;
   height?: number;
+  /** Stubbed rendered inline formula width; 0 unless a case needs one. */
+  inlineFormulaWidth?: number;
   /** Number of equal safe segments (default 1). */
   segmentCount?: number;
   tableColumns?: Record<string, number[]>;
@@ -97,6 +99,7 @@ function stubMeasurement(specs: Record<string, StubSpec>): MeasurementPort {
           DEFAULT_PAGE_SETTINGS.theme.cardBorder,
         maxContentWidth: spec.max,
         minContentWidth: spec.min,
+        inlineFormulaWidth: spec.inlineFormulaWidth ?? 0,
         segments: Array.from({ length: segmentCount }, (_, index) => ({
           index,
           kind: 'paragraph' as const,

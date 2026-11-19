@@ -876,9 +876,12 @@ describe('M4c1 print compositor parity', () => {
     });
   });
 
-  it('table cell: bold and inline math render in Page Read, print and the PDF text', async () => {
+  it('table cell and long inline formula: marks, card width, Page Edit, print and PDF text', async () => {
     const env = ui.isolated('m4c1-table-cell');
     await launch('m4c1-table-cell');
+    // 80 rendered symbols: above the 420 px measure, below the page content box.
+    const longFormula =
+      '1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 + 11 + 12 + 13 + 14 + 15 + 16 + 17 + 18 + 19 + 20 + 21 + 22 + 23 + 24 + 25 + 26 + 27 + 28 + 29 + 30';
     const tableDocument = pageDocument({
       id: 'print-table-cell',
       title: 'Print table cell',
@@ -934,6 +937,22 @@ describe('M4c1 print compositor parity', () => {
             ],
           },
         },
+        {
+          id: 'long-formula',
+          label: 'Long inline formula',
+          content: {
+            type: 'doc',
+            children: [
+              {
+                type: 'paragraph',
+                children: [
+                  { type: 'text', text: 'The identity ' },
+                  { type: 'inlineMath', attrs: { latex: longFormula } },
+                ],
+              },
+            ],
+          },
+        },
       ],
     });
     const packagePath = await openPackage(env, 'Print table cell', tableDocument);
@@ -955,19 +974,94 @@ describe('M4c1 print compositor parity', () => {
       (await math.locator('.katex').count()) > 0,
       'the cell formula renders with KaTeX',
     );
+
+    // Plan #12: the rendered inline formula is wider than the readable measure,
+    // so its block card takes the whole Page content box. KaTeX renders a
+    // formula as breakable bases, so a wrapped formula would show several base
+    // tops; one top means the formula itself never wrapped.
+    const formulaFragment = view.locator('[data-fragment-block="long-formula"]');
+    await formulaFragment.waitFor({ timeout: 15000 });
+    const pageContentWidth = await view
+      .locator('[data-page-content]')
+      .first()
+      .evaluate((element) => element.getBoundingClientRect().width);
+    const formulaCardWidth = await formulaFragment.evaluate(
+      (element) => element.getBoundingClientRect().width,
+    );
+    assert.ok(
+      Math.abs(formulaCardWidth - pageContentWidth) <= 0.75,
+      `the long formula card takes the page content width (${formulaCardWidth} vs ${pageContentWidth})`,
+    );
+    const maxCardWidth = await view.evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).getPropertyValue('--nf-page-max-card-width')),
+    );
+    const formulaGeometry = await formulaFragment.evaluate((fragment) => {
+      const formula = fragment.querySelector('.nf-math-inline');
+      if (formula === null) return null;
+      const bases = [...formula.querySelectorAll('.katex-base')];
+      return {
+        width: formula.getBoundingClientRect().width,
+        lines: new Set(bases.map((base) => Math.round(base.getBoundingClientRect().top))).size,
+      };
+    });
+    assert.ok(formulaGeometry !== null, 'the inline formula renders on the page');
+    assert.ok(
+      formulaGeometry.width > maxCardWidth,
+      `the formula is wider than the readable measure (${formulaGeometry.width} > ${maxCardWidth})`,
+    );
+    assert.equal(formulaGeometry.lines, 1, 'the formula stays on one visual line');
     await h.screenshot(artifactsPath('m4c1', 'ui', 'print-table-cell-page-1440x900.png'), {
       width: 1440,
       height: 900,
     });
 
+    // Page Edit opens over the same fragment: the overlay keeps the grown card
+    // and the editable formula stays on one line. Esc closes (no edit to commit).
+    await ui.ensureInteractionMode('edit');
+    await formulaFragment.dblclick({ position: { x: 6, y: 6 } });
+    const overlay = page.locator('.nf-editor[data-active="true"] [data-page-edit-overlay]');
+    await overlay.waitFor({ timeout: 15000 });
+    await page.waitForFunction(
+      () => document.activeElement?.closest('[data-page-edit-overlay]') !== null,
+      undefined,
+      { timeout: 15000 },
+    );
+    const editWidth = await overlay.evaluate((element) => element.getBoundingClientRect().width);
+    assert.ok(
+      Math.abs(editWidth - formulaCardWidth) <= 0.75,
+      `Page Edit keeps the grown card (${editWidth} vs ${formulaCardWidth})`,
+    );
+    const editFormula = await overlay
+      .locator('[data-type="inline-math"]')
+      .first()
+      .evaluate((element) => {
+        const bases = [...element.querySelectorAll('.katex-base')];
+        return {
+          width: element.getBoundingClientRect().width,
+          lines: new Set(bases.map((base) => Math.round(base.getBoundingClientRect().top))).size,
+        };
+      });
+    assert.ok(
+      editFormula.width > maxCardWidth,
+      'the Page Edit formula is the same rendered formula',
+    );
+    assert.equal(editFormula.lines, 1, 'the Page Edit formula stays on one visual line');
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-page-edit-overlay]', {
+      state: 'detached',
+      timeout: 10000,
+    });
+    await ui.ensureInteractionMode('read');
+    await waitPageReady();
+
     const pageCount = Number(await activePageView().getAttribute('data-page-count'));
     await assertPrintParity(
       pageCount,
-      'table cell',
+      'table cell and long formula',
       artifactsPath('m4c1', 'ui', 'print-table-cell-print-1440x900.png'),
     );
 
-    // The print host carries the same marks and node, not flattened text.
+    // The print host carries the same marks and formula nodes, not flattened text.
     await renderPrint();
     const host = page.locator('[data-print-test-host]');
     assert.equal(await host.locator('strong').first().innerText(), 'Ellipse');
@@ -977,10 +1071,20 @@ describe('M4c1 print compositor parity', () => {
       (await printMath.locator('.katex').count()) > 0,
       'the print compositor keeps the cell formula',
     );
+    const printFormula = host.locator('[data-fragment-block="long-formula"] .nf-math-inline').first();
+    await printFormula.waitFor();
+    assert.equal(
+      await printFormula.evaluate((element) => {
+        const bases = [...element.querySelectorAll('.katex-base')];
+        return new Set(bases.map((base) => Math.round(base.getBoundingClientRect().top))).size;
+      }),
+      1,
+      'the print formula stays on one visual line',
+    );
     await page.evaluate(() => window.__noteforestTest.clearPrint());
     await page.waitForSelector('[data-print-test-host]', { state: 'detached', timeout: 5000 });
 
-    // The exported PDF has a real text layer with the cell text.
+    // The exported PDF has a real text layer with the table and note text.
     const outputPath = artifactsPath('m4c1', 'ui', 'print-table-cell.pdf');
     const started = await page.evaluate(
       (input) => window.noteforest.exportPdf(input),
@@ -1003,5 +1107,6 @@ describe('M4c1 print compositor parity', () => {
     assert.equal(pdf.pageCount, pageCount, 'the PDF has the Page Read page count');
     assert.ok(textContains(pdf.text, 'Ellipse'), 'the bold cell text is in the PDF');
     assert.ok(textContains(pdf.text, 'Shape'), 'the header cell text is in the PDF');
+    assert.ok(textContains(pdf.text, 'The identity'), 'the long formula paragraph is in the PDF');
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildPageEdgeModel,
+  createEstimatedMeasurement,
   DEFAULT_PAGE_SETTINGS,
   layoutDocument,
   mergePageSettings,
@@ -63,6 +64,8 @@ interface StubSpec {
   max: number;
   min: number;
   height?: number;
+  /** Stubbed rendered inline formula width; 0 unless a case needs one. */
+  inlineFormulaWidth?: number;
   segmentCount?: number;
   tableColumns?: Record<string, number[]>;
   missingAssetIds?: string[];
@@ -99,6 +102,7 @@ function stubMeasurement(specs: Record<string, StubSpec>): MeasurementPort {
           DEFAULT_PAGE_SETTINGS.theme.cardBorder,
         maxContentWidth: spec.max,
         minContentWidth: spec.min,
+        inlineFormulaWidth: spec.inlineFormulaWidth ?? 0,
         segments: Array.from({ length: segmentCount }, (_, index) => ({
           index,
           kind: 'paragraph' as const,
@@ -182,19 +186,21 @@ function pipeline(
   specs: Record<string, StubSpec>,
   setup: PageSetup,
   overrides: Parameters<typeof normalizePageSettings>[0] = {},
+  port?: MeasurementPort,
 ) {
   const settings = normalizePageSettings({ setup, ...overrides });
-  return pipelineWithSettings(document, specs, settings);
+  return pipelineWithSettings(document, specs, settings, port);
 }
 
 function pipelineWithSettings(
   document: NoteDocument,
   specs: Record<string, StubSpec>,
   settings: ReturnType<typeof normalizePageSettings>,
+  port: MeasurementPort = stubMeasurement(specs),
 ) {
   const layout = layoutDocument(
     document,
-    stubMeasurement(specs),
+    port,
     pageLayoutOptions(settings.theme),
     settings.setup,
       anchorViewForDocument(document),
@@ -793,5 +799,66 @@ describe('Batch C advanced typography/layout parity', () => {
     // A custom cap outside 240–560 keeps its own proportional scaling.
     expect(custom.layout.layoutOptions.maxContentWidth).toBe(420);
     expect(custom.print.cssVariables['--nf-page-max-card-width']).toBe('420px');
+  });
+});
+
+describe('plan #12 long inline formula (Page Read vs print model)', () => {
+  /** 80 rendered symbols: above the 420 px measure, below the A4 landscape content box. */
+  const LONG_FORMULA =
+    '1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 + 11 + 12 + 13 + 14 + 15 + 16 + 17 + 18 + 19 + 20 + 21 + 22 + 23 + 24 + 25 + 26 + 27 + 28 + 29 + 30';
+
+  function formulaDocument(): NoteDocument {
+    const formula: ContentBlock = {
+      id: 'formula',
+      label: 'Long formula',
+      content: {
+        type: 'doc',
+        children: [
+          {
+            type: 'paragraph',
+            children: [
+              { type: 'text', text: 'The identity ' },
+              { type: 'inlineMath', attrs: { latex: LONG_FORMULA } },
+            ],
+          },
+        ],
+      },
+    };
+    return makeDocument({
+      id: 'long-inline-formula',
+      blocks: ['after'],
+      specialBlocks: [formula],
+      chapters: [{ id: 'chapter-1', title: 'Formula', topLevelBlockIds: ['formula', 'after'] }],
+    });
+  }
+
+  it('gives the print model the same page-content-width card and page count as Page Read', () => {
+    const document = formulaDocument();
+    const settings = normalizePageSettings({ setup: A4_LANDSCAPE });
+    const port = createEstimatedMeasurement(document, pageLayoutOptions(settings.theme));
+    const result = pipelineWithSettings(document, {}, settings, port);
+    expectSeamParity(result);
+
+    const options = pageLayoutOptions(settings.theme);
+    const chrome = 2 * (options.cardPadding + options.cardBorder);
+    const block = result.layout.blockById['formula']!;
+    expect(block.measurement.inlineFormulaWidth).toBeGreaterThan(options.maxContentWidth);
+    // The card grew to the available Page content width and reports no defect.
+    expect(block.width).toBeCloseTo(result.layout.geometry.contentWidthPx, 5);
+    expect(block.contentWidth).toBeCloseTo(result.layout.geometry.contentWidthPx - chrome, 5);
+    expect(
+      result.layout.defects.some((defect) => defect.code === 'content-too-wide'),
+    ).toBe(false);
+
+    // The print block carries the same measurement and the same one-fragment box.
+    expect(result.print.blocks['formula']!.measurement.inlineFormulaWidth).toBe(
+      block.measurement.inlineFormulaWidth,
+    );
+    const fragments = result.print.pages.flatMap((printPage) =>
+      printPage.fragments.filter((fragment) => fragment.blockId === 'formula'),
+    );
+    expect(fragments).toHaveLength(1);
+    expect(fragments[0]!.page.width).toBeCloseTo(result.layout.geometry.contentWidthPx, 5);
+    expect(result.print.pageCount).toBe(1);
   });
 });

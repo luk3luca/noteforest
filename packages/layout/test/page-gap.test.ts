@@ -93,6 +93,7 @@ function stubMeasurement(
         cardHeight: contentTop + contentHeight + theme.cardPadding + theme.cardBorder,
         maxContentWidth: spec.max,
         minContentWidth: spec.min,
+        inlineFormulaWidth: 0,
         segments: [
           {
             index: 0,
