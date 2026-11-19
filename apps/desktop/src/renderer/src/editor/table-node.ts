@@ -1,22 +1,52 @@
 /**
- * Build ProseMirror table nodes from parsed GFM data (area D).
+ * Build ProseMirror table nodes from parsed GFM data (area D; v0.1.1).
  *
  * The header row is `tableHeader` cells; every cell holds exactly one
- * paragraph of inline content. `<br>` / newline cell values become hard breaks.
+ * paragraph of inline content. The cell value is parsed by the shared inline
+ * layer (`lib/gfm-inline.ts`), so bold/italic/strike/code, inline math and
+ * hard breaks become real schema marks/nodes instead of literal delimiters.
  */
 
-import type { Node as PMNode, Schema } from '@tiptap/pm/model';
+import type { Mark, Node as PMNode, Schema } from '@tiptap/pm/model';
 import type { GfmTableAlign, GfmTableData } from '../lib/gfm-table';
+import { parseGfmInline, type GfmInlineMark, type GfmInlineNode } from '../lib/gfm-inline';
+
+function marksFor(schema: Schema, names: readonly GfmInlineMark[]): Mark[] {
+  const marks: Mark[] = [];
+  for (const name of names) {
+    const type = schema.marks[name];
+    if (type !== undefined) marks.push(type.create());
+  }
+  return marks;
+}
+
+function inlineNodes(schema: Schema, nodes: readonly GfmInlineNode[]): PMNode[] {
+  const result: PMNode[] = [];
+  for (const node of nodes) {
+    if (node.type === 'text') {
+      if (node.text.length === 0) continue;
+      result.push(schema.text(node.text, marksFor(schema, node.marks)));
+      continue;
+    }
+    if (node.type === 'hardBreak') {
+      const hardBreak = schema.nodes['hardBreak'];
+      if (hardBreak !== undefined) result.push(hardBreak.create());
+      continue;
+    }
+    const inlineMath = schema.nodes['inlineMath'];
+    if (inlineMath !== undefined) {
+      result.push(inlineMath.create({ latex: node.latex }));
+    } else if (node.latex.length > 0) {
+      // A schema without the math node keeps the source as text instead of
+      // dropping it; the editor and the flat guest schema both have it.
+      result.push(schema.text(`$${node.latex}$`));
+    }
+  }
+  return result;
+}
 
 function cellContent(schema: Schema, value: string): PMNode[] {
-  const hardBreak = schema.nodes['hardBreak'];
-  const result: PMNode[] = [];
-  const lines = value.replace(/\r\n?/g, '\n').split('\n');
-  lines.forEach((line, index) => {
-    if (index > 0 && hardBreak !== undefined) result.push(hardBreak.create());
-    if (line.length > 0) result.push(schema.text(line));
-  });
-  return result;
+  return inlineNodes(schema, parseGfmInline(value));
 }
 
 function cellNode(

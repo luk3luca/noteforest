@@ -2,7 +2,8 @@
  * Contextual table toolbar (special-text editing D; editor appearance phase 1).
  *
  * Shown only while the caret is inside a table and the surface is editable.
- * Row/column operations, per-column alignment, paragraph insertion, Copy as
+ * Row/column operations, per-column alignment, paragraph insertion, a cell
+ * formatting cluster (Bold, Italic, Inline code, Inline formula), Copy as
  * Markdown, and a read-only source popover. No merge, header toggle or resize.
  *
  * The silhouette is one compact icon row, so the floating panel is no taller
@@ -22,11 +23,15 @@ import {
   ArrowLeftToLine,
   ArrowRightToLine,
   ArrowUpToLine,
+  Bold,
   Check,
+  Code,
   Code2,
   Columns3,
   Copy,
+  Italic,
   Rows3,
+  Sigma,
   X,
 } from 'lucide-react';
 import { BubbleMenu } from '@tiptap/react/menus';
@@ -35,6 +40,8 @@ import { PluginKey } from '@tiptap/pm/state';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { writeClipboardText } from '../lib/clipboard';
+import { markFormulaAutoEdit } from '../lib/formula-convert';
+import { insertEmptyFormula, wrapSelectionInFormula } from '../lib/formula-toggle';
 import {
   currentCellAlign,
   insertParagraphAroundTable,
@@ -163,9 +170,39 @@ export function TableToolbar({ editor }: { editor: Editor }): JSX.Element {
     [],
   );
 
+  const toggleInlineFormula = (): void => {
+    if (!editor.isEditable) return;
+    const wrapped = wrapSelectionInFormula(editor.state);
+    if (wrapped !== null) {
+      editor.view.dispatch(wrapped.scrollIntoView());
+      editor.view.focus();
+      return;
+    }
+    // A non-empty selection the wrap refuses (for example one containing an
+    // inline formula) stays untouched rather than being replaced.
+    if (!editor.state.selection.empty) return;
+    const inserted = insertEmptyFormula(editor.state);
+    if (inserted === null) return;
+    markFormulaAutoEdit(editor, inserted.pos);
+    editor.view.dispatch(inserted.transaction.scrollIntoView());
+    editor.view.focus();
+  };
+
   const run = (action: string): void => {
     const chain = editor.chain().focus();
     switch (action) {
+      case 'bold':
+        chain.toggleBold().run();
+        break;
+      case 'italic':
+        chain.toggleItalic().run();
+        break;
+      case 'inline-code':
+        chain.toggleCode().run();
+        break;
+      case 'inline-formula':
+        toggleInlineFormula();
+        break;
       case 'row-above':
         chain.addRowBefore().run();
         break;
@@ -210,6 +247,51 @@ export function TableToolbar({ editor }: { editor: Editor }): JSX.Element {
         shouldShow={({ editor: current }) => current.isEditable && current.isActive('table')}
       >
         <div className="nf-table-toolbar-row" role="toolbar" aria-label="Table">
+          <button
+            type="button"
+            className="nf-bubble-button"
+            data-action="bold"
+            aria-label="Bold"
+            title="Bold"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => run('bold')}
+          >
+            <Bold size={14} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="nf-bubble-button"
+            data-action="italic"
+            aria-label="Italic"
+            title="Italic"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => run('italic')}
+          >
+            <Italic size={14} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="nf-bubble-button"
+            data-action="inline-code"
+            aria-label="Inline code"
+            title="Inline code"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => run('inline-code')}
+          >
+            <Code size={14} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="nf-bubble-button"
+            data-action="inline-formula"
+            aria-label="Inline formula"
+            title="Inline formula"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => run('inline-formula')}
+          >
+            <Sigma size={14} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+          <span className="nf-bubble-sep" aria-hidden="true" />
           <button
             type="button"
             className="nf-bubble-button"

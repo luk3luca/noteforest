@@ -5,6 +5,7 @@ import { Placeholder } from '@tiptap/extension-placeholder';
 import { StarterKit } from '@tiptap/starter-kit';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import { normalizeAnchorIds } from '@noteforest/core';
+import { NOTE_HEADING_MAX_LEVEL } from '../lib/heading-marker';
 import { anchorIdsAttribute, anchorIdsFromElement } from './anchor-attrs';
 import {
   BlockBodyView,
@@ -18,6 +19,9 @@ import { CodeBlockKeys, CodeBlockNode } from './code-block';
 import { InlineCodeBacktick } from './inline-code';
 import { ParenOrderedListInput } from './lists';
 import { BlockFormulaNode, InlineFormulaNode } from './formulas';
+import { FormulaDollarToggle } from './formula-toggle';
+import { HeadingMarker } from './heading-marker';
+import { HtmlMathPaste } from './html-math-paste';
 import { TableEditing, TableExtensions } from './tables';
 import { FindHighlightExtension } from './find-decorations';
 import { HighlightMark } from './highlight-mark';
@@ -331,6 +335,9 @@ export function createEditorExtensions(options: EditorExtensionOptions = {}) {
     TableEditing,
     InlineFormulaNode,
     BlockFormulaNode,
+    FormulaDollarToggle,
+    HeadingMarker.configure({ maxLevel: NOTE_HEADING_MAX_LEVEL }),
+    HtmlMathPaste,
     Placeholder.configure({
       placeholder: options.placeholder ?? 'Type something, or press /',
       showOnlyWhenEditable: true,

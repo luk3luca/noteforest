@@ -93,7 +93,9 @@ async function proseText(blockId) {
     const prose = document.querySelector(`[data-block-card="${block}"] .nf-block-prose`);
     if (prose === null) return '';
     const clone = prose.cloneNode(true);
-    for (const delimiter of clone.querySelectorAll('.nf-inline-code-delim')) {
+    for (const delimiter of clone.querySelectorAll(
+      '.nf-inline-code-delim, .nf-heading-marker',
+    )) {
       delimiter.remove();
     }
     return clone.textContent ?? '';
@@ -1508,6 +1510,421 @@ describe('NoteForest special text editing', () => {
     await table.waitFor();
     assert.equal(await table.locator('tr').count(), 2);
     assert.equal(await table.locator('tr').first().locator('th').count(), 2);
+    await page.keyboard.press('Meta+s');
+    await h.waitSaved();
+  });
+
+  it('A1/A2: heading marker levels and the formula $ toggle', async () => {
+    const env = isolated('special-text-toggle');
+    await launch(env);
+    await h.setWindowSize(1440, 900);
+    await seedDemo();
+
+    // `# ` still converts a paragraph to H1; the marker is an affordance, not
+    // text: the paragraph keeps 'Title' and the marker shows one `#`.
+    const headingId = 'st-heading-marker';
+    await blankBlock(headingId);
+    await focusProse(headingId);
+    await page.keyboard.type('# ');
+    await page.waitForSelector(`[data-block-card="${headingId}"] .nf-block-prose h1`);
+    await page.keyboard.type('Title');
+    await page.keyboard.press('Home');
+    await waitCaretSettled();
+    const marker = card(headingId).locator('.nf-heading-marker');
+    await marker.waitFor();
+    assert.equal(await marker.innerText(), '#');
+    assert.equal(await marker.getAttribute('contenteditable'), 'false');
+    assert.equal(await marker.getAttribute('aria-hidden'), 'true');
+    await h.screenshot(artifactsPath('special-text', 'v011-heading-marker-h1-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // # raises H1→H2→H3; one undo restores the previous level.
+    await page.keyboard.type('#');
+    await page.waitForSelector(`[data-block-card="${headingId}"] .nf-block-prose h2`);
+    assert.equal(await marker.innerText(), '##');
+    await page.keyboard.press('Meta+z');
+    await page.waitForSelector(`[data-block-card="${headingId}"] .nf-block-prose h1`);
+    assert.equal(await marker.innerText(), '#');
+
+    // H3 plus a fourth # is a consumed no-op; there is no H4 in a note.
+    await page.keyboard.press('Home');
+    await waitCaretSettled();
+    await page.keyboard.type('#');
+    await page.waitForSelector(`[data-block-card="${headingId}"] .nf-block-prose h2`);
+    await page.keyboard.type('#');
+    await page.waitForSelector(`[data-block-card="${headingId}"] .nf-block-prose h3`);
+    await page.keyboard.type('#');
+    assert.equal(
+      await card(headingId).locator('.nf-block-prose h4').count(),
+      0,
+      'the fourth # creates no H4',
+    );
+    assert.equal(
+      await card(headingId).locator('.nf-heading-marker').count(),
+      1,
+      'the no-op leaves exactly one marker',
+    );
+    assert.equal(await marker.innerText(), '###');
+    await h.screenshot(artifactsPath('special-text', 'v011-heading-marker-h3-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // Backspace lowers H3→H2→H1→paragraph; one undo restores the level.
+    await page.keyboard.press('Backspace');
+    await page.waitForSelector(`[data-block-card="${headingId}"] .nf-block-prose h2`);
+    assert.equal(await marker.innerText(), '##');
+    await page.keyboard.press('Backspace');
+    await page.waitForSelector(`[data-block-card="${headingId}"] .nf-block-prose h1`);
+    await page.keyboard.press('Backspace');
+    await page.waitForFunction(
+      (block) =>
+        document.querySelector(`[data-block-card="${block}"] .nf-block-prose p`) !== null,
+      headingId,
+      { timeout: 5000 },
+    );
+    await page.waitForFunction(
+      (block) =>
+        document.querySelectorAll(`[data-block-card="${block}"] .nf-heading-marker`)
+          .length === 0,
+      headingId,
+      { timeout: 5000 },
+    );
+    assert.equal(await proseText(headingId), 'Title');
+    await page.keyboard.press('Meta+z');
+    await page.waitForSelector(`[data-block-card="${headingId}"] .nf-block-prose h1`);
+    assert.equal(await marker.innerText(), '#');
+
+    // The canonical content holds the heading level and the text, never `#`.
+    await page.waitForFunction(
+      (block) => {
+        const content = window.__noteforestTest.structure()?.blocks?.[block]?.content;
+        const first = content?.children?.[0];
+        return (
+          first?.type === 'heading' &&
+          first?.attrs?.level === 1 &&
+          first?.children?.[0]?.text === 'Title'
+        );
+      },
+      headingId,
+      { timeout: 5000 },
+    );
+    const headingContent = (await ui.structure()).blocks[headingId].content.children[0];
+    assert.equal(headingContent.type, 'heading');
+    assert.equal(headingContent.attrs.level, 1);
+    assert.equal(
+      JSON.stringify(headingContent).includes('"#'),
+      false,
+      'no marker character is written to the content',
+    );
+
+    // Continuous Read hides the marker and keeps the heading.
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('.nf-editor[data-active="true"]')
+          ?.getAttribute('data-interaction-mode') === 'read',
+      undefined,
+      { timeout: 5000 },
+    );
+    await page.waitForFunction(
+      (block) =>
+        document.querySelectorAll(`[data-block-card="${block}"] .nf-heading-marker`)
+          .length === 0,
+      headingId,
+      { timeout: 5000 },
+    );
+    assert.equal(await card(headingId).locator('.nf-block-prose h1').count(), 1);
+    await h.screenshot(artifactsPath('special-text', 'v011-heading-marker-read-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('.nf-editor[data-active="true"]')
+          ?.getAttribute('data-interaction-mode') === 'edit',
+      undefined,
+      { timeout: 5000 },
+    );
+
+    // AC-03: Enter at the end of a heading creates a paragraph; Shift+Enter is
+    // a hard break inside the heading; `# ` conversion is the block above.
+    const enterId = 'st-heading-enter';
+    await blankBlock(enterId);
+    await typeInBlank(enterId, '# Heading');
+    await page.waitForSelector(`[data-block-card="${enterId}"] .nf-block-prose h1`);
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(
+      (block) => {
+        const prose = document.querySelector(`[data-block-card="${block}"] .nf-block-prose`);
+        const container = prose?.querySelector('[data-node-view-content-react]') ?? prose;
+        const children = [...(container?.children ?? [])];
+        const index = children.findIndex((child) => child.tagName === 'H1');
+        return index >= 0 && children[index + 1]?.tagName === 'P';
+      },
+      enterId,
+      { timeout: 5000 },
+    );
+
+    const breakId = 'st-heading-break';
+    await blankBlock(breakId);
+    await typeInBlank(breakId, '# Break');
+    await page.waitForSelector(`[data-block-card="${breakId}"] .nf-block-prose h1`);
+    await page.keyboard.press('Shift+Enter');
+    await page.waitForFunction(
+      (block) =>
+        document.querySelectorAll(`[data-block-card="${block}"] .nf-block-prose h1 br`).length === 1,
+      breakId,
+      { timeout: 5000 },
+    );
+
+    // A selection wraps into one inline formula; outer whitespace stays text.
+    const spaceId = 'st-toggle-space';
+    await blankBlock(spaceId);
+    await typeInBlank(spaceId, '  x^2  ');
+    await page.keyboard.press('Home');
+    for (let index = 0; index < 7; index += 1) {
+      await page.keyboard.press('Shift+ArrowRight');
+    }
+    await waitCaretSettled();
+    await page.keyboard.type('$');
+    const trimmed = card(spaceId).locator('[data-type="inline-math"][data-latex="x^2"]');
+    await trimmed.waitFor();
+    const around = await page.evaluate((block) => {
+      const paragraph = document.querySelector(`[data-block-card="${block}"] .nf-block-prose p`);
+      if (paragraph === null) return null;
+      return {
+        first: paragraph.firstChild?.textContent ?? '',
+        last: paragraph.lastChild?.textContent ?? '',
+      };
+    }, spaceId);
+    assert.deepEqual(around, { first: '  ', last: '  ' });
+    await page.keyboard.press('Meta+z');
+    await page.waitForFunction(
+      (block) =>
+        document.querySelector(`[data-block-card="${block}"] [data-type="inline-math"]`) === null,
+      spaceId,
+      { timeout: 5000 },
+    );
+    assert.equal(await proseText(spaceId), '  x^2  ');
+
+    // A formula NodeSelection unwraps to its LaTeX; one undo restores it.
+    const unwrapId = 'st-toggle-unwrap';
+    await blankBlock(unwrapId);
+    await typeInBlank(unwrapId, 'alpha beta');
+    await page.keyboard.press('Home');
+    for (let index = 0; index < 5; index += 1) {
+      await page.keyboard.press('Shift+ArrowRight');
+    }
+    await waitCaretSettled();
+    await page.keyboard.type('$');
+    const wrapped = card(unwrapId).locator('[data-type="inline-math"][data-latex="alpha"]');
+    await wrapped.waitFor();
+    await wrapped.click();
+    await page.waitForFunction(
+      (block) =>
+        document.querySelector(
+          `[data-block-card="${block}"] [data-type="inline-math"].ProseMirror-selectednode`,
+        ) !== null,
+      unwrapId,
+      { timeout: 5000 },
+    );
+    await page.keyboard.type('$');
+    await page.waitForFunction(
+      (block) =>
+        document.querySelector(`[data-block-card="${block}"] [data-type="inline-math"]`) === null,
+      unwrapId,
+      { timeout: 5000 },
+    );
+    assert.equal(await proseText(unwrapId), 'alpha beta');
+    await page.keyboard.press('Meta+z');
+    await wrapped.waitFor();
+
+    // Invalid LaTeX is kept as the source and shows the existing inline error.
+    const badId = 'st-toggle-invalid';
+    await blankBlock(badId);
+    await typeInBlank(badId, '\\frac{');
+    await page.keyboard.press('Home');
+    for (let index = 0; index < 6; index += 1) {
+      await page.keyboard.press('Shift+ArrowRight');
+    }
+    await waitCaretSettled();
+    await page.keyboard.type('$');
+    const invalid = card(badId).locator('[data-type="inline-math"]').first();
+    await invalid.waitFor();
+    assert.equal(await invalid.getAttribute('data-latex'), '\\frac{');
+    assert.ok(
+      (await card(badId).locator('.katex-error').count()) > 0,
+      'invalid LaTeX stays visible',
+    );
+    await h.screenshot(artifactsPath('special-text', 'v011-formula-invalid-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // An empty caret is never intercepted: the $ is typed literally.
+    const emptyId = 'st-toggle-empty';
+    await blankBlock(emptyId);
+    await typeInBlank(emptyId, 'plain');
+    await page.keyboard.press('End');
+    await waitCaretSettled();
+    await page.keyboard.type('$');
+    assert.equal(
+      await card(emptyId).locator('[data-type="inline-math"]').count(),
+      0,
+      'no formula from an empty caret',
+    );
+    assert.equal(await proseText(emptyId), 'plain$');
+
+    // A selected block formula consumes the key instead of becoming literal `$`.
+    const blockMathId = 'st-toggle-block-math';
+    await blankBlock(blockMathId);
+    await typeInBlank(blockMathId, '$$E=mc^2$$');
+    await page.waitForSelector(`[data-block-card="${blockMathId}"] [data-type="block-math"]`);
+    await card(blockMathId).locator('[data-type="block-math"]').first().click();
+    await page.waitForFunction(
+      (block) =>
+        document.querySelector(
+          `[data-block-card="${block}"] [data-type="block-math"].ProseMirror-selectednode`,
+        ) !== null,
+      blockMathId,
+      { timeout: 5000 },
+    );
+    await page.keyboard.type('$');
+    assert.equal(
+      await card(blockMathId).locator('[data-type="block-math"]').count(),
+      1,
+      'the selected block formula stays',
+    );
+    assert.equal(
+      (await proseText(blockMathId)).includes('$'),
+      false,
+      'the key never becomes a literal $ over the selected atom',
+    );
+    await page.keyboard.press('Meta+s');
+    await h.waitSaved();
+  });
+
+  it('A1/A3: table cell marks, Copy as Markdown, cluster and HTML math paste', async () => {
+    const env = isolated('special-text-cell-marks');
+    await launch(env);
+    await h.setWindowSize(1440, 900);
+    await seedDemo();
+
+    // A pasted GFM cell with bold, italic, math and a hard break becomes real
+    // marks/nodes immediately (not literal delimiters until retyped).
+    const tableId = 'st-cell-marks';
+    await blankBlock(tableId);
+    await focusProse(tableId);
+    await h.writeClipboard(
+      '| **Bold** | *Italic* |\n| --- | --- |\n| $x^2$ | a<br>b |',
+    );
+    await page.keyboard.press('Meta+v');
+    await page.waitForSelector(`[data-block-card="${tableId}"] .nf-block-prose table`);
+    const bodyRow = card(tableId).locator('.nf-block-prose tbody tr').first();
+    assert.equal(await bodyRow.locator('td').first().locator('strong').innerText(), 'Bold');
+    assert.equal(await bodyRow.locator('td').nth(1).locator('em').innerText(), 'Italic');
+    assert.equal(
+      await bodyRow
+        .locator('td')
+        .first()
+        .locator('[data-type="inline-math"]')
+        .getAttribute('data-latex'),
+      'x^2',
+    );
+    assert.ok(
+      (await bodyRow.locator('td').nth(1).innerHTML()).includes('<br>'),
+      'the hard break is a real <br>',
+    );
+    await h.screenshot(artifactsPath('special-text', 'v011-table-cell-marks-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // Copy as Markdown writes the marks and math back; the source panel shows
+    // the same string.
+    const toolbar = page.locator('[data-testid="table-toolbar"]');
+    await card(tableId).locator('.nf-block-prose th').first().click();
+    await toolbar.waitFor();
+    await toolbar.locator('[data-action="toggle-source"]').click();
+    const source = page.locator('[data-table-source]');
+    await source.waitFor();
+    const markdown =
+      '| **Bold** | *Italic* |\n| --- | --- |\n| $x^2$ | a<br>b |';
+    assert.equal((await source.innerText()).trim(), markdown);
+    await toolbar.locator('[data-action="copy-markdown"]').click();
+    await page.waitForFunction(
+      () =>
+        document.querySelector('[data-action="copy-markdown"]')?.textContent?.includes('Copied') ===
+        true,
+      undefined,
+      { timeout: 5000 },
+    );
+    assert.equal(await h.clipboardText(), markdown);
+    await toolbar.locator('[data-action="toggle-source"]').click();
+
+    // The toolbar cluster is the only bubble over a cell selection, and its
+    // actions edit the cell.
+    const boldCell = bodyRow.locator('td').first();
+    await boldCell.click();
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Shift+End');
+    await waitCaretSettled();
+    assert.equal(
+      await page.locator('[data-testid="selection-toolbar"]').isVisible(),
+      false,
+      'no second selection bubble in a cell',
+    );
+    await toolbar.locator('[data-action="italic"]').click();
+    assert.equal(await boldCell.locator('em').innerText(), 'Bold');
+    await toolbar.locator('[data-action="inline-code"]').click();
+    assert.ok((await boldCell.locator('code').count()) > 0, 'inline code applied in the cell');
+    await toolbar.locator('[data-action="inline-formula"]').click();
+    await boldCell.locator('[data-type="inline-math"][data-latex="Bold"]').waitFor();
+    await h.screenshot(artifactsPath('special-text', 'v011-table-toolbar-cluster-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // The formula button on an empty caret inserts one empty formula and opens
+    // the existing source editor.
+    const emptyCell = bodyRow.locator('td').nth(1);
+    await emptyCell.click();
+    await page.keyboard.press('End');
+    await waitCaretSettled();
+    await toolbar.locator('[data-action="inline-formula"]').click();
+    await emptyCell.locator('[data-type="inline-math"][data-latex=""]').waitFor();
+    const cellSource = emptyCell.locator('[data-formula-source]');
+    await cellSource.waitFor();
+    await cellSource.press('Escape');
+
+    // Foreign HTML math is normalized before the slice is inserted; the list
+    // item keeps its bold mark and the formula becomes a node.
+    const htmlId = 'st-html-math-paste';
+    await blankBlock(htmlId);
+    await focusProse(htmlId);
+    await h.writeClipboardHtml(
+      'Speed $v$',
+      '<ul><li><strong>Speed</strong> <span class="math">v</span></li></ul>',
+    );
+    await page.keyboard.press('Meta+v');
+    await card(htmlId)
+      .locator('[data-type="inline-math"][data-latex="v"]')
+      .waitFor();
+    assert.equal(
+      await card(htmlId).locator('.nf-block-prose ul strong').innerText(),
+      'Speed',
+      'the surrounding mark survives the math normalization',
+    );
+    await h.screenshot(artifactsPath('special-text', 'v011-html-math-paste-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
     await page.keyboard.press('Meta+s');
     await h.waitSaved();
   });

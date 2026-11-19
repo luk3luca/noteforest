@@ -26,6 +26,8 @@ import {
   TABLE_PICKER_MAX,
   TABLE_PICKER_MIN,
 } from '../src/renderer/src/lib/table-insert';
+import { tableNodeFromGfm } from '../src/renderer/src/editor/table-node';
+import { flatMarkdownSchema } from '../src/renderer/src/markdown/flat-schema';
 
 function paragraph(...children: ContentNode[]): ContentNode {
   return children.length === 0
@@ -202,6 +204,111 @@ describe('GFM table serializer (D)', () => {
       '| Name | Value |\n| :---: | --- |\n| lambda | 1 \\| 2 |',
     );
     expect(gfmFromTableNode({ type: 'paragraph' })).toBeNull();
+  });
+});
+
+describe('GFM table cell inline marks and math (A1)', () => {
+  const markedTable = {
+    type: 'table',
+    content: [
+      {
+        type: 'tableRow',
+        content: [{ type: 'tableHeader', content: [paragraph(text('Name'))] }],
+      },
+      {
+        type: 'tableRow',
+        content: [
+          {
+            type: 'tableCell',
+            content: [
+              paragraph(
+                { type: 'text', text: 'bold', marks: [{ type: 'bold' }] },
+                text(' '),
+                { type: 'text', text: 'it', marks: [{ type: 'italic' }] },
+                text(' '),
+                { type: 'text', text: 'strike', marks: [{ type: 'strike' }] },
+                text(' '),
+                { type: 'text', text: 'code', marks: [{ type: 'code' }] },
+                text(' '),
+                { type: 'inlineMath', attrs: { latex: 'x^2' } },
+                { type: 'hardBreak' },
+                text('tail'),
+              ),
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  it('serializes cell marks, inline math and a hard break', () => {
+    expect(gfmFromTableNode(markedTable)).toBe(
+      '| Name |\n| --- |\n| **bold** *it* ~~strike~~ `code` $x^2$<br>tail |',
+    );
+  });
+
+  it('parses the serialized cell back to the same inline source', () => {
+    const gfm = gfmFromTableNode(markedTable);
+    expect(gfm).not.toBeNull();
+    if (gfm === null) return;
+    expect(parseGfmTable(gfm)?.rows).toEqual([
+      ['**bold** *it* ~~strike~~ `code` $x^2$\ntail'],
+    ]);
+  });
+
+  it('builds real marks and inline-math nodes from parsed cells', () => {
+    const gfm = [
+      '| **B** | *I* |',
+      '| --- | --- |',
+      '| ~~S~~ | `C` $x$<br>z |',
+    ].join('\n');
+    const data = parseGfmTable(gfm);
+    expect(data).not.toBeNull();
+    if (data === null) return;
+    const node = tableNodeFromGfm(flatMarkdownSchema(), data);
+    expect(node).not.toBeNull();
+    if (node === null) return;
+    const json = node.toJSON() as {
+      content: Array<{
+        content: Array<{
+          content: Array<{ content?: Array<Record<string, unknown>> }>;
+        }>;
+      }>;
+    };
+    const header = json.content[0]?.content[0]?.content[0]?.content?.[0];
+    expect(header?.['type']).toBe('text');
+    expect(header?.['text']).toBe('B');
+    expect(header?.['marks']).toEqual([{ type: 'bold' }]);
+
+    const body = json.content[1]?.content[1]?.content[0]?.content ?? [];
+    expect(body[0]).toMatchObject({ type: 'text', text: 'C', marks: [{ type: 'code' }] });
+    expect(body[1]).toMatchObject({ type: 'text', text: ' ' });
+    expect(body[2]).toMatchObject({ type: 'inlineMath', attrs: { latex: 'x' } });
+    expect(body[3]).toMatchObject({ type: 'hardBreak' });
+    expect(body[4]).toMatchObject({ type: 'text', text: 'z' });
+  });
+
+  it('round-trips marks and math through parse → node → serialize', () => {
+    const gfm = gfmFromTableNode(markedTable);
+    if (gfm === null) throw new Error('expected GFM');
+    const data = parseGfmTable(gfm);
+    if (data === null) throw new Error('expected parsed data');
+    const node = tableNodeFromGfm(flatMarkdownSchema(), data);
+    if (node === null) throw new Error('expected a table node');
+    expect(gfmFromTableNode(node.toJSON() as Parameters<typeof gfmFromTableNode>[0])).toBe(
+      '| Name |\n| --- |\n| **bold** *it* ~~strike~~ `code` $x^2$<br>tail |',
+    );
+  });
+
+  it('keeps the cell as one paragraph with no block content', () => {
+    const data = parseGfmTable('| H |\n| --- |\n| **a** $b$ |');
+    if (data === null) throw new Error('expected parsed data');
+    const node = tableNodeFromGfm(flatMarkdownSchema(), data);
+    if (node === null) throw new Error('expected a table node');
+    const cell = node.child(1).child(0);
+    expect(cell.type.name).toBe('tableCell');
+    expect(cell.childCount).toBe(1);
+    expect(cell.child(0).type.name).toBe('paragraph');
   });
 });
 

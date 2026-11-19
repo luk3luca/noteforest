@@ -11,6 +11,12 @@
  * headerless tables and a general Markdown parser are out of scope.
  */
 
+import {
+  serializeGfmInline,
+  type GfmInlineMark,
+  type GfmInlineNode,
+} from './gfm-inline';
+
 export type GfmTableAlign = 'left' | 'center' | 'right';
 
 export interface GfmTableData {
@@ -27,6 +33,7 @@ export interface TableContentNode {
   /** Canonical (`children`) spelling; accepted by the serializer too. */
   children?: TableContentNode[];
   text?: string;
+  marks?: Array<{ type: string; attrs?: Record<string, unknown> }>;
 }
 
 function childNodes(node: TableContentNode): TableContentNode[] {
@@ -36,42 +43,72 @@ function childNodes(node: TableContentNode): TableContentNode[] {
 const DELIMITER_CELL = /^:?-+:?$/;
 
 /**
- * Split one GFM row on unescaped pipes. A leading/trailing pipe is optional;
- * `\|` is an escaped pipe and `\\` an escaped backslash. Backtick code spans
- * are treated as plain text: the serializer escapes every pipe, so its own
- * output round-trips.
+ * Split one GFM row on unescaped pipes. A leading/trailing pipe is optional.
+ *
+ * The structural pipe escape is resolved here (`\|` becomes a literal pipe,
+ * one escaping backslash removed). Every other escape is left in place for the
+ * inline layer (`lib/gfm-inline.ts`), including `\\`: the splitter does not
+ * unescape it a second time. A run of backslashes before a pipe is what makes
+ * the pipe escaped, so `\\|` is a literal backslash followed by a cell edge.
  */
 export function splitGfmRow(line: string): string[] {
   let source = line.trim();
   if (source.startsWith('|')) source = source.slice(1);
-  if (source.endsWith('|') && !source.endsWith('\\|')) source = source.slice(0, -1);
+  if (source.endsWith('|') && !escapedAt(source, source.length - 1)) {
+    source = source.slice(0, -1);
+  }
   const cells: string[] = [];
   let cell = '';
-  for (let index = 0; index < source.length; index += 1) {
+  let index = 0;
+  while (index < source.length) {
     const character = source[index] ?? '';
-    const next = source[index + 1] ?? '';
-    if (character === '\\' && next === '|') {
-      cell += '|';
-      index += 1;
-      continue;
-    }
-    if (character === '\\' && next === '\\') {
-      cell += '\\';
-      index += 1;
+    if (character === '\\') {
+      const run = countBackslashes(source, index);
+      const next = source[index + run] ?? '';
+      if (next === '|') {
+        if (run % 2 === 1) {
+          // Escaped pipe: remove the one escaping backslash, keep the pipe.
+          cell += '\\'.repeat(run - 1) + '|';
+          index += run + 1;
+          continue;
+        }
+        // Structural pipe: the even run belongs to the cell.
+        cell += '\\'.repeat(run);
+        cells.push(normalizeCell(cell));
+        cell = '';
+        index += run + 1;
+        continue;
+      }
+      cell += '\\'.repeat(run);
+      index += run;
       continue;
     }
     if (character === '|') {
       cells.push(normalizeCell(cell));
       cell = '';
+      index += 1;
       continue;
     }
     cell += character;
+    index += 1;
   }
   cells.push(normalizeCell(cell));
   return cells;
 }
 
-/** Trim, unescape `\\|` remains, and map `<br>` back to a hard break. */
+function countBackslashes(source: string, index: number): number {
+  let run = 0;
+  while (source[index + run] === '\\') run += 1;
+  return run;
+}
+
+function escapedAt(source: string, index: number): boolean {
+  let run = 0;
+  while (index - run - 1 >= 0 && source[index - run - 1] === '\\') run += 1;
+  return run % 2 === 1;
+}
+
+/** Trim a cell value and map `<br>` back to the inline hard-break spelling. */
 function normalizeCell(value: string): string {
   return value.trim().replace(/<br\s*\/?>/gi, '\n');
 }
@@ -163,14 +200,36 @@ export function serializeGfmTable(data: GfmTableData): string {
   return lines.join('\n');
 }
 
-function inlineText(node: TableContentNode): string {
-  if (typeof node.text === 'string') return node.text;
-  if (node.type === 'hardBreak') return '\n';
+const CELL_MARKS: ReadonlySet<string> = new Set(['bold', 'italic', 'strike', 'code']);
+const CELL_MARK_ORDER: readonly GfmInlineMark[] = ['bold', 'italic', 'strike', 'code'];
+
+function cellMarks(node: TableContentNode): GfmInlineMark[] {
+  const present = new Set<string>();
+  for (const mark of node.marks ?? []) {
+    if (CELL_MARKS.has(mark.type)) present.add(mark.type);
+  }
+  return CELL_MARK_ORDER.filter((mark) => present.has(mark));
+}
+
+/** Map one cell's canonical inline content to the neutral inline AST. */
+function cellInlineNodes(node: TableContentNode): GfmInlineNode[] {
+  if (typeof node.text === 'string') {
+    if (node.text.length === 0) return [];
+    const marks = cellMarks(node);
+    const lines = node.text.split('\n');
+    const nodes: GfmInlineNode[] = [];
+    lines.forEach((line, index) => {
+      if (index > 0) nodes.push({ type: 'hardBreak' });
+      if (line.length > 0) nodes.push({ type: 'text', text: line, marks });
+    });
+    return nodes;
+  }
+  if (node.type === 'hardBreak') return [{ type: 'hardBreak' }];
   if (node.type === 'inlineMath' || node.type === 'blockMath') {
     const latex = node.attrs?.['latex'];
-    return typeof latex === 'string' ? `$${latex}$` : '';
+    return typeof latex === 'string' ? [{ type: 'inlineMath', latex }] : [];
   }
-  return childNodes(node).map(inlineText).join('');
+  return childNodes(node).flatMap(cellInlineNodes);
 }
 
 /** Concatenate a cell's blocks into one GFM cell value. */
@@ -179,8 +238,8 @@ export function tableCellText(cell: TableContentNode): string {
   return blocks
     .map((block) =>
       block.type === 'paragraph' || block.type === 'heading'
-        ? childNodes(block).map(inlineText).join('')
-        : inlineText(block),
+        ? serializeGfmInline(childNodes(block).flatMap(cellInlineNodes))
+        : serializeGfmInline(cellInlineNodes(block)),
     )
     .join('\n');
 }

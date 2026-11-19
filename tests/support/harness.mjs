@@ -504,6 +504,20 @@ export function createHarness({ tempRoot }) {
     await app.evaluate(({ clipboard }, value) => clipboard.writeText(value), text);
   }
 
+  /**
+   * Dual-format clipboard write: plain text plus HTML. The paste conversion
+   * under test chooses the HTML path when the editor offers both, so a formula
+   * or table case can prove which payload won.
+   */
+  async function writeClipboardHtml(text, html) {
+    if (app === undefined) throw new Error('writeClipboardHtml: launch the app first');
+    await app.evaluate(
+      ({ clipboard }, value) => clipboard.write({ text: value.text, html: value.html }),
+      { text, html },
+    );
+    return { text, html };
+  }
+
   return {
     get app() {
       return app;
@@ -535,5 +549,6 @@ export function createHarness({ tempRoot }) {
     screenshot,
     clipboardText,
     writeClipboard,
+    writeClipboardHtml,
   };
 }

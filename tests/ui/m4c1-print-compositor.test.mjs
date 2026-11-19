@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir, rm } from 'node:fs/promises';
 import { artifactsPath, waitUntil } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
-import { pageArrowsDocument, pageCalloutModesDocument, pageDocument, textBlock, imageBlock, writePagePackage } from '../support/page-fixtures.mjs';
+import { pageArrowsDocument, pageCalloutModesDocument, pageDocument, paragraph, textBlock, imageBlock, writePagePackage } from '../support/page-fixtures.mjs';
 import { inspectPdfFile, textContains } from '../../scripts/lib/pdf.mjs';
 
 /**
@@ -871,5 +871,132 @@ describe('M4c1 print compositor parity', () => {
       width: 1440,
       height: 900,
     });
+  });
+
+  it('table cell: bold and inline math render in Page Read, print and the PDF text', async () => {
+    const env = ui.isolated('m4c1-table-cell');
+    await launch('m4c1-table-cell');
+    const tableDocument = pageDocument({
+      id: 'print-table-cell',
+      title: 'Print table cell',
+      chapterTitle: 'Table',
+      blocks: [
+        {
+          id: 'table-cell-block',
+          label: 'Cell marks',
+          content: {
+            type: 'doc',
+            children: [
+              {
+                type: 'table',
+                children: [
+                  {
+                    type: 'tableRow',
+                    children: [
+                      { type: 'tableHeader', children: [paragraph('Shape')] },
+                      { type: 'tableHeader', children: [paragraph('Value')] },
+                    ],
+                  },
+                  {
+                    type: 'tableRow',
+                    children: [
+                      {
+                        type: 'tableCell',
+                        children: [
+                          {
+                            type: 'paragraph',
+                            children: [
+                              {
+                                type: 'text',
+                                text: 'Ellipse',
+                                marks: [{ type: 'bold' }],
+                              },
+                            ],
+                          },
+                        ],
+                      },
+                      {
+                        type: 'tableCell',
+                        children: [
+                          {
+                            type: 'paragraph',
+                            children: [{ type: 'inlineMath', attrs: { latex: '\\pi a b' } }],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    });
+    const packagePath = await openPackage(env, 'Print table cell', tableDocument);
+    await showPageRead();
+
+    const view = activePageView();
+    const table = view.locator('table.nf-table').first();
+    await table.waitFor({ timeout: 15000 });
+    assert.equal(
+      await table.locator('strong').first().innerText(),
+      'Ellipse',
+      'the bold cell text renders in Page Read',
+    );
+    const math = table.locator('.nf-math-inline').first();
+    await math.waitFor();
+    assert.ok(
+      (await math.locator('.katex').count()) > 0,
+      'the cell formula renders with KaTeX',
+    );
+    await h.screenshot(artifactsPath('m4c1', 'ui', 'print-table-cell-page-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    const pageCount = Number(await activePageView().getAttribute('data-page-count'));
+    await assertPrintParity(
+      pageCount,
+      'table cell',
+      artifactsPath('m4c1', 'ui', 'print-table-cell-print-1440x900.png'),
+    );
+
+    // The print host carries the same marks and node, not flattened text.
+    await renderPrint();
+    const host = page.locator('[data-print-test-host]');
+    assert.equal(await host.locator('strong').first().innerText(), 'Ellipse');
+    const printMath = host.locator('.nf-math-inline').first();
+    await printMath.waitFor();
+    assert.ok(
+      (await printMath.locator('.katex').count()) > 0,
+      'the print compositor keeps the cell formula',
+    );
+    await page.evaluate(() => window.__noteforestTest.clearPrint());
+    await page.waitForSelector('[data-print-test-host]', { state: 'detached', timeout: 5000 });
+
+    // The exported PDF has a real text layer with the cell text.
+    const outputPath = artifactsPath('m4c1', 'ui', 'print-table-cell.pdf');
+    const started = await page.evaluate(
+      (input) => window.noteforest.exportPdf(input),
+      { packagePath, outputPath, overwrite: true },
+    );
+    assert.equal(started.ok, true, started.message);
+    const job = await waitUntil(
+      async () => {
+        const current = await page.evaluate(
+          (id) => window.noteforest.getExportJob(id),
+          started.jobId,
+        );
+        return current !== null && current.status !== 'running' ? current : false;
+      },
+      `export ${started.jobId}`,
+      120000,
+    );
+    assert.equal(job.status, 'done', job.error?.message ?? 'the export succeeds');
+    const pdf = await inspectPdfFile(outputPath);
+    assert.equal(pdf.pageCount, pageCount, 'the PDF has the Page Read page count');
+    assert.ok(textContains(pdf.text, 'Ellipse'), 'the bold cell text is in the PDF');
+    assert.ok(textContains(pdf.text, 'Shape'), 'the header cell text is in the PDF');
   });
 });

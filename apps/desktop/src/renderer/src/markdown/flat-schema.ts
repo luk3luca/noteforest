@@ -19,7 +19,11 @@ import { CodeBlockKeys, CodeBlockNode } from '../editor/code-block';
 import { InlineCodeBacktick } from '../editor/inline-code';
 import { ParenOrderedListInput } from '../editor/lists';
 import { BlockFormulaNode, InlineFormulaNode } from '../editor/formulas';
+import { FormulaDollarToggle } from '../editor/formula-toggle';
+import { HeadingMarker } from '../editor/heading-marker';
+import { HtmlMathPaste } from '../editor/html-math-paste';
 import { TableEditing, TableExtensions } from '../editor/tables';
+import { FLAT_HEADING_MAX_LEVEL } from '../lib/heading-marker';
 import { MarkdownFrontmatterNode } from './frontmatter-node';
 
 /**
@@ -64,6 +68,9 @@ export function createFlatMarkdownExtensions(
     TableEditing,
     InlineFormulaNode,
     BlockFormulaNode,
+    FormulaDollarToggle,
+    HeadingMarker.configure({ maxLevel: FLAT_HEADING_MAX_LEVEL }),
+    HtmlMathPaste,
     MarkdownFrontmatterNode,
   ];
 }
