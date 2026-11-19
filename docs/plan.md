@@ -67,6 +67,14 @@ No batch is committed. The product owner picks the next one from the lists below
     right, the sentence is wrong; fixing it needs a new reason and approved copy.
 11. **Fit page is enabled and inert outside Page** (D6, command surface). Keep or hide it in
     Continuous is a UX call.
+12. **Heading markers are permanent.** Typing `# ` converts the block to a heading and consumes the
+    marker; afterwards the heading has no editable `#` prefix, so returning to it cannot change the
+    level or turn it back into a paragraph. The block type is effectively permanent and the level is
+    hidden. Mirror inline code: while the caret is in the heading, show the `#`/`##`/`###` marker and
+    let the user add or remove it to change the level or convert to paragraph, with no ambiguous
+    in-between state. Keep the heading node as the only stored state (no marker text in the
+    document), and cover typing `#`, returning to the heading, add/remove, and Page/PDF parity in the
+    UI suite.
 
 ## Open decisions
 
