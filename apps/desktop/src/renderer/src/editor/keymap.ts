@@ -5,7 +5,14 @@ import type { ResolvedPos } from '@tiptap/pm/model';
 import { getEditorBindings } from './bindings';
 import { toggleLastHighlight } from './highlight-mark';
 import { backspaceAction } from '../lib/backspace';
-import { arrowBoundaryAction, type ArrowBoundaryKey } from '../lib/arrow-boundary';
+import {
+  arrowBoundaryAction,
+  visualLineBands,
+  visualLineBoundary,
+  type ArrowBoundaryKey,
+  type ArrowVisualLine,
+  type VerticalBounds,
+} from '../lib/arrow-boundary';
 import { indentTarget, outdentTarget } from '../lib/indent';
 import { tiptapKeys } from '../../../shared/shortcuts';
 
@@ -47,12 +54,94 @@ function currentBlockId(editor: Editor): string | null {
   return null;
 }
 
-function blockBodyDepth(editor: Editor): number | null {
-  const { $from } = editor.state.selection;
-  for (let depth = $from.depth; depth > 0; depth -= 1) {
-    if ($from.node(depth).type.name === 'blockBody') return depth;
+/** Depth of the nearest `blockBody` ancestor of a position, or -1. */
+function blockBodyDepthAt($pos: ResolvedPos): number {
+  for (let depth = $pos.depth; depth > 0; depth -= 1) {
+    if ($pos.node(depth).type.name === 'blockBody') return depth;
   }
-  return null;
+  return -1;
+}
+
+function blockBodyDepth(editor: Editor): number | null {
+  const depth = blockBodyDepthAt(editor.state.selection.$from);
+  return depth < 0 ? null : depth;
+}
+
+/** A code block or table ancestor: those surfaces own their caret keys. */
+function atomicBlockAt($pos: ResolvedPos): boolean {
+  for (let depth = $pos.depth; depth > 0; depth -= 1) {
+    const name = $pos.node(depth).type.name;
+    if (name === 'codeBlock' || name === 'table') return true;
+  }
+  return false;
+}
+
+/**
+ * The caret box and the block content's visual lines, read from the live DOM.
+ *
+ * The ProseMirror state can lag a native caret move (⌘←/⌘→), so the caller
+ * resolves the DOM caret to a position and passes it here; the geometry comes
+ * from that position, never from the stale state. `null` means "not measured":
+ * the offset boundary stays in charge.
+ */
+function visualLineAt(editor: Editor, $from: ResolvedPos): ArrowVisualLine | null {
+  const dom = window.getSelection();
+  const anchor = dom !== null && dom.rangeCount > 0 ? dom.anchorNode : null;
+  if (anchor === null) return null;
+  const element = anchor instanceof HTMLElement ? anchor : anchor.parentElement;
+  const content = element?.closest<HTMLElement>('.nf-block-prose') ?? null;
+  if (content === null) return null;
+  const caret = caretBox(editor, $from);
+  if (caret === null) return null;
+  const bands = visualLineBands(contentLineRects(content));
+  if (bands.length === 0) return null;
+  const line = visualLineBoundary(caret, bands);
+  // No measured line and no boundary is the same outcome as the offset check;
+  // returning null keeps the offset boundary authoritative when geometry and
+  // document disagree.
+  return line.atFirstLine || line.atLastLine ? line : null;
+}
+
+/** The caret box at a document position, or the live DOM caret as fallback. */
+function caretBox(editor: Editor, $from: ResolvedPos): VerticalBounds | null {
+  try {
+    const coords = editor.view.coordsAtPos($from.pos);
+    if (coords.bottom > coords.top) return coords;
+  } catch {
+    // A position the view cannot measure keeps the offset boundary.
+  }
+  const dom = window.getSelection();
+  if (dom === null || dom.rangeCount === 0) return null;
+  const rect = dom.getRangeAt(0).getBoundingClientRect();
+  return rect.height > 0 ? rect : null;
+}
+
+/**
+ * The visual lines of one block body: every text line plus one box for a child
+ * that renders no text (an empty paragraph, a block formula, an image). Only
+ * the prose is measured: the chrome layers sit beside it and never count as a
+ * line.
+ */
+function contentLineRects(content: HTMLElement): VerticalBounds[] {
+  const rects: VerticalBounds[] = [];
+  const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
+  const range = document.createRange();
+  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+    if (node.nodeValue === null || node.nodeValue.length === 0) continue;
+    range.selectNodeContents(node);
+    for (const rect of range.getClientRects()) {
+      if (rect.height > 0) rects.push(rect);
+    }
+  }
+  for (const child of content.children) {
+    if (!(child instanceof HTMLElement)) continue;
+    const box = child.getBoundingClientRect();
+    if (box.height <= 0) continue;
+    const childRange = document.createRange();
+    childRange.selectNodeContents(child);
+    if (childRange.getClientRects().length === 0) rects.push(box);
+  }
+  return rects;
 }
 
 /** Contexts where the native editor keymap owns Tab/Backspace. */
@@ -92,14 +181,16 @@ export const BranchKeymap = Extension.create({
     };
 
     /**
-     * Plain arrows stay inside the block at its very start/end. Code blocks,
-     * tables and a focused local text control (the formula source textarea)
-     * keep the native path: those surfaces own their caret keys.
+     * Plain arrows stay inside the block at its first/last visual line. Code
+     * blocks, tables and a focused local text control (the formula source
+     * textarea) keep the native path: those surfaces own their caret keys.
      *
      * The boundary is read from the live DOM caret, not only from the
      * ProseMirror state: Chromium moves the caret with a native shortcut
      * (⌘←/⌘→) before ProseMirror observes the selection change, and consuming
-     * the next arrow against that stale state would trap the caret.
+     * the next arrow against that stale state would trap the caret. The
+     * vertical boundary is the visual line, so a mid-word caret on the first or
+     * last line is still inside the block.
      */
     const arrowStays = (key: ArrowBoundaryKey): boolean => {
       if (!canEdit()) return false;
@@ -112,7 +203,28 @@ export const BranchKeymap = Extension.create({
       }
       const editor = this.editor;
       const selection = editor.state.selection;
-      if (selection instanceof NodeSelection) return false;
+      // A selected node is not a caret: from a formula at the block end the
+      // native key leaves the block. Code blocks and tables own their keys; an
+      // atom is only guarded here, never converted to its source text or moved.
+      if (selection instanceof NodeSelection) {
+        const nodeName = selection.node.type.name;
+        if (atomicBlockAt(selection.$from) || nodeName === 'codeBlock' || nodeName === 'table') {
+          return false;
+        }
+        const depth = blockBodyDepthAt(selection.$from);
+        if (depth < 0) return false;
+        const action = arrowBoundaryAction({
+          key,
+          // A node selection is not a text selection, but its end is still the
+          // block's boundary. The start stays native so the key collapses the
+          // selection inside the block instead of trapping it.
+          selectionEmpty: true,
+          atomic: false,
+          atBlockStart: false,
+          atBlockEnd: selection.from + selection.node.nodeSize === selection.$from.end(depth),
+        });
+        return action === 'stay';
+      }
       const dom = window.getSelection();
       const domPoint =
         dom !== null &&
@@ -138,15 +250,16 @@ export const BranchKeymap = Extension.create({
           // A DOM point that does not map to the document keeps the state.
         }
       }
-      let depth = -1;
-      let atomic = false;
-      for (let current = $from.depth; current > 0; current -= 1) {
-        const name = $from.node(current).type.name;
-        if (name === 'codeBlock' || name === 'table') atomic = true;
-        if (name === 'blockBody' && depth < 0) depth = current;
-      }
+      const depth = blockBodyDepthAt($from);
       if (depth < 0) return false;
       const body = $from.node(depth);
+      const atomic = atomicBlockAt($from);
+      // A table or code line owns its keys; never measure its (possibly long)
+      // content just to hand the key back.
+      const line =
+        !atomic && (key === 'ArrowUp' || key === 'ArrowDown')
+          ? visualLineAt(editor, $from)
+          : null;
       const action = arrowBoundaryAction({
         key,
         selectionEmpty: domPoint !== null ? domPoint.isCollapsed : selection.empty,
@@ -155,6 +268,8 @@ export const BranchKeymap = Extension.create({
         atBlockEnd:
           $from.parentOffset === $from.parent.content.size &&
           $from.index(depth) === body.childCount - 1,
+        atFirstLine: line?.atFirstLine,
+        atLastLine: line?.atLastLine,
       });
       return action === 'stay';
     };
