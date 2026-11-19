@@ -75,6 +75,12 @@ No batch is committed. The product owner picks the next one from the lists below
     in-between state. Keep the heading node as the only stored state (no marker text in the
     document), and cover typing `#`, returning to the heading, add/remove, and Page/PDF parity in the
     UI suite.
+13. **A long formula does not trigger the full-width block.** Wide tables (and long code lines) can
+    widen a card to the page content box through the unbreakable-content exception; a display formula
+    wide enough to need it stays at the readable cap and can overflow or take a `content-too-wide`
+    defect. Treat a formula wider than the cap like a wide table: expand the card to the available
+    page width, never clip or shrink the formula, and keep Page/PDF parity. Cover a formula wider
+    than `maxCardWidth` in the layout and PDF gates.
 
 ## Open decisions
 
