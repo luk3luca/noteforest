@@ -77,6 +77,7 @@ disjoint (section 5). Track B's ADR is already on `main` before it starts.
 | **A1 — paste** | HTML math normalization (P4) and the GFM cell inline parser/serializer (P2), including pasted `$…$` becoming real nodes in cells. | Unit tests for the normalizer and the GFM inline layer are green; the `special-text` paste cases are green; `npm run typecheck` green. |
 | **A2 — toggles** | Heading marker (P3) and formula `$` wrap/unwrap, registered in the forest editor and the flat guest schema. | Unit tests + the `special-text` heading/formula cases green; Read mode shows no marker; invalid LaTeX visible; one undo step. |
 | **A3 — table surface** | `TableToolbar` formatting cluster (P1) and the Continuous/Page/PDF cell proof. | `special-text` and the new `m4c1` cell case green; Copy as Markdown round-trip evidenced; `verify:fast` green on the branch. |
+| **A4 — lane regressions** | Fix the five failures from the first orchestrator Electron lane (plan §6 Track A A4) and the typed GFM conversion. | The four touched UI files pass in one lane; unit/typecheck green; no file beyond the A4 list. |
 
 ### 4.3 Track B checkpoints (in order)
 
@@ -138,11 +139,14 @@ diff.
 | `apps/desktop/test/special-text.test.ts` | edit | Table cell marks/math through `parseGfmTable`/`gfmFromTableNode`. |
 | `tests/ui/special-text.test.mjs` | edit | Heading marker, formula toggle, cell paste/copy cases (section 10.2). |
 | `tests/ui/m4c1-print-compositor.test.mjs` | edit | One focused table-cell bold + inline-math Page/PDF parity case. |
+| `apps/desktop/src/renderer/src/editor/table-commands.ts` | edit | A4: typed GFM conversion serializes the paragraph's inline marks/math, not `textContent`. |
+| `tests/ui/editor-appearance.test.mjs` | edit | A4: the table toolbar now has 17 buttons; update the count assertion. |
+| `tests/ui/markdown-file-view.test.mjs` | edit | A4: strip the heading marker widget from the guest heading text assertion; canonical content stays clean. |
+| `docs/batch/report-input-fix.md` | new | A4 report input. |
 | `docs/batch/report-input.md` | new | Track A builder report input (avoids `report.md` collision). |
 
 **Track A run-only:** `apps/desktop/test/table-cell-guard.test.ts`,
 `apps/desktop/test/formula-transactions.test.ts`, `apps/desktop/test/formula-clipboard.test.ts`,
-`tests/ui/markdown-file-view.test.mjs` (NoteForest rich paste regression; serial suite),
 `tests/ui/m4b1b1-page-edit-overlay.test.mjs` (cell formula rendering in Page Edit).
 
 ### 5.2 Track B (`t3/v0.1.1-page-gap`)
@@ -264,6 +268,31 @@ so their numbers must not change. If one fails, fix the axis read — do not upd
    the cell text. No table layout change, no new page-break rule.
 4. Copy as Markdown uses the A1 serializer; source panel shows the same string.
 
+**A4 — lane regressions.**
+
+The first orchestrator Electron lane (after the A/B merge) found five failures. Fix them in this
+order; the files are authorized in §5.1.
+
+1. `special-text` A1/A2: after a native `Home`, `#` at the heading start does not raise the level
+   because the handler reads the ProseMirror selection, which can lag the DOM caret. Resolve the
+   live DOM caret (the `arrowStays` pattern) or otherwise make `Home` + `#` work; keep one undo.
+2. `special-text` A1/A3: the assertion looks for `strong`/`em` in `tbody td`, but the GFM fixture
+   puts Bold/Italic in the header row. Assert `th` for Bold/Italic and `td` for `$x^2$`/`<br>`;
+   do not change the product path to fit the test.
+3. `m4c1`: the Page Read table has no `strong` for the fixture's `bold` mark. Trace the Page cell
+   mark path; fix the product if the mark is dropped, or the fixture only if its mark name is not
+   canonical. Prove bold in Page Read and the PDF text.
+4. `markdown-file-view`: the heading marker widget appears in `innerText`, so the guest heading
+   assertion sees `#Markdown fixture`. Strip `.nf-heading-marker` in the test (canonical content is
+   clean) or make the affordance not contribute to text without hiding it in editable guest views.
+5. `editor-appearance`: the table toolbar now has 17 buttons; update the 13 expectation.
+6. Typed GFM conversion (AC-08): `table-commands.ts` still reads `paragraph.textContent`, so a typed
+   table loses delimiters already consumed by the inline input rules. Serialize the paragraph's
+   inline nodes/marks with the A1 layer so typed tables keep marks/math. Add a focused test.
+
+Run `special-text`, `m4c1`, `markdown-file-view` and `editor-appearance` in one lane after
+`npm run build`; focused unit tests and `typecheck`. Report `docs/batch/report-input-fix.md`.
+
 ### Track B
 
 **B1 — model split.**
@@ -358,9 +387,9 @@ owns the final gate.
 | AC-08 | A pasted or typed GFM table cell with `**bold**`, `*italic*`, `~~strike~~`, `` `code` ``, `$…$` and `<br>` becomes real marks/nodes in the cell; a pasted `$…$` is a node immediately, not literal until retyped. | `gfm-inline.test.ts`, `special-text.test.ts`, `special-text` UI. |
 | AC-09 | Copy as Markdown writes the cell marks/math back and a parse→serialize→parse round-trip is stable; literal delimiters are escaped and survive. | `gfm-inline.test.ts`, `special-text` UI clipboard assertion. |
 | AC-10 | Cell block content is still refused and never flattened (VH1); the cell remains one paragraph. | `table-cell-guard.test.ts` (run), `special-text` UI. |
-| AC-11 | The table toolbar exposes Bold, Italic, Inline code and Inline formula; no second selection bubble appears in a cell; the actions work in Continuous, and the guest Markdown editor mounts the same toolbar (no second copy); Page Edit shows no cluster. | `special-text` UI, `markdown-file-view` (run). |
+| AC-11 | The table toolbar exposes Bold, Italic, Inline code and Inline formula; no second selection bubble appears in a cell; the actions work in Continuous, and the guest Markdown editor mounts the same toolbar (no second copy); Page Edit shows no cluster. | `special-text` UI, `markdown-file-view` (edit). |
 | AC-12 | Bold + inline formula in a cell render in Continuous, Page Read and the print/PDF output; table pagination rules are unchanged. | `special-text` UI, `m4c1` UI + PDF text. |
-| AC-13 | A dual-format clipboard with plain `$…$` and HTML `.math`/annotation spans pastes as a list with the formulas restored and the other marks kept; NoteForest-to-NoteForest rich paste is unchanged. | `html-math-paste.test.ts`, `special-text` UI, `markdown-file-view` (run). |
+| AC-13 | A dual-format clipboard with plain `$…$` and HTML `.math`/annotation spans pastes as a list with the formulas restored and the other marks kept; NoteForest-to-NoteForest rich paste is unchanged. | `html-math-paste.test.ts`, `special-text` UI, `markdown-file-view` (edit). |
 | AC-14 | `PageTheme.siblingGap` (Child gap, default 18), `PageTheme.chapterGap` (Top-level gap, default 32) and `PageTheme.calloutGap` (Callout gap, default 16) are stored 0–96, normalized on load, per-document overridable, and reach Page Read/Edit, measurement and PDF; none is density-scaled. | `page-settings.test.ts`, `print-model.test.ts`, `r1b` UI. |
 | AC-15 | The child gap moves only the parent → below-child gap, the child → child stack and the next sibling after a previous subtree (and the callout-stack → child transition); at 0/18/40/96 every horizontal child offset, the parent → right-group corridor, the child indent, the callout lane and the trunk insets stay fixed (corridor 18). | `page-gap.test.ts`, `r1b` UI measurements. |
 | AC-16 | The top-level gap moves only vertical spacing between top-level blocks in a chapter; at 0/32/64/96 it changes no child gap, callout gap or horizontal coordinate, and chapter-start pages are unchanged. | `page-gap.test.ts`, `print-parity.test.ts`. |
@@ -544,7 +573,8 @@ owns the final gate.
 |---|---|---|---|---|
 | `tests/ui/special-text.test.mjs` | A | extend | Heading marker H1–H3, add/remove/no-op/undo, Read no marker; formula wrap/unwrap/invalid/undo; table cell paste, marks/math, Copy as Markdown; cell formatting cluster. | A |
 | `tests/ui/m4c1-print-compositor.test.mjs` | A | one case | Bold + inline formula in a cell: Page Read and print compositor parity; PDF text. | A |
-| `tests/ui/markdown-file-view.test.mjs` | A | no | NoteForest ↔ guest rich paste still keeps table/formula/marks (regression; serial suite). | A |
+| `tests/ui/markdown-file-view.test.mjs` | A | edit | NoteForest ↔ guest rich paste still keeps table/formula/marks; the guest heading text assertion strips the marker widget (serial suite). | A |
+| `tests/ui/editor-appearance.test.mjs` | A | edit | The table toolbar count is 17; the toolbar still renders one compact row. | A |
 | `tests/ui/m4b1b1-page-edit-overlay.test.mjs` | A | no | Cell formula still renders and the inline→block refusal still names the reason. | A |
 | `tests/ui/ui-settings-advanced.test.mjs` | B | edit | Three gap fields present with their labels and the ratified help; 0–96 validation, saved values, override dot, Use global. | B |
 | `tests/ui/r1b-page-settings.test.mjs` | B | edit | Per-document child 40 / top-level 64 / callout 24 apply to Page, persist, global stays 18/32/16; horizontal child offset 18. | B |
