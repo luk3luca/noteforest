@@ -29,6 +29,13 @@ No batch is committed. The product owner picks the next one from the lists below
   formula selected, `$` unwraps it back to its LaTeX source, mirroring the backtick code toggle.
   Empty-caret `$…$` typing stays as today; trim the selected source, keep invalid LaTeX visible with
   its inline error, one undo step, and tests for wrap/unwrap plus prose containing `$`.
+- **Inline marks and formulas in table cells.** The cell model is already one paragraph of inline
+  content: bold/italic/code marks and inline math are representable, and Page/PDF already render
+  them. The gap is the surface: the selection toolbar is hidden inside tables (the table owns its
+  own toolbar) and the table toolbar has no formatting actions; GFM paste and export treat every
+  cell as plain text, so imported/pasted tables flatten marks and `$…$`. Expose the formatting
+  actions in the table context, parse and serialize inline marks/math per GFM cell, and keep block
+  content refused (VH1). Cover Continuous, Page, PDF and Markdown round-trip.
 - Math symbol/template palette.
 - Markdown export.
 - Drag a block onto another to indent/outdent (today drag only reorders).
