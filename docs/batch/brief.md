@@ -1,89 +1,127 @@
-# Batch — anchor resolution index
+# Batch — v0.1.1 input and Page gap
 
-**Role:** Builder. **Branch:** `t3/anchor-resolution`. **Worktree:** yes.
-**Base:** the commit that contains this brief. **Plan:** `docs/architecture/anchor-resolution-plan.md`
-(the full design; read it before touching code).
-**Planner:** none — the plan is already written. **Sentinel:** after the branch is ready.
-**Timebox:** one session; stop and report if a step stays red after one fix attempt.
+**Role:** Planner (design package, no code). **Branch:** `docs/v0.1.1-plan` in a worktree.
+**Base:** the commit that contains this brief. **Plan:** `docs/architecture/v0.1.1-plan.md`.
+**ADR:** `docs/adr/0010-page-sibling-gap.md` (next free number; confirm against `docs/adr/`).
+**Sentinel:** none unless the product owner explicitly approves one.
+**Timebox:** one planning session. Cap the decision count; stop and ask if a product decision is
+needed.
 
 ## Goal
 
-One anchor-resolution index over the core resolver, owned by `DocumentSession`, read by the
-renderer and the layout, so every surface reports the same state. Completes ADR-0005. No schema
-change, no new anchor kind.
+Ship v0.1.1: the anchor-resolution index is already merged (`fc8fbbc`), plus four editor
+input/paste fixes and the Page vertical sibling-gap setting. Two builders work in parallel on
+separate worktrees; the orchestrator integrates both, runs one full `verify`, then cuts 0.1.1.
 
 ## Decisions (closed)
 
-- One branch, one commit, one merge. The plan's seven steps are internal checkpoints, not batches.
-- The visible Page/PDF behaviour is the plan's §6; the product owner reviews it after the branch,
-  before merge. Do not invent a different display.
-- The anchored `test:perf` seed is in scope. Add it first, run the **before** measurement on the
-  pre-index code (seed-only change), then implement, then the after run.
-- The print IPC snapshot carries the `AnchorResolutionView` (plan §3.3), with the identity/revision
-  guard.
-- If the eager cold build misses the 100 ms / 1,000-anchor guard, or open-to-interactive misses the
-  DoD budget, stop and report; do not silently switch to lazy.
-- The layout seam is the optional `AnchorResolutionView` parameter; an anchor-bearing document
-  without a view throws. The `ExportSnapshot` contract change is in scope.
+- **In scope:** heading marker toggle (plan §12), formula `$` selection toggle, table-cell inline
+  marks/formulas plus GFM paste/export, HTML math paste normalization (plan §15), Page sibling gap.
+- **Out of scope:** long inline formula width (plan §13) and arrow boundary (plan §14). They stay in
+  `docs/plan.md`; do not fix them in this batch.
+- **Page gap:** vertical gap between sibling cards only. The horizontal parent→right-group corridor
+  stays a fixed 18 px engine constant; nothing horizontal is configurable. The vertical gap is fixed
+  under density, is a per-document override, and applies to the PDF. Default stays 18; range 0–96.
+  No smaller default for new documents.
+- One release `0.1.1`; two worktrees/builders; one integration window; one full `verify` after both
+  merges. No new dependency. No document-schema change. No Second derivation or layout rewrite.
+- The anchor batch's visible rules (callout lane, dots, trunk) are closed; do not reopen them.
+- No Sentinel without the product owner's explicit approval.
 
-## Scope
+## Track A — editor input and paste
 
-Plan steps 0–5 and 7:
+Reference: `apps/desktop/src/renderer/src/editor/inline-code.ts` is the model for a visible marker
+that toggles stored state and never enters the document text.
 
-0. Baseline evidence: `npm test`; `npm run test:perf` on the untouched baseline with the anchored
-   seed added; Page/PDF screenshots for the review fixture. Record machine, date, fixtures.
-1. `packages/core/src/anchor-index.ts`: `AnchorIndex`, `buildAnchorIndex`,
-   `resolveDocumentAnchorsWithIndexes` extracted with no behaviour change. Tests: parity, cache,
-   invalidation, view.
-2. `DocumentSession` owns one index: `anchorIndex`, `blockContentKeys`, the optional
-   `assetAvailability` port, refresh on load/commit/structural/undo/redo/reset, update before
-   `bumpVersion`/`notify`. Session tests.
-3. `estimate.ts` reads `anchorIds` (marks and atomic attrs, legacy fallback); an M3 fixture
-   produces rects.
-4. Layout consumes the view: 4a optional parameter + identity guard + picker; 4b thread through
-   `computePageModel`, Page hook, print snapshot, `ExportSnapshot` + validator, layout tests and a
-   view helper; 4c delete the old derivation, the `occurrenceHint` reads and the dead
-   `anchorStates` map.
-5. Renderer reads the index: `tree.anchorState`, `BlockViews`, `ImageNodeView`, `adapter.toCallout`,
-   `find`, `document-health`, `anchor-health`; remove the now-unused resolution imports.
-7. Perf and integration evidence: the warm-update guard, the anchored `test:perf` scenario, the
-   before/after protocol, `verify:fast`, the touched UI suites.
+1. **Heading marker toggle (plan §12).** Typing `# ` still converts to a heading through the current
+   input rule. While the caret is in a heading, show the `#`/`##`/`###` marker as an editor
+   affordance; adding/removing a `#` changes the level, and removing the last one returns the block
+   to a paragraph. The marker is never document text; the heading node remains the only state. Keep
+   Enter at the end creating a paragraph. Read mode shows no marker. Cover H1–H3, paragraph→heading,
+   heading→paragraph, and an undo that restores the previous level in one step.
+2. **Formula `$` selection toggle.** With a non-empty text selection, `$` wraps it in an inline
+   formula whose `latex` is the trimmed selection. With an inline-formula `NodeSelection`, `$`
+   unwraps it back to the LaTeX source. Empty-caret `$…$` typing keeps the current input rule.
+   Invalid LaTeX stays visible with the inline error; do not reject or guess. One undo step. Do not
+   intercept a `$` typed with an empty caret in prose.
+3. **Table cells: inline marks and formulas (plan §8).** The cell model is one paragraph of inline
+   content already; bold/italic/code and inline math are allowed, and Page/PDF already render them.
+   Expose the formatting actions in the table context (selection bubble or table toolbar; decide one
+   and justify it against the existing table toolbar). GFM paste and typed conversion must parse
+   inline marks and `$…$` per cell, and the GFM serializer (Copy as Markdown) must write them back.
+   A pasted `$…$` must no longer stay literal until the closing `$` is retyped. Keep block content
+   refused (VH1). Test bold + inline formula in a cell across Continuous, Page and PDF, and a
+   paste/export round-trip. Do not expand the scope to block content or table layout.
+4. **HTML math paste (plan §15).** A dual-format clipboard (plain text plus HTML from a rendered
+   Markdown/LaTeX source) currently pastes the LaTeX without `$`. Normalize foreign math spans and
+   their TeX annotations to `$…$` or inline formula nodes before the slice is inserted; keep the
+   list structure and the other marks. Do not break NoteForest-to-NoteForest paste. Add a regression
+   with a synthetic dual-format clipboard (plain text with `$…$`, HTML with `.math` spans) and a
+   KaTeX/MathJax annotation variant.
 
-Step 6 is the review package (fixtures + screenshots + the three-way Continuous/Page/PDF
-comparison); produce it, do not merge.
+## Track B — Page sibling gap
+
+Write the ADR first; the builder implements only after it is merged. Open questions are closed by
+the brief:
+
+- `PageTheme.siblingGap` becomes the vertical gap only, stored 0–96, fixed under density, default
+  18, per-document override, used by Page and PDF.
+- The horizontal right-group corridor remains `PAGE_EDGE_GEOMETRY.siblingGap` (18) and is not a
+  setting. Split the pure layout option so one value cannot silently move both; name the horizontal
+  constant explicitly.
+- Add `siblingGap` to `ADVANCED_LAYOUT_KEYS` and `PAGE_THEME_FIELD_SPECS` (label "Sibling gap", px,
+  1 px step). `effectivePageTheme` must stop hard-wiring the engine value; `pageLayoutOptions` maps
+  the effective vertical value and the fixed horizontal corridor separately.
+- Update `docs/spec.md` §7.2, `docs/design-tokens-page.md` and the `page-advanced.ts` comment: the
+  vertical sibling gap is now a Page setting; the horizontal corridor stays invariant. Continuous is
+  untouched.
+- Tests: changing the setting moves only vertical sibling spacing; the horizontal corridor stays 18;
+  Page and PDF use the per-document value; density does not scale it; default 18; the advanced field
+  validates 0–96 and rejects out-of-range drafts.
+
+## Parallel plan
+
+- Planner works in `docs/v0.1.1-plan`; output is the plan and the ADR, committed, no code.
+- After the plan merges to main, two builders start from the same main:
+  - `t3/v0.1.1-input` — Track A, checkpoints A1 paste (HTML + GFM), A2 toggles (heading + formula),
+    A3 table.
+  - `t3/v0.1.1-page-gap` — Track B after the ADR is merged.
+- Disjoint files: Track A owns `editor/`, `lib/gfm-table.ts`, `lib/formula-*`, the table toolbar and
+  their tests. Track B owns `packages/layout/src/page-settings.ts`, `types.ts`, the horizontal
+  corridor uses in `layout.ts`, `settings/page-advanced.ts`, `PageAdvancedSettings.tsx` and their
+  tests. The plan must list the exact files and any shared test helper before coding.
+- Verification is serialized: `verify:fast` per branch; touched UI suites per branch at concurrency
+  4, one batch at a time; then merge both and run the single full `verify`. Do not run two Electron
+  UI suites at concurrency 4 simultaneously on this machine.
 
 ## Acceptance
 
-The plan's 14 criteria, in particular:
-
-- one index in core, no second derivation in layout or the renderer;
-- `entry(id)` deep-equals `resolveAnchor` for every fixture and a generated 1,000-anchor document;
-- one-block update indexes exactly one block; branch/asset changes index zero blocks;
-- session ordering (index before `bumpVersion`/`notify`);
-- every placed anchor's state equals the view entry; defects only on non-resolved placed anchors;
-- idle and `block-missing` produce no attachment/defect;
-- Page dot ⇔ broken/ambiguous on the review fixture; Continuous unchanged;
-- split/merge and image replacement match core; `document.json` byte-identical;
-- cold build < 100 ms / 1,000 anchors; warm update < 16 ms p95; no DoD budget regresses;
-- `npm run typecheck`, `npm test`, `npm run e2e`, the touched UI suites and `npm run test:perf`
-  green at the end; one full `npm run verify` is the Orchestrator's at integration.
-
-## Tests and evidence
-
-Follow plan §8. Add the review fixture and the screenshots for the five visible cases. No copy
-change. No new dependency. No schema change. Record the before/after numbers in the report, not in
-the plan.
+- Every in-scope item works in Continuous and the relevant Page/PDF surface; no new ambiguity,
+  no marker text in the document, no permanent state.
+- Heading and formula toggles are one undo step; invalid LaTeX is kept and visible.
+- A pasted table with bold and `$…$` becomes real marks/nodes; Copy as Markdown round-trips; block
+  content is still refused.
+- Dual-format HTML paste keeps the list and restores the formulas; NoteForest copy/paste is
+  unchanged.
+- Page gap moves only vertical sibling spacing; horizontal corridor is 18; PDF follows the
+  per-document value; default 18; density does not scale it.
+- Unit tests, typecheck, e2e, touched UI suites and the relevant PDF gate are green. One full
+  `verify` is the orchestrator's at integration.
+- UI changes have app screenshots in the report; no copy change without owner approval; no new
+  dependency; no schema change.
 
 ## Stop and report
 
+- A decision needs the product owner (copy, toolbar choice that changes the UX materially, heading
+  key semantics beyond the brief).
+- A fix needs a schema, ADR, dependency or layout-model change beyond Track B's ADR.
 - A step stays red after one fix attempt.
-- The eager index misses the cold/open budget and lazy is needed.
-- A visible change beyond plan §6 appears.
-- The layout would need asset availability, crop or node kind inside `packages/layout` (boundary
-  change).
-- An anchor resolution rule, the schema or the ADR would need to change.
+- Two tracks collide on a file not listed in the plan.
+- A visible change beyond the brief appears.
 
-## Report
+## Planner output
 
-Summary, files changed, checks with timings, acceptance criteria pass/fail, the before/after perf
-numbers, the review package paths, risks, next step. One commit; no merge, no push.
+`docs/architecture/v0.1.1-plan.md` with: goal, decisions, file map, checkpoints, acceptance criteria
+(numbered), test matrix, screenshots/evidence plan, release steps and risks. Plus
+`docs/adr/0010-page-sibling-gap.md` with the decision and the consequences. Commit both on the
+Planner worktree branch; do not write code, do not merge, do not push.
