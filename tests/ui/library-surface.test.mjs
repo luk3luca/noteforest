@@ -718,4 +718,67 @@ describe('Library surface', () => {
     await assert.rejects(stat(libraryA));
     await page.screenshot({ path: join(screenshotDir, 'no-library.png') });
   });
+
+  it('refreshes the library from the 28 px header button', async () => {
+    const env = ui.isolated('refresh');
+    await launch('refresh', env);
+    await ui.seedDemo();
+    const libraryPath = (await sidebarState()).library.path;
+
+    // One 28 px control in the Library header, the same language as Health.
+    const refresh = page.locator('[data-library-refresh="true"]');
+    assert.equal(await refresh.count(), 1, 'the header carries one refresh button');
+    assert.equal(await refresh.getAttribute('aria-label'), 'Refresh library');
+    assert.equal(await refresh.getAttribute('title'), 'Refresh library');
+    assert.equal(
+      await page.getByRole('button', { name: 'Refresh library', exact: true }).count(),
+      1,
+      'the button has one accessible name',
+    );
+    const box = await refresh.boundingBox();
+    assert.ok(box !== null, 'the button lays out');
+    assert.equal(Math.round(box.width), 28, '28 px wide like Health');
+    assert.equal(Math.round(box.height), 28, '28 px tall like Health');
+
+    // The switcher menu keeps its Refresh entry: one action, no second menu path.
+    await openSwitcher();
+    assert.equal(
+      await page.getByRole('menuitem', { name: 'Refresh', exact: true }).count(),
+      1,
+      'the library menu still carries Refresh',
+    );
+    await page.keyboard.press('Escape');
+    await page.locator('.nf-menu').waitFor({ state: 'detached' });
+
+    // An externally added package appears through the existing refresh state,
+    // and the header button is the path that produces it.
+    const addedPath = await writePagePackage(
+      libraryPath,
+      'header-refresh-note',
+      pageDocument({
+        id: 'library-header-refresh',
+        title: 'Header refresh note',
+        chapterTitle: 'Refresh',
+        blocks: [textBlock('refresh-body', 'Body', 'Added outside the app.')],
+      }),
+    );
+    assert.equal(
+      (await sidebarState()).library.documents.some(
+        (document) => document.packagePath === addedPath,
+      ),
+      false,
+      'the new package is invisible until a refresh',
+    );
+    await refresh.click();
+    await page.waitForFunction(
+      (path) =>
+        window.__noteforestTest.state().library?.documents.some(
+          (document) => document.packagePath === path,
+        ) === true,
+      addedPath,
+      { timeout: 15000 },
+    );
+    await page.locator('[data-library-document]', { hasText: 'Header refresh note' }).waitFor();
+    await page.screenshot({ path: join(screenshotDir, 'library-refresh-header.png') });
+  });
 });

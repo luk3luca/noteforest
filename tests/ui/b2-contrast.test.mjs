@@ -643,6 +643,82 @@ describe('B2 code themes and edge contrast', () => {
     );
   });
 
+  it('keeps Page text selection on paper ink in both shell themes (plan #7)', async () => {
+    const env = ui.isolated('b2-selection');
+    // Visible window: the screenshot is the selection's paint evidence.
+    await launch('b2-selection', { NOTEFOREST_E2E_HIDDEN: '0' });
+    await openPackage(env, 'b2-selection', themeCodeDocument('b2-selection'));
+    await showPageRead();
+    await ui.ensureInteractionMode('read');
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('.nf-editor[data-active="true"] .nf-page-view')
+          ?.getAttribute('data-interaction-mode') === 'read',
+      undefined,
+      { timeout: 10000 },
+    );
+    await page.waitForSelector(
+      '.nf-editor[data-active="true"] .nf-page-fragment .nf-block-content',
+      { timeout: 20000 },
+    );
+
+    /** Select real page text and read the used ::selection colours. */
+    const selectPageText = () =>
+      page.evaluate(() => {
+        const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
+        const content = view?.querySelector('.nf-page-fragment .nf-block-content');
+        if (view === null || content === null || content === undefined) return null;
+        const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
+        let node = walker.nextNode();
+        while (node !== null && (node.textContent ?? '').trim().length < 4) {
+          node = walker.nextNode();
+        }
+        if (node === null || node.textContent === null) return null;
+        const range = document.createRange();
+        range.setStart(node, 0);
+        range.setEnd(node, Math.min(node.textContent.length, 12));
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        const pseudo = getComputedStyle(content, '::selection');
+        return {
+          text: selection.toString(),
+          color: pseudo.color,
+          background: pseudo.backgroundColor,
+        };
+      });
+
+    const settleAnimations = () =>
+      page.evaluate(async () => {
+        const transitions = document
+          .getAnimations()
+          .filter((animation) => animation.constructor.name === 'CSSTransition');
+        await Promise.all(
+          transitions.map((animation) => animation.finished.catch(() => undefined)),
+        );
+      });
+
+    // The paper is fixed light ink under either shell theme; the selection is
+    // the paper accent tint, never the shell accent and never near-white ink.
+    for (const theme of ['dark', 'light']) {
+      await setTheme(theme);
+      const selected = await selectPageText();
+      assert.ok(selected !== null, `${theme}: a page text node is selectable`);
+      assert.ok(selected.text.length > 0, `${theme}: the range selects real text`);
+      assert.equal(selected.color, 'rgb(26, 31, 35)', `${theme}: selection uses the paper ink`);
+      assert.equal(
+        selected.background,
+        'rgba(47, 95, 138, 0.2)',
+        `${theme}: selection uses the paper accent tint`,
+      );
+      await settleAnimations();
+      await page.screenshot({
+        path: join(screenshotDir, `page-selection-${theme}.png`),
+      });
+    }
+  });
+
   it('keeps resting, reference and muted edges at 3:1 without fading', async () => {
     await launch('b2-edges');
     await ui.seedDemo();

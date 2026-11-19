@@ -229,6 +229,26 @@ describe('sidebar row ladder', () => {
     expect(stylesSource).not.toContain('.nf-health-refresh-head');
   });
 
+  it('gives the Library header refresh the Health 28 px control (plan #8)', () => {
+    // One control language: the header refresh is the same 28 px bordered
+    // button as Health's manual re-check, only its own action.
+    for (const property of [
+      'width',
+      'height',
+      'border',
+      'border-radius',
+      'background',
+      'color',
+    ]) {
+      expect(
+        declaration('.nf-library-refresh', property),
+        `.nf-library-refresh ${property}`,
+      ).toBe(declaration('.nf-health-refresh', property));
+    }
+    expect(declaration('.nf-library-refresh', 'width')).toBe('28px');
+    expect(declaration('.nf-library-refresh', 'height')).toBe('28px');
+  });
+
   it('steps the Outline 12 px per level and caps at three levels', () => {
     expect([1, 2, 3, 4, 5, 9].map((level) => sidebarDepthIndent(level))).toEqual([
       6, 18, 30, 42, 42, 42,

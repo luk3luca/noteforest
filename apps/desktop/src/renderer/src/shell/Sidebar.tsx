@@ -1,4 +1,4 @@
-import { Activity, Anchor, BookOpen, ChevronDown, ChevronRight, FileText, FileWarning, Folder, FolderPlus, Library, ListTree, MoreHorizontal, NotebookText, PanelLeftClose, PanelLeftOpen, Plus, Search, SeparatorHorizontal, Settings, TriangleAlert } from 'lucide-react';
+import { Activity, Anchor, BookOpen, ChevronDown, ChevronRight, FileText, FileWarning, Folder, FolderPlus, Library, ListTree, MoreHorizontal, NotebookText, PanelLeftClose, PanelLeftOpen, Plus, RefreshCw, Search, SeparatorHorizontal, Settings, TriangleAlert } from 'lucide-react';
 import {
   Button,
   Tree,
@@ -592,6 +592,18 @@ function LibrarySection(): JSX.Element {
               {documents.length}
             </span>
           )}
+          {/* Plan #8: the header refresh is the same action as the switcher
+              menu's Refresh, not a second path: it calls refreshLibrary(). */}
+          <button
+            type="button"
+            className="nf-library-refresh"
+            data-library-refresh="true"
+            aria-label="Refresh library"
+            title="Refresh library"
+            onClick={() => void refreshLibrary()}
+          >
+            <RefreshCw size={13} strokeWidth={1.6} aria-hidden="true" />
+          </button>
           <button
             type="button"
             className="nf-icon-button nf-section-add"

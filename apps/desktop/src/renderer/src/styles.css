@@ -1274,6 +1274,32 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* The Library header refresh (plan #8): the same 28 px bordered control as
+   Health's manual re-check, so a section action reads as one control language.
+   A standalone class, never `.nf-icon-button`: that one is the 22 px row icon. */
+.nf-library-refresh {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  /* The shared header is 28 px tall with 2/4 px padding: the matching negative
+     margins let the 28 px control fill the row without growing it. */
+  margin-top: -2px;
+  margin-bottom: -4px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  color: var(--text-2);
+}
+
+.nf-library-refresh:hover {
+  border-color: var(--border-2);
+  background: var(--surface-2);
+  color: var(--text-1);
+}
+
 .nf-icon-button:disabled:hover,
 .nf-text-button:disabled:hover {
   background: transparent;
@@ -7805,6 +7831,10 @@ body.nf-dragging-block .nf-gutter-handle {
   /* Paper-local interaction colors: selection/focus/caret and defect marks keep
      the same light-skin value under any shell theme or accent. */
   --nf-page-focus: #9bb7d4;
+  /* Page text selection (plan #7): the paper ink on a paper accent tint, the
+     same value in both shell themes. The global `::selection` stays the shell
+     rule; this token is only read inside the Page surface. */
+  --nf-page-selection-bg: rgba(47, 95, 138, 0.2);
   --nf-page-defect: #d98b8b;
   --nf-page-edge-blocked: #d6b17a;
   /* Find in Page (F4a): a transient paper tint painted with the CSS Custom
@@ -8136,6 +8166,18 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-page-view:focus,
 .nf-page-view:focus-visible {
   outline: none;
+}
+
+/*
+ * Page text selection (plan #7). The paper is fixed light ink in both shell
+ * themes, so the global `::selection` (`--accent-soft` + `--text-1`) could paint
+ * a near-white ink on the tint. The paper scope covers Page Read and the Page
+ * Edit overlay; the canvas header inside `.nf-page-view` is shell chrome and
+ * keeps the global selection. Print never paints a selection.
+ */
+.nf-page-view .nf-page-scope ::selection {
+  background: var(--nf-page-selection-bg);
+  color: var(--nf-page-ink);
 }
 
 /*
@@ -8794,10 +8836,6 @@ body.nf-dragging-block .nf-gutter-handle {
   color: var(--nf-page-ink);
   caret-color: var(--nf-page-focus);
   overflow-wrap: break-word;
-}
-
-.nf-page-edit-prose ::selection {
-  background: rgba(47, 95, 138, 0.2);
 }
 
 .nf-page-edit-prose > *:first-child {

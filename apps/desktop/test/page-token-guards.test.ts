@@ -255,6 +255,49 @@ describe('Page CSS consumes only Page-owned variables', () => {
   });
 });
 
+describe('Page selection ink (plan #7)', () => {
+  const SELECTION = '.nf-page-view .nf-page-scope ::selection';
+
+  it('leaves the global ::selection on the shell roles', () => {
+    expect(declaration('::selection', 'background')).toBe('var(--accent-soft)');
+    expect(declaration('::selection', 'color')).toBe('var(--text-1)');
+  });
+
+  it('scopes paper selection to the ink and tint, never the whole page view', () => {
+    expect(declaration(SELECTION, 'background')).toBe('var(--nf-page-selection-bg)');
+    expect(declaration(SELECTION, 'color')).toBe('var(--nf-page-ink)');
+    // The canvas header lives inside `.nf-page-view` but is shell chrome: a
+    // whole-view rule would paint paper ink on the page-position and find
+    // fields in the dark theme.
+    expect(css.includes('.nf-page-view ::selection')).toBe(false);
+    // Page Read sheets and the Page Edit overlay both carry the paper scope, so
+    // one rule covers Read prose and Page Edit prose.
+    expect(pageEditorSource).toContain('nf-page-edit-overlay nf-page-scope');
+    expect(pageEditorSource).toContain('nf-block-prose nf-page-edit-prose');
+    const body = block(css, SELECTION);
+    // No shell role may reach the paper selection (design §6): the paper keeps
+    // its own ink under any theme or accent.
+    expect(body).not.toMatch(/var\(--(accent|text-|bg-|surface-|border-)/);
+  });
+
+  it('keeps the paper tint readable under the paper ink', () => {
+    const tint = /--nf-page-selection-bg:\s*rgba\(([^)]+)\)/.exec(stylesSource);
+    expect(tint, 'the selection tint is a Page skin token').not.toBeNull();
+    const [red, green, blue, alpha] = (tint?.[1] ?? '')
+      .split(',')
+      .map((value) => Number(value.trim()));
+    expect([red, green, blue, alpha]).toEqual([47, 95, 138, 0.2]);
+    // The same tint over white paper; both themes share the fixed skin.
+    const blend = (channel: number): string =>
+      Math.round(channel * alpha + 255 * (1 - alpha))
+        .toString(16)
+        .padStart(2, '0');
+    const tintHex = `#${blend(red)}${blend(green)}${blend(blue)}`;
+    expect(contrastRatio('#1a1f23', tintHex)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(tintHex, '#ffffff')).toBeLessThan(1.5);
+  });
+});
+
 describe('the Page anchor dot states (VF S3-3)', () => {
   /** A fixed-host token value from the Page skin block in `styles.css`. */
   const token = (name: string): string => {
