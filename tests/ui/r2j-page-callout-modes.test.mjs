@@ -635,18 +635,14 @@ describe('R2j Page callout modes', () => {
     const calloutA = await fragmentBox('cm-callout-a');
     const calloutB = await fragmentBox('cm-callout-b');
     const childA = await fragmentBox('cm-child');
-    const anchor = await anchorBox('anchor-cm-root');
     const content = await contentBox();
     const boxes = await allFragmentBoxes();
 
-    // The callout keeps the anchor-aligned stacked x, not the B2 card column.
+    // The card is clamped to the callout lane (38). The stacked/B2 distinction
+    // is carried by the trunk group, not by x alone.
     assert.ok(
-      calloutA.left < root.left + CALLOUT_CARD_INDENT - 0.75,
-      `the stacked callout is not in the B2 column (${calloutA.left - root.left})`,
-    );
-    assert.ok(
-      closeTo(calloutA.left, anchor.left, 2.5),
-      `the stacked callout keeps the anchor alignment (${calloutA.left} vs ${anchor.left})`,
+      closeTo(calloutA.left - root.left, CALLOUT_CARD_INDENT, 1.5),
+      `the stacked callout sits on the callout lane (${calloutA.left - root.left})`,
     );
     assert.ok(
       calloutA.top >= root.top + root.height + CALLOUT_GAP - 0.75,
