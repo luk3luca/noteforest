@@ -110,6 +110,20 @@ async function settle() {
   );
 }
 
+/**
+ * A heading's canonical text without the editor-only `#` marker widget. The
+ * widget is `contenteditable=false` and `aria-hidden`, but `innerText` still
+ * sees it, so the assertion strips it from a clone; the document text stays
+ * `Markdown fixture`.
+ */
+async function headingText(locator) {
+  return locator.evaluate((element) => {
+    const clone = element.cloneNode(true);
+    for (const marker of clone.querySelectorAll('.nf-heading-marker')) marker.remove();
+    return clone.textContent ?? '';
+  });
+}
+
 async function writeFixtures(env) {
   const library = env.NOTEFOREST_LIBRARY;
   await mkdir(library, { recursive: true });
@@ -270,9 +284,9 @@ describe('Markdown file view', () => {
 
     // The declared subset renders through the reused node views.
     const editor = page.locator('.nf-markdown-editor[data-active="true"]');
-    assert.equal(await editor.locator('h1').innerText(), 'Markdown fixture');
-    assert.equal(await editor.locator('h2').innerText(), 'Overview');
-    assert.equal(await editor.locator('h6').innerText(), 'Heading six');
+    assert.equal(await headingText(editor.locator('h1')), 'Markdown fixture');
+    assert.equal(await headingText(editor.locator('h2')), 'Overview');
+    assert.equal(await headingText(editor.locator('h6')), 'Heading six');
     assert.ok((await editor.locator('strong').count()) >= 1);
     assert.ok((await editor.locator('em').count()) >= 1);
     assert.ok((await editor.locator('s').count()) >= 1);
@@ -413,7 +427,7 @@ describe('Markdown file view', () => {
     );
     await waitMarkdownEditor();
     assert.equal(
-      await page.locator('.nf-markdown-editor[data-active="true"] h1').innerText(),
+      await headingText(page.locator('.nf-markdown-editor[data-active="true"] h1')),
       'Other file',
     );
     const calls = await h.app.evaluate(() => globalThis.__nfMarkdownDialogCalls ?? []);
@@ -582,7 +596,7 @@ describe('Markdown file view', () => {
       { timeout: 10000 },
     );
     assert.equal(
-      await page.locator('.nf-markdown-editor[data-active="true"] h1').innerText(),
+      await headingText(page.locator('.nf-markdown-editor[data-active="true"] h1')),
       'External change',
     );
 

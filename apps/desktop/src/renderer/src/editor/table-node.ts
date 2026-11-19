@@ -9,7 +9,12 @@
 
 import type { Mark, Node as PMNode, Schema } from '@tiptap/pm/model';
 import type { GfmTableAlign, GfmTableData } from '../lib/gfm-table';
-import { parseGfmInline, type GfmInlineMark, type GfmInlineNode } from '../lib/gfm-inline';
+import {
+  parseGfmInline,
+  serializeGfmInline,
+  type GfmInlineMark,
+  type GfmInlineNode,
+} from '../lib/gfm-inline';
 
 function marksFor(schema: Schema, names: readonly GfmInlineMark[]): Mark[] {
   const marks: Mark[] = [];
@@ -88,4 +93,49 @@ export function tableNodeFromGfm(schema: Schema, data: GfmTableData): PMNode | n
     rows.push(rowType.create(null, cells));
   }
   return tableType.create(null, rows);
+}
+
+/** The GFM cell marks a ProseMirror text run can carry. */
+const INLINE_MARK_NAMES: Readonly<Record<string, GfmInlineMark>> = {
+  bold: 'bold',
+  strong: 'bold',
+  italic: 'italic',
+  em: 'italic',
+  strike: 'strike',
+  code: 'code',
+};
+
+/**
+ * Serialize one paragraph of inline ProseMirror content back to GFM cell
+ * source. This is the inverse of `inlineNodes` and the source the typed table
+ * conversion has to rebuild: the input rules consume `**`, `*`, backticks and
+ * `$…$` while the user types, so `textContent` no longer holds the delimiters.
+ * Marks GFM cannot carry (link, highlight, anchor) are written as plain text.
+ */
+export function gfmInlineFromNode(node: PMNode): string {
+  const nodes: GfmInlineNode[] = [];
+  node.forEach((child) => {
+    if (child.isText) {
+      const marks: GfmInlineMark[] = [];
+      for (const mark of child.marks) {
+        const name = INLINE_MARK_NAMES[mark.type.name];
+        if (name !== undefined && !marks.includes(name)) marks.push(name);
+      }
+      nodes.push({ type: 'text', text: child.text ?? '', marks });
+      return;
+    }
+    if (child.type.name === 'hardBreak') {
+      nodes.push({ type: 'hardBreak' });
+      return;
+    }
+    if (child.type.name === 'inlineMath') {
+      const latex = child.attrs['latex'];
+      nodes.push({ type: 'inlineMath', latex: typeof latex === 'string' ? latex : '' });
+      return;
+    }
+    // An inline node GFM cannot express keeps its plain text, never disappears.
+    const text = child.textContent;
+    if (text.length > 0) nodes.push({ type: 'text', text, marks: [] });
+  });
+  return serializeGfmInline(nodes);
 }

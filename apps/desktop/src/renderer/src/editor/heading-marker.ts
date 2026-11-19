@@ -12,9 +12,10 @@
  */
 
 import { Extension } from '@tiptap/core';
-import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import {
+  headingLevel,
   headingLevelTransaction,
   headingMarkerAt,
   NOTE_HEADING_MAX_LEVEL,
@@ -61,11 +62,40 @@ export const HeadingMarker = Extension.create<HeadingMarkerOptions>({
           },
           handleKeyDown: (view, event) => {
             if (!view.editable || event.isComposing) return false;
+            // Native Home is a document-scroll command on macOS, so the caret
+            // does not move in a contenteditable. Home at a heading still means
+            // "start of this heading"; do it in one selection transaction so
+            // `Home` + `#` raises the heading and the marker stays truthful.
+            if (
+              event.key === 'Home' &&
+              !event.shiftKey &&
+              !event.metaKey &&
+              !event.ctrlKey &&
+              !event.altKey
+            ) {
+              const caret = liveCaretPos(view) ?? view.state.selection.from;
+              const $caret = view.state.doc.resolve(caret);
+              if (headingLevel($caret.parent) === 0) return false;
+              const start = $caret.start();
+              if (view.state.selection.from === start && view.state.selection.empty) {
+                return true;
+              }
+              view.dispatch(
+                view.state.tr
+                  .setSelection(TextSelection.create(view.state.doc, start))
+                  .scrollIntoView(),
+              );
+              return true;
+            }
             if (event.metaKey || event.ctrlKey || event.altKey) return false;
             const action =
               event.key === '#' ? 'raise' : event.key === 'Backspace' ? 'lower' : null;
             if (action === null) return false;
-            const result = headingLevelTransaction(view.state, action, maxLevel);
+            // A native ⌘← can move the DOM caret before ProseMirror sees the
+            // selection change; read the live caret so `#` raises the heading
+            // the user is actually in (the `arrowStays` pattern).
+            const caret = liveCaretPos(view);
+            const result = headingLevelTransaction(view.state, action, maxLevel, caret ?? undefined);
             if (result === null) return false;
             if (result === 'consume') return true;
             view.dispatch(result.transaction.scrollIntoView());
@@ -76,3 +106,23 @@ export const HeadingMarker = Extension.create<HeadingMarkerOptions>({
     ];
   },
 });
+
+/**
+ * The DOM caret as a document position, or null when it is not a collapsed
+ * caret inside this editor. A non-collapsed DOM selection keeps the caller on
+ * the ProseMirror state path: `#` over a range must stay literal typing.
+ */
+function liveCaretPos(view: {
+  dom: HTMLElement;
+  posAtDOM: (node: Node, offset: number) => number;
+}): number | null {
+  const dom = window.getSelection();
+  if (dom === null || dom.rangeCount === 0 || dom.anchorNode === null) return null;
+  if (!dom.isCollapsed) return null;
+  if (!view.dom.contains(dom.anchorNode)) return null;
+  try {
+    return view.posAtDOM(dom.anchorNode, dom.anchorOffset);
+  } catch {
+    return null;
+  }
+}

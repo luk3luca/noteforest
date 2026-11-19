@@ -190,27 +190,30 @@ async function snapshotSheet(sheet) {
         anchor: value.anchor,
       })),
     ),
-    edgeSvg: await sheet.locator('[data-page-edges]').evaluate((node) => {
-      const groups = (selector) =>
-        [...node.querySelectorAll(selector)].map((group) => ({
-          attributes: Object.fromEntries(
-            [...group.attributes].map((attribute) => [attribute.name, attribute.value]),
-          ),
-          paths: [...group.querySelectorAll('path')].map((path) => ({
-            attributes: Object.fromEntries(
-              [...path.attributes].map((attribute) => [attribute.name, attribute.value]),
-            ),
-          })),
-          title: group.querySelector('title')?.textContent ?? null,
-        }));
-      return {
-        viewBox: node.getAttribute('viewBox'),
-        edgeCount: node.getAttribute('data-page-edge-count'),
-        trunkCount: node.getAttribute('data-page-trunk-count'),
-        trunks: groups('[data-page-trunk-id]'),
-        edges: groups('[data-page-edge-id]'),
-      };
-    }),
+    edgeSvg:
+      (await sheet.locator('[data-page-edges]').count()) === 0
+        ? null
+        : await sheet.locator('[data-page-edges]').evaluate((node) => {
+            const groups = (selector) =>
+              [...node.querySelectorAll(selector)].map((group) => ({
+                attributes: Object.fromEntries(
+                  [...group.attributes].map((attribute) => [attribute.name, attribute.value]),
+                ),
+                paths: [...group.querySelectorAll('path')].map((path) => ({
+                  attributes: Object.fromEntries(
+                    [...path.attributes].map((attribute) => [attribute.name, attribute.value]),
+                  ),
+                })),
+                title: group.querySelector('title')?.textContent ?? null,
+              }));
+            return {
+              viewBox: node.getAttribute('viewBox'),
+              edgeCount: node.getAttribute('data-page-edge-count'),
+              trunkCount: node.getAttribute('data-page-trunk-count'),
+              trunks: groups('[data-page-trunk-id]'),
+              edges: groups('[data-page-edge-id]'),
+            };
+          }),
     edgeLabels:
       (await edgeLabels.count()) === 0
         ? null
@@ -937,14 +940,16 @@ describe('M4c1 print compositor parity', () => {
     await showPageRead();
 
     const view = activePageView();
+    // A table is paginated one row per segment, so each row is its own
+    // `table.nf-table`; the bold body cell is not in the first (header) table.
     const table = view.locator('table.nf-table').first();
     await table.waitFor({ timeout: 15000 });
     assert.equal(
-      await table.locator('strong').first().innerText(),
+      await view.locator('table.nf-table strong').first().innerText(),
       'Ellipse',
       'the bold cell text renders in Page Read',
     );
-    const math = table.locator('.nf-math-inline').first();
+    const math = view.locator('table.nf-table .nf-math-inline').first();
     await math.waitFor();
     assert.ok(
       (await math.locator('.katex').count()) > 0,

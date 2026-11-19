@@ -157,4 +157,28 @@ describe('heading level transaction', () => {
       ),
     ).toBeNull();
   });
+
+  it('uses the live DOM caret when the editor state still lags behind it', () => {
+    // The state caret is at the end (a native Home has not landed yet); the
+    // caller passes the live DOM caret at the heading start.
+    const state = stateWith(heading(1, 'Title'), 5);
+    const result = headingLevelTransaction(state, 'raise', NOTE_HEADING_MAX_LEVEL, 1);
+    if (result === null || result === 'consume') throw new Error('expected a transaction');
+    expect(result.level).toBe(2);
+    const next = state.apply(result.transaction);
+    expect(next.doc.child(0).attrs['level']).toBe(2);
+    expect(next.selection.from).toBe(1);
+    expect(next.doc.textContent).toBe('Title');
+    // A live caret inside the heading is not at its start: literal typing.
+    expect(headingLevelTransaction(state, 'raise', NOTE_HEADING_MAX_LEVEL, 3)).toBeNull();
+    // The same override works for Backspace: H2 at the live start lowers to H1.
+    const lowered = headingLevelTransaction(
+      stateWith(heading(2, 'Title'), 5),
+      'lower',
+      NOTE_HEADING_MAX_LEVEL,
+      1,
+    );
+    if (lowered === null || lowered === 'consume') throw new Error('expected a transaction');
+    expect(lowered.level).toBe(1);
+  });
 });

@@ -507,12 +507,21 @@ export function createHarness({ tempRoot }) {
   /**
    * Dual-format clipboard write: plain text plus HTML. The paste conversion
    * under test chooses the HTML path when the editor offers both, so a formula
-   * or table case can prove which payload won.
+   * or table case can prove which payload won. Electron 45 moved the main
+   * process to the W3C `ClipboardItem[]` shape; keep the legacy object fallback.
    */
   async function writeClipboardHtml(text, html) {
     if (app === undefined) throw new Error('writeClipboardHtml: launch the app first');
     await app.evaluate(
-      ({ clipboard }, value) => clipboard.write({ text: value.text, html: value.html }),
+      async ({ clipboard, ClipboardItem }, value) => {
+        if (typeof ClipboardItem === 'function') {
+          await clipboard.write([
+            new ClipboardItem({ 'text/plain': value.text, 'text/html': value.html }),
+          ]);
+          return;
+        }
+        await clipboard.write({ text: value.text, html: value.html });
+      },
       { text, html },
     );
     return { text, html };

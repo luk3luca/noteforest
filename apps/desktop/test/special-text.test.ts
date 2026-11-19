@@ -26,7 +26,7 @@ import {
   TABLE_PICKER_MAX,
   TABLE_PICKER_MIN,
 } from '../src/renderer/src/lib/table-insert';
-import { tableNodeFromGfm } from '../src/renderer/src/editor/table-node';
+import { tableNodeFromGfm, gfmInlineFromNode } from '../src/renderer/src/editor/table-node';
 import { flatMarkdownSchema } from '../src/renderer/src/markdown/flat-schema';
 
 function paragraph(...children: ContentNode[]): ContentNode {
@@ -309,6 +309,45 @@ describe('GFM table cell inline marks and math (A1)', () => {
     expect(cell.type.name).toBe('tableCell');
     expect(cell.childCount).toBe(1);
     expect(cell.child(0).type.name).toBe('paragraph');
+  });
+
+  it('serializes typed paragraph marks and math back to cell source (AC-08)', () => {
+    // The input rules already consumed `**`, `*` and `$…$` while typing; the
+    // conversion has to rebuild the delimiters from the inline nodes/marks.
+    const typed = flatMarkdownSchema().nodeFromJSON({
+      type: 'paragraph',
+      content: [
+        { type: 'text', text: '| ' },
+        { type: 'text', text: 'Bold', marks: [{ type: 'bold' }] },
+        { type: 'text', text: ' | ' },
+        { type: 'text', text: 'Italic', marks: [{ type: 'italic' }] },
+        { type: 'text', text: ' |' },
+      ],
+    });
+    expect(gfmInlineFromNode(typed)).toBe('| **Bold** | *Italic* |');
+
+    const typedMath = flatMarkdownSchema().nodeFromJSON({
+      type: 'paragraph',
+      content: [
+        { type: 'text', text: '| ' },
+        { type: 'inlineMath', attrs: { latex: 'x^2' } },
+        { type: 'text', text: ' | a' },
+        { type: 'hardBreak' },
+        { type: 'text', text: 'b |' },
+      ],
+    });
+    expect(gfmInlineFromNode(typedMath)).toBe('| $x^2$ | a<br>b |');
+
+    // The rebuilt source parses back into real marks and the atom.
+    const source = `${gfmInlineFromNode(typed)}\n| --- | --- |\n| 1 | 2 |`;
+    const data = parseGfmTable(source);
+    if (data === null) throw new Error('expected parsed data');
+    const node = tableNodeFromGfm(flatMarkdownSchema(), data);
+    if (node === null) throw new Error('expected a table node');
+    const header = node.child(0).child(0).child(0);
+    expect(header.child(0).marks[0]?.type.name).toBe('bold');
+    expect(header.child(0).textContent).toBe('Bold');
+    expect(node.child(0).child(1).child(0).child(0).marks[0]?.type.name).toBe('italic');
   });
 });
 

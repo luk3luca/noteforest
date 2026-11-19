@@ -14,7 +14,7 @@
 
 import { closeHistory } from '@tiptap/pm/history';
 import type { Node as PMNode } from '@tiptap/pm/model';
-import type { EditorState, Transaction } from '@tiptap/pm/state';
+import { TextSelection, type EditorState, type Transaction } from '@tiptap/pm/state';
 
 /** A note heading is 1–3; the flat Markdown guest schema is 1–6. */
 export const NOTE_HEADING_MAX_LEVEL = 3;
@@ -80,20 +80,34 @@ export interface HeadingLevelChange {
  * the no-op at the note cap, or null when the caret is not at a heading start.
  * `closeHistory` keeps the change out of the preceding typing group, so one
  * undo restores the previous level.
+ *
+ * `caretPos` is the live DOM caret resolved by the caller. A native Home (or
+ * ⌘←) can move the browser caret before ProseMirror observes the selection
+ * change, so the state selection may still describe the old caret. Passing the
+ * DOM position keeps `Home` + `#` and `Home` + Backspace working; the
+ * transaction also syncs the editor selection to that caret.
  */
 export function headingLevelTransaction(
   state: EditorState,
   action: HeadingLevelAction,
   maxLevel: number,
+  caretPos?: number,
 ): HeadingLevelChange | 'consume' | null {
   const { selection } = state;
-  if (!selection.empty) return null;
-  const { $from } = selection;
+  if (caretPos === undefined && !selection.empty) return null;
+  const selected = caretPos ?? selection.from;
+  if (selected < 0 || selected > state.doc.content.size) return null;
+  const $from = state.doc.resolve(selected);
   if ($from.parentOffset !== 0) return null;
   const level = headingLevel($from.parent);
   if (level === 0) return null;
 
   const pos = $from.before();
+  const syncCaret = (transaction: Transaction): Transaction => {
+    if (caretPos === undefined) return transaction;
+    return transaction.setSelection(TextSelection.create(transaction.doc, selected));
+  };
+
   if (action === 'raise') {
     const next = raisedHeadingLevel(level, maxLevel);
     if (next === null) return 'consume';
@@ -102,7 +116,7 @@ export function headingLevelTransaction(
       level: next,
     });
     closeHistory(transaction);
-    return { transaction, level: next };
+    return { transaction: syncCaret(transaction), level: next };
   }
 
   const next = loweredHeadingLevel(level);
@@ -112,12 +126,12 @@ export function headingLevelTransaction(
     if (paragraph === undefined) return null;
     const transaction = state.tr.setNodeMarkup(pos, paragraph, {});
     closeHistory(transaction);
-    return { transaction, level: 0 };
+    return { transaction: syncCaret(transaction), level: 0 };
   }
   const transaction = state.tr.setNodeMarkup(pos, undefined, {
     ...$from.parent.attrs,
     level: next,
   });
   closeHistory(transaction);
-  return { transaction, level: next };
+  return { transaction: syncCaret(transaction), level: next };
 }

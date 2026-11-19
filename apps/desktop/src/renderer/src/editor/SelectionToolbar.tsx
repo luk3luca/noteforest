@@ -97,10 +97,11 @@ export function SelectionToolbar({ editor, variant = 'forest' }: ToolbarProps): 
       className="nf-bubble"
       data-testid="selection-toolbar"
       options={menuOptions}
-      // The table owns its own contextual toolbar; a cell selection must not
-      // stack both bubbles. The default "non-empty selection" rule stays.
-      // A formula NodeSelection is owned by the formula action row, and an open
-      // formula source editor must keep the textarea focus and its caret.
+      // The formatting surface, inside and outside a table cell: the table
+      // management bar is a separate surface and never formats. The default
+      // "non-empty selection" rule stays. A formula NodeSelection is owned by
+      // the formula action row, and an open formula source editor must keep the
+      // textarea focus and its caret.
       shouldShow={({ editor: current, state }) => {
         if (overlayOwnsCommands()) return false;
         if (!current.isEditable || state.selection.empty) return false;
@@ -109,7 +110,7 @@ export function SelectionToolbar({ editor, variant = 'forest' }: ToolbarProps): 
           return false;
         }
         if (current.view.dom.querySelector('.nf-formula-node-editing') !== null) return false;
-        return !current.isActive('table');
+        return true;
       }}
     >
       {linkOpen ? (

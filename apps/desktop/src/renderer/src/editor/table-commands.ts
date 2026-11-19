@@ -10,7 +10,7 @@ import type { Editor } from '@tiptap/core';
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { TextSelection, type EditorState, type Transaction } from '@tiptap/pm/state';
 import { gfmFromTableNode, parseGfmTable } from '../lib/gfm-table';
-import { tableNodeFromGfm } from './table-node';
+import { gfmInlineFromNode, tableNodeFromGfm } from './table-node';
 
 export type TableAlign = 'left' | 'center' | 'right';
 
@@ -164,7 +164,10 @@ function paragraphsAround(editor: Editor, pos: number, options: RunOptions): Par
   }
   const lines: string[] = [];
   for (let childIndex = first; childIndex <= last; childIndex += 1) {
-    lines.push(container.child(childIndex).textContent);
+    // Marks and inline math were consumed by the input rules while the line was
+    // typed; rebuild the cell source from the inline nodes/marks so Enter or
+    // Mod-Enter does not lose bold, italic, code or `$…$`.
+    lines.push(gfmInlineFromNode(container.child(childIndex)));
   }
   return { from, to, lines };
 }

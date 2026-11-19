@@ -1678,7 +1678,9 @@ describe('NoteForest special text editing', () => {
     await page.keyboard.press('Shift+Enter');
     await page.waitForFunction(
       (block) =>
-        document.querySelectorAll(`[data-block-card="${block}"] .nf-block-prose h1 br`).length === 1,
+        document.querySelectorAll(
+          `[data-block-card="${block}"] .nf-block-prose h1 br:not(.ProseMirror-trailingBreak)`,
+        ).length === 1,
       breakId,
       { timeout: 5000 },
     );
@@ -1687,7 +1689,8 @@ describe('NoteForest special text editing', () => {
     const spaceId = 'st-toggle-space';
     await blankBlock(spaceId);
     await typeInBlank(spaceId, '  x^2  ');
-    await page.keyboard.press('Home');
+    await page.keyboard.press('Control+a');
+    await waitCaretSettled();
     for (let index = 0; index < 7; index += 1) {
       await page.keyboard.press('Shift+ArrowRight');
     }
@@ -1717,7 +1720,8 @@ describe('NoteForest special text editing', () => {
     const unwrapId = 'st-toggle-unwrap';
     await blankBlock(unwrapId);
     await typeInBlank(unwrapId, 'alpha beta');
-    await page.keyboard.press('Home');
+    await page.keyboard.press('Control+a');
+    await waitCaretSettled();
     for (let index = 0; index < 5; index += 1) {
       await page.keyboard.press('Shift+ArrowRight');
     }
@@ -1749,7 +1753,8 @@ describe('NoteForest special text editing', () => {
     const badId = 'st-toggle-invalid';
     await blankBlock(badId);
     await typeInBlank(badId, '\\frac{');
-    await page.keyboard.press('Home');
+    await page.keyboard.press('Control+a');
+    await waitCaretSettled();
     for (let index = 0; index < 6; index += 1) {
       await page.keyboard.press('Shift+ArrowRight');
     }
@@ -1826,9 +1831,12 @@ describe('NoteForest special text editing', () => {
     );
     await page.keyboard.press('Meta+v');
     await page.waitForSelector(`[data-block-card="${tableId}"] .nf-block-prose table`);
-    const bodyRow = card(tableId).locator('.nf-block-prose tbody tr').first();
-    assert.equal(await bodyRow.locator('td').first().locator('strong').innerText(), 'Bold');
-    assert.equal(await bodyRow.locator('td').nth(1).locator('em').innerText(), 'Italic');
+    // The header row owns Bold/Italic (header cells are `th`); the body row
+    // owns the math and the hard break inside `td`.
+    const headerRow = card(tableId).locator('.nf-block-prose tbody tr').first();
+    const bodyRow = card(tableId).locator('.nf-block-prose tbody tr').nth(1);
+    assert.equal(await headerRow.locator('th').first().locator('strong').innerText(), 'Bold');
+    assert.equal(await headerRow.locator('th').nth(1).locator('em').innerText(), 'Italic');
     assert.equal(
       await bodyRow
         .locator('td')
@@ -1868,40 +1876,82 @@ describe('NoteForest special text editing', () => {
     assert.equal(await h.clipboardText(), markdown);
     await toolbar.locator('[data-action="toggle-source"]').click();
 
-    // The toolbar cluster is the only bubble over a cell selection, and its
-    // actions edit the cell.
-    const boldCell = bodyRow.locator('td').first();
-    await boldCell.click();
-    await page.keyboard.press('Home');
-    await page.keyboard.press('Shift+End');
-    await waitCaretSettled();
+    // The two surfaces are split: the management bar carries only the 13
+    // table actions, and its rect is anchored to the table bottom edge, so a
+    // caret move between cells never moves it.
+    const selectionToolbar = page.locator('[data-testid="selection-toolbar"]');
+    const firstHeader = headerRow.locator('th').first();
+    await firstHeader.click();
+    await toolbar.waitFor();
     assert.equal(
-      await page.locator('[data-testid="selection-toolbar"]').isVisible(),
-      false,
-      'no second selection bubble in a cell',
+      await page.locator('[data-testid="table-toolbar"]').count(),
+      1,
+      'exactly one management bar',
     );
-    await toolbar.locator('[data-action="italic"]').click();
-    assert.equal(await boldCell.locator('em').innerText(), 'Bold');
-    await toolbar.locator('[data-action="inline-code"]').click();
-    assert.ok((await boldCell.locator('code').count()) > 0, 'inline code applied in the cell');
-    await toolbar.locator('[data-action="inline-formula"]').click();
-    await boldCell.locator('[data-type="inline-math"][data-latex="Bold"]').waitFor();
-    await h.screenshot(artifactsPath('special-text', 'v011-table-toolbar-cluster-1440x900.png'), {
+    assert.equal(
+      await toolbar.locator('[data-action]').count(),
+      13,
+      'the management bar keeps its 13 actions',
+    );
+    for (const action of ['bold', 'italic', 'inline-code', 'inline-formula']) {
+      assert.equal(
+        await toolbar.locator(`[data-action="${action}"]`).count(),
+        0,
+        `the management bar has no ${action} formatting action`,
+      );
+    }
+    await waitCaretSettled();
+    const barBefore = await toolbar.boundingBox();
+    assert.ok(barBefore !== null, 'the management bar has a rect');
+    await headerRow.locator('th').nth(1).click();
+    await waitCaretSettled();
+    const barAfter = await toolbar.boundingBox();
+    assert.ok(barAfter !== null, 'the management bar stays visible on the next cell');
+    const roundedBar = (box) => ({
+      x: Math.round(box.x),
+      y: Math.round(box.y),
+      width: Math.round(box.width),
+      height: Math.round(box.height),
+    });
+    assert.deepEqual(
+      roundedBar(barAfter),
+      roundedBar(barBefore),
+      'moving the caret between cells leaves the management bar rect unchanged',
+    );
+    const tableBox = await card(tableId).locator('.nf-block-prose table').boundingBox();
+    assert.ok(tableBox !== null, 'the table has a rect');
+    assert.ok(
+      barAfter.y >= tableBox.y + tableBox.height - 1,
+      'the management bar is anchored to the table bottom edge',
+    );
+
+    // Formatting is the classic selection bubble, shown for a non-empty cell
+    // selection, and it edits the cell.
+    await firstHeader.click();
+    await waitCaretSettled();
+    await page.keyboard.press('Control+a');
+    await waitCaretSettled();
+    for (let index = 0; index < 4; index += 1) {
+      await page.keyboard.press('Shift+ArrowRight');
+    }
+    await waitCaretSettled();
+    await selectionToolbar.waitFor();
+    assert.equal(
+      await page.locator('[data-testid="table-toolbar"]').count(),
+      1,
+      'the formatting bubble does not add a second management bar',
+    );
+    await selectionToolbar.getByRole('button', { name: 'Italic', exact: true }).click();
+    assert.equal(await firstHeader.locator('em').innerText(), 'Bold');
+    await selectionToolbar.getByRole('button', { name: 'Inline code', exact: true }).click();
+    assert.ok(
+      (await firstHeader.locator('code').count()) > 0,
+      'inline code applied in the cell from the selection bubble',
+    );
+    await h.screenshot(artifactsPath('special-text', 'v011-table-surface-split-1440x900.png'), {
       width: 1440,
       height: 900,
     });
-
-    // The formula button on an empty caret inserts one empty formula and opens
-    // the existing source editor.
-    const emptyCell = bodyRow.locator('td').nth(1);
-    await emptyCell.click();
-    await page.keyboard.press('End');
-    await waitCaretSettled();
-    await toolbar.locator('[data-action="inline-formula"]').click();
-    await emptyCell.locator('[data-type="inline-math"][data-latex=""]').waitFor();
-    const cellSource = emptyCell.locator('[data-formula-source]');
-    await cellSource.waitFor();
-    await cellSource.press('Escape');
 
     // Foreign HTML math is normalized before the slice is inserted; the list
     // item keeps its bold mark and the formula becomes a node.

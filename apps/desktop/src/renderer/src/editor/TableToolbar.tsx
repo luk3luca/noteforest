@@ -2,15 +2,19 @@
  * Contextual table toolbar (special-text editing D; editor appearance phase 1).
  *
  * Shown only while the caret is inside a table and the surface is editable.
- * Row/column operations, per-column alignment, paragraph insertion, a cell
- * formatting cluster (Bold, Italic, Inline code, Inline formula), Copy as
- * Markdown, and a read-only source popover. No merge, header toggle or resize.
+ * Table management only, 13 actions: row/column operations, per-column
+ * alignment, paragraph insertion around the table, Copy as Markdown and a
+ * read-only source popover. No merge, header toggle or resize.
  *
- * The silhouette is one compact icon row, so the floating panel is no taller
- * than a table header row. Placement is header-aware: with the caret in the
- * header row, or whenever an above-caret bar would overlap the header, the bar
- * is drawn below the table; otherwise it sits above the active cell. Floating
- * UI shift/flip keep it inside the viewport. The source preview is a separate
+ * Formatting is the selection bubble's job (`SelectionToolbar`), so a cell
+ * selection never grows this bar. The silhouette is one compact icon row, no
+ * taller than a table header row.
+ *
+ * The bar is anchored to the table bottom edge, not the active cell: the
+ * reference rect is a zero-height line at the table bottom, so moving the
+ * caret between cells never moves it. It is portaled to the body, outside the
+ * horizontal scroll wrapper; page/table scroll may move it. Floating UI
+ * shift/flip keep it inside the viewport. The source preview is a separate
  * read-only panel, not part of the bar, so expanding it never grows the
  * silhouette. Commands, labels, roles, and keyboard behavior are unchanged.
  */
@@ -23,15 +27,11 @@ import {
   ArrowLeftToLine,
   ArrowRightToLine,
   ArrowUpToLine,
-  Bold,
   Check,
-  Code,
   Code2,
   Columns3,
   Copy,
-  Italic,
   Rows3,
-  Sigma,
   X,
 } from 'lucide-react';
 import { BubbleMenu } from '@tiptap/react/menus';
@@ -40,8 +40,6 @@ import { PluginKey } from '@tiptap/pm/state';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { writeClipboardText } from '../lib/clipboard';
-import { markFormulaAutoEdit } from '../lib/formula-convert';
-import { insertEmptyFormula, wrapSelectionInFormula } from '../lib/formula-toggle';
 import {
   currentCellAlign,
   insertParagraphAroundTable,
@@ -82,7 +80,7 @@ function useTableSnapshot(editor: Editor): TableSnapshot {
 /** Stable plugin key: the toolbar owns its bubble and never shares the default. */
 const TABLE_TOOLBAR_MENU_KEY = new PluginKey('tableToolbarMenu');
 const TABLE_TOOLBAR_OFFSET = 8;
-/** Extra space between the table bottom and a header-row toolbar. */
+/** Space between the table bottom edge and the management bar. */
 const TABLE_TOOLBAR_GAP = 10;
 /** First-show height before the menu is attached (one compact icon row). */
 const TABLE_TOOLBAR_ESTIMATED_HEIGHT = 32;
@@ -124,39 +122,25 @@ export function TableToolbar({ editor }: { editor: Editor }): JSX.Element {
     const { view, state } = editor;
     const at = view.domAtPos(state.selection.from);
     const node = at.node instanceof Element ? at.node : at.node.parentElement;
-    const cell = node?.closest('td, th') ?? null;
-    const table = cell?.closest('table') ?? null;
-    if (cell === null || table === null) return null;
+    const table = node?.closest('table') ?? null;
+    if (table === null) return null;
     const bounds = table.getBoundingClientRect();
-    const cellBounds = cell.getBoundingClientRect();
     const menuHeight = Math.max(
       menuRef.current?.getBoundingClientRect().height ?? 0,
       TABLE_TOOLBAR_ESTIMATED_HEIGHT,
     );
-    const headerRow = table.querySelector('tr');
-    const headerBottom = headerRow?.getBoundingClientRect().bottom ?? bounds.top;
-    // Above-caret placement would overlap the header row (header caret or a
-    // first body row): draw the whole bar below the table instead. The active
-    // cell and the header row are never covered.
-    const belowTable =
-      editor.isActive('tableHeader') ||
-      cellBounds.top - TABLE_TOOLBAR_OFFSET - menuHeight < headerBottom;
-    if (belowTable) {
-      // A zero-height reference below the table: placement "top" draws the
-      // menu above it, i.e. just under the table.
-      const rect = emptyRect(
-        bounds.left,
-        bounds.bottom + TABLE_TOOLBAR_GAP + menuHeight,
-        bounds.width,
-      );
-      return {
-        getBoundingClientRect: () => rect,
-        getClientRects: () => [rect],
-      };
-    }
+    // A zero-height reference at the table bottom: placement "top" draws the
+    // menu above it, i.e. just under the table. The rect depends only on the
+    // table, so a caret move between cells cannot move the bar, and the portal
+    // keeps it outside the horizontal scroll wrapper.
+    const rect = emptyRect(
+      bounds.left,
+      bounds.bottom + TABLE_TOOLBAR_GAP + menuHeight,
+      bounds.width,
+    );
     return {
-      getBoundingClientRect: () => cellBounds,
-      getClientRects: () => [cellBounds],
+      getBoundingClientRect: () => rect,
+      getClientRects: () => [rect],
     };
   }, [editor]);
 
@@ -170,39 +154,9 @@ export function TableToolbar({ editor }: { editor: Editor }): JSX.Element {
     [],
   );
 
-  const toggleInlineFormula = (): void => {
-    if (!editor.isEditable) return;
-    const wrapped = wrapSelectionInFormula(editor.state);
-    if (wrapped !== null) {
-      editor.view.dispatch(wrapped.scrollIntoView());
-      editor.view.focus();
-      return;
-    }
-    // A non-empty selection the wrap refuses (for example one containing an
-    // inline formula) stays untouched rather than being replaced.
-    if (!editor.state.selection.empty) return;
-    const inserted = insertEmptyFormula(editor.state);
-    if (inserted === null) return;
-    markFormulaAutoEdit(editor, inserted.pos);
-    editor.view.dispatch(inserted.transaction.scrollIntoView());
-    editor.view.focus();
-  };
-
   const run = (action: string): void => {
     const chain = editor.chain().focus();
     switch (action) {
-      case 'bold':
-        chain.toggleBold().run();
-        break;
-      case 'italic':
-        chain.toggleItalic().run();
-        break;
-      case 'inline-code':
-        chain.toggleCode().run();
-        break;
-      case 'inline-formula':
-        toggleInlineFormula();
-        break;
       case 'row-above':
         chain.addRowBefore().run();
         break;
@@ -247,51 +201,6 @@ export function TableToolbar({ editor }: { editor: Editor }): JSX.Element {
         shouldShow={({ editor: current }) => current.isEditable && current.isActive('table')}
       >
         <div className="nf-table-toolbar-row" role="toolbar" aria-label="Table">
-          <button
-            type="button"
-            className="nf-bubble-button"
-            data-action="bold"
-            aria-label="Bold"
-            title="Bold"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => run('bold')}
-          >
-            <Bold size={14} strokeWidth={1.5} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="nf-bubble-button"
-            data-action="italic"
-            aria-label="Italic"
-            title="Italic"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => run('italic')}
-          >
-            <Italic size={14} strokeWidth={1.5} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="nf-bubble-button"
-            data-action="inline-code"
-            aria-label="Inline code"
-            title="Inline code"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => run('inline-code')}
-          >
-            <Code size={14} strokeWidth={1.5} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="nf-bubble-button"
-            data-action="inline-formula"
-            aria-label="Inline formula"
-            title="Inline formula"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => run('inline-formula')}
-          >
-            <Sigma size={14} strokeWidth={1.5} aria-hidden="true" />
-          </button>
-          <span className="nf-bubble-sep" aria-hidden="true" />
           <button
             type="button"
             className="nf-bubble-button"

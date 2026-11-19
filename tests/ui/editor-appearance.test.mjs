@@ -373,25 +373,6 @@ async function waitToolbarBelowTable() {
   );
 }
 
-/** Wait until the toolbar sits above the selected cell (body caret placement). */
-async function waitToolbarAboveCell() {
-  await page.waitForFunction(
-    () => {
-      const toolbar = document.querySelector('[data-testid="table-toolbar"]');
-      if (toolbar === null) return false;
-      const selection = window.getSelection();
-      const anchor = selection?.anchorNode ?? null;
-      if (anchor === null) return false;
-      const element = anchor instanceof Element ? anchor : anchor.parentElement;
-      const cell = element?.closest('td, th') ?? null;
-      if (cell === null) return false;
-      return toolbar.getBoundingClientRect().bottom <= cell.getBoundingClientRect().top + 1;
-    },
-    undefined,
-    { timeout: 10000 },
-  );
-}
-
 async function mockFolderDialog(folderPath) {
   await h.app.evaluate(({ dialog }, chosen) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [chosen] });
@@ -570,21 +551,26 @@ describe('editor appearance phase 1', () => {
       'first body toolbar is inside the viewport',
     );
 
-    // A deeper body row keeps the bar above the active cell (and clear of the
-    // header), still inside the viewport.
+    // The bar is anchored to the table bottom edge, not the active cell: moving
+    // the caret to a deeper body row leaves its table-relative rect unchanged.
+    // (The header and first-body-row checks above already prove it is below the
+    // table; this is the anti-jump assertion the old above-cell rule used to
+    // express.)
+    const stableOffset = firstBodyGeometry.toolbar.top - firstBodyGeometry.table.bottom;
     await page.keyboard.press('Tab');
     await page.keyboard.press('Tab');
     await page.keyboard.press('Tab');
-    await waitToolbarAboveCell();
+    await waitToolbarBelowTable();
     const bodyGeometry = await toolbarGeometry();
     assert.ok(bodyGeometry !== null);
+    const movedOffset = bodyGeometry.toolbar.top - bodyGeometry.table.bottom;
     assert.ok(
-      bodyGeometry.toolbar.bottom <= bodyGeometry.cell.top + 1,
-      'body toolbar never covers the active cell',
+      Math.abs(movedOffset - stableOffset) <= 1,
+      `body toolbar moved with the cell: ${movedOffset} vs ${stableOffset}`,
     );
     assert.ok(
-      bodyGeometry.toolbar.top >= bodyGeometry.headerRow.bottom - 1,
-      'an above-caret bar never covers the header row',
+      bodyGeometry.toolbar.top >= bodyGeometry.table.bottom - 1,
+      'body toolbar stays below the table',
     );
     assert.ok(
       bodyGeometry.toolbar.top >= 8 - 1 &&
